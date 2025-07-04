@@ -19,6 +19,12 @@ cd MeetHub
 # Install all dependencies
 pnpm install
 ```
+Setup .env trong apps/api => create .env
+
+```bash
+PORT=8000
+MONGODB_URI=mongodb+srv://novastack:ta7GN2kXrTzCU7WT@digitic.ifsul6g.mongodb.net/meethub?retryWrites=true&w=majority&appName=digitic
+```
 
 This will install dependencies for all apps and packages in the monorepo.
 
@@ -164,3 +170,4 @@ Each application can be deployed independently:
 ## 📄 License
 
 This project is licensed under the MIT License.
+
