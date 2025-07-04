@@ -1,8 +1,7 @@
 {
   "eslint.workingDirectories": [
     {
-      "mode": "auto",
-      "pattern": "**/*.{ts,tsx,js,jsx,json,css,scss,md,html,yml,yaml,yml.lock,yaml.lock}"
+      "mode": "auto"
     }
   ]
 }
