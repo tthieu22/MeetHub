@@ -8,15 +8,18 @@ import {
     Delete,
     HttpCode,
     HttpStatus,
+    Inject,
 } from '@nestjs/common';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { IRoomService } from './interface/room.service.interface';
-// import { UpdateRoomDto } from 'C:/Users/DELL/Documents/DHVB/MeetHub/apps/api/src/modules/rooms/dtos/update-room.dto';
 import { UpdateRoomDto } from './dto/update-rooms.dto';
+import { ROOM_SERVICE_TOKEN } from './room.tokens';
 
 @Controller('rooms')
 export class RoomsController {
-    constructor(private readonly roomService: IRoomService) { }
+    constructor(
+        @Inject(ROOM_SERVICE_TOKEN) private readonly roomService: IRoomService
+    ) {}
 
     @Post()
     async create(@Body() createRoomDto: CreateRoomDto) {
@@ -39,8 +42,8 @@ export class RoomsController {
     }
 
     @Put(':id')
-    async update(@Param('id') id: string, @Body() UpdateRoomDto: UpdateRoomDto) {
-        return this.roomService.updateRoom(id, UpdateRoomDto);
+    async update(@Param('id') id: string, @Body() updateRoomDto: UpdateRoomDto) {
+        return this.roomService.updateRoom(id, updateRoomDto);
     }
 
     @Delete(':id')
