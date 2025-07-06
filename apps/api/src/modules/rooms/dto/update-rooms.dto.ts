@@ -5,7 +5,8 @@ import {
   ValidateNested, 
   IsIn, 
   IsOptional,
-  IsBoolean
+  IsBoolean,
+  Min
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -30,10 +31,11 @@ export class UpdateRoomDto {
   
   @IsNumber()
   @IsOptional()
+  @Min(6, { message: 'Sức chứa phải lớn hơn 5 người' })
   capacity?: number;
   
   @IsString()
-  @IsIn(['Tòa A - Tầng 1', 'Tòa A - Tầng 2', 'Tòa B - Tầng 3'])
+  @IsIn(['tầng 19 - 19 Tố Hữu', 'tầng 17 - 19 Tố Hữu']) // Khớp với schema
   @IsOptional()
   location?: string;
   
