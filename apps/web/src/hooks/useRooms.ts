@@ -52,7 +52,7 @@ export function useRooms() {
         const response = await RoomService.updateRoom(roomId, data);
         if (response.success) {
           setRooms((prev) =>
-            prev.map((room) => (room.id === roomId ? response.data : room))
+            prev.map((room) => (room._id === roomId ? response.data : room))
           );
           return response.data;
         } else {
@@ -73,7 +73,7 @@ export function useRooms() {
     try {
       const response = await RoomService.deleteRoom(roomId);
       if (response.success) {
-        setRooms((prev) => prev.filter((room) => room.id !== roomId));
+        setRooms((prev) => prev.filter((room) => room._id !== roomId));
       } else {
         setError(response.message || "Không thể xóa phòng");
         throw new Error(response.message || "Không thể xóa phòng");
@@ -90,7 +90,7 @@ export function useRooms() {
       if (response.success) {
         setRooms((prev) =>
           prev.map((room) =>
-            room.id === roomId ? { ...room, unreadCount: 0 } : room
+            room._id === roomId ? { ...room, unreadCount: 0 } : room
           )
         );
       } else {

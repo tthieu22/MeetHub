@@ -10,7 +10,7 @@ export interface User {
 
 // Room types
 export interface ChatRoom {
-  id: string;
+  _id: string;
   name: string;
   type: "private" | "group";
   creatorId: string;
@@ -18,6 +18,13 @@ export interface ChatRoom {
   deletedAt?: string;
   createdAt: string;
   updatedAt: string;
+  members: RoomMember[];
+  avatar?: string;
+  lastMessage?: {
+    content?: string;
+    createdAt?: string;
+  };
+  unreadCount?: number;
 }
 
 export interface RoomMember {

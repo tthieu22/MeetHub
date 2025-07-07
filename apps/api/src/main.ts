@@ -4,7 +4,7 @@ import { AppModule } from '@api/app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { ResponseInterceptor } from '@api/common/interceptors/response.interceptor';
 import { LoggingInterceptor } from '@api/common/interceptors/logging.interceptor';
-import { HttpExceptionFilter } from '@api/common/filters/http-exception.filter';
+// import { HttpExceptionFilter } from '@api/common/filters/http-exception.filter';
 import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
@@ -28,7 +28,7 @@ async function bootstrap() {
   app.setGlobalPrefix(apiPrefix);
   app.useGlobalPipes(new ValidationPipe());
   app.useGlobalInterceptors(new ResponseInterceptor(), new LoggingInterceptor());
-  app.useGlobalFilters(new HttpExceptionFilter());
+  // app.useGlobalFilters(new HttpExceptionFilter());
   app.use(cookieParser());
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}/${apiPrefix}`);

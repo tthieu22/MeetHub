@@ -62,6 +62,10 @@ export class RoomService {
   async createRoom(createRoomDto: CreateRoomDto, userId: string) {
     const { name, type, members = [] } = createRoomDto;
 
+    console.log('Tạo phòng - userId:', userId, typeof userId);
+    console.log('Tạo phòng - members:', members);
+    members.forEach((m, idx) => console.log(`Tạo phòng - member[${idx}]:`, m, typeof m));
+
     const conversation = new this.conversationModel({
       name,
       type,

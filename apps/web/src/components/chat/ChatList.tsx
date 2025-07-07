@@ -20,17 +20,17 @@ export default function ChatList({ chatRooms, selectedRoomId, onRoomSelect }: Ch
       dataSource={chatRooms}
       renderItem={(room) => (
         <List.Item
-          onClick={() => onRoomSelect(room.id)}
+          onClick={() => onRoomSelect(room._id)}
           style={{
             cursor: 'pointer',
             padding: '12px 16px',
-            backgroundColor: selectedRoomId === room.id ? '#f0f8ff' : 'transparent',
-            borderLeft: selectedRoomId === room.id ? '3px solid #1890ff' : 'none',
+            backgroundColor: selectedRoomId === room._id ? '#f0f8ff' : 'transparent',
+            borderLeft: selectedRoomId === room._id ? '3px solid #1890ff' : 'none',
           }}
         >
           <List.Item.Meta
             avatar={
-              <Badge dot={room.members.some(m => m.user.isOnline)} offset={[-5, 5]}>
+              <Badge dot={Array.isArray(room.members) && room.members.some(m => m.user.isOnline)} offset={[-5, 5]}>
                 <Avatar 
                   src={room.avatar} 
                   icon={<UserOutlined />}
@@ -41,7 +41,7 @@ export default function ChatList({ chatRooms, selectedRoomId, onRoomSelect }: Ch
             title={
               <Space>
                 <Text strong>{room.name}</Text>
-                {room.unreadCount > 0 && (
+                {room.unreadCount && room.unreadCount > 0 && (
                   <Badge count={room.unreadCount} size="small" />
                 )}
               </Space>

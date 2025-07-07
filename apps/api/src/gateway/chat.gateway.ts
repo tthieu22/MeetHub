@@ -9,6 +9,8 @@ import { Logger } from '@nestjs/common';
 })
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   private logger = new Logger('ChatGateway');
+  private onlineUsers = new Set<string>(); // Lưu userId online
+  private clientUserMap = new Map<string, string>(); // Map clientId -> userId
 
   afterInit(): void {
     this.logger.log('WebSocket Initialized');
@@ -16,10 +18,29 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   handleConnection(client: Socket): void {
     this.logger.log(`Client connected: ${client.id}`);
+    // Lắng nghe sự kiện user:online từ client
+    client.on('user:online', (userId: string) => {
+      this.onlineUsers.add(userId);
+      this.clientUserMap.set(client.id, userId);
+      this.emitOnlineUsers(client);
+    });
   }
 
   handleDisconnect(client: Socket): void {
     this.logger.log(`Client disconnected: ${client.id}`);
+    // Xóa user khỏi danh sách online nếu có
+    const userId = this.clientUserMap.get(client.id);
+    if (userId) {
+      this.onlineUsers.delete(userId);
+      this.clientUserMap.delete(client.id);
+      this.emitOnlineUsers(client);
+    }
+  }
+
+  private emitOnlineUsers(client: Socket) {
+    const online = Array.from(this.onlineUsers);
+    client.broadcast.emit('users:online', online);
+    client.emit('users:online', online);
   }
 
   // 1. Gửi/nhận tin nhắn mới

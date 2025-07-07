@@ -9,6 +9,8 @@ import ChatMessages from '@web/components/chat/ChatMessages';
 import ChatInput from '@web/components/chat/ChatInput';
 import { useRooms } from '@web/hooks/useRooms';
 import { useMessages } from '@web/hooks/useMessages';
+import { useOnlineUsers } from '@web/hooks/useOnlineUsers';
+import { getSocket } from '@web/lib/socket';
 
 const { Sider, Content } = Layout;
 const { Title } = Typography;
@@ -24,10 +26,14 @@ export default function ChatPage() {
     error: messagesError, 
     sendMessage 
   } = useMessages(selectedRoomId);
+ 
+  const onlineUserIds = useOnlineUsers();
 
-  const handleRoomSelect = (roomId: string) => {
-    setSelectedRoomId(roomId);
-  };
+  // Emit user:online khi socket connect
+  React.useEffect(() => {
+    const socket = getSocket();
+    socket.emit('user:online', '686b2b9fef3f57bb0f638ba9');  
+  }, []);
 
   const handleSendMessage = async (content: string) => {
     try {
@@ -41,7 +47,7 @@ export default function ChatPage() {
     try {
       const roomName = prompt('Nhập tên phòng chat:');
       if (roomName) {
-        await createRoom(roomName, 'group');
+        await createRoom(roomName, 'group', ['686b2bd1ef3f57bb0f638bab', '686b2b9fef3f57bb0f638ba9']);
         message.success('Tạo phòng thành công!');
       }
     } catch {
@@ -53,7 +59,7 @@ export default function ChatPage() {
     room.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const selectedRoom = rooms.find(room => room.id === selectedRoomId);
+  const selectedRoom = rooms.find(room => room._id === selectedRoomId);
 
   if (roomsError) {
     message.error(roomsError);
@@ -110,23 +116,31 @@ export default function ChatPage() {
           <ChatList
             chatRooms={filteredRooms}
             selectedRoomId={selectedRoomId}
-            onRoomSelect={handleRoomSelect}
+            onRoomSelect={roomId => setSelectedRoomId(roomId)}
           />
         )}
       </Sider>
       
       <Content style={{ display: 'flex', flexDirection: 'column' }}>
-        <ChatHeader room={selectedRoom} />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {messagesLoading ? (
-            <div style={{ padding: '20px', textAlign: 'center' }}>
-              <Spin />
+        {selectedRoomId ? (
+          <>
+            <ChatHeader room={selectedRoom} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              {messagesLoading ? (
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                  <Spin />
+                </div>
+              ) : (
+                <ChatMessages key={selectedRoomId} messages={messages} currentUserId="686b2b9fef3f57bb0f638ba9" onlineUserIds={onlineUserIds} />
+              )}
+              <ChatInput onSendMessage={handleSendMessage} disabled={!selectedRoomId} />
             </div>
-          ) : (
-            <ChatMessages messages={messages} />
-          )}
-          <ChatInput onSendMessage={handleSendMessage} disabled={!selectedRoomId} />
-        </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}>
+            Chọn một cuộc trò chuyện để bắt đầu
+          </div>
+        )}
       </Content>
     </Layout>
   );

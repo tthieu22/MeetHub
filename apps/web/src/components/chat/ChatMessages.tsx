@@ -9,11 +9,12 @@ const { Text } = Typography;
 
 interface ChatMessagesProps {
   messages: Message[];
+  currentUserId: string; 
+  onlineUserIds: string[]; // Thêm prop này
 }
 
-export default function ChatMessages({ messages }: ChatMessagesProps) {
+export default function ChatMessages({ messages, currentUserId, onlineUserIds = [] }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const currentUserId = 'currentUser'; // TODO: Get from auth context
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -29,7 +30,17 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
         <List
           dataSource={messages}
           renderItem={(message) => {
-            const isOwn = message.senderId === currentUserId;
+            // Sửa lại logic xác định isOwn với type guard
+            let isOwn = false;
+            let senderId = '';
+            if (message.senderId && typeof message.senderId === 'object' && '_id' in message.senderId) {
+              senderId = (message.senderId as { _id: string })._id;
+              isOwn = senderId === currentUserId;
+            } else {
+              senderId = message.senderId as string;
+              isOwn = senderId === currentUserId;
+            }
+            const isOnline = onlineUserIds.includes(senderId);
             return (
               <List.Item
                 style={{
@@ -55,13 +66,24 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
                     }}
                   >
                     {!isOwn && (
-                      <Avatar 
-                        size="small" 
-                        icon={<UserOutlined />}
-                        style={{ flexShrink: 0 }}
-                      />
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <Avatar 
+                          size="small" 
+                          icon={<UserOutlined />}
+                          style={{ flexShrink: 0, border: `2px solid ${isOnline ? '#52c41a' : '#bfbfbf'}` }}
+                        />
+                        <span style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          right: 0,
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: isOnline ? '#52c41a' : '#bfbfbf',
+                          border: '1.5px solid white',
+                        }} />
+                      </div>
                     )}
-                    
                     <div
                       style={{
                         backgroundColor: isOwn ? '#1890ff' : '#f0f0f0',
@@ -80,7 +102,12 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
                               color: isOwn ? 'white' : '#666'
                             }}
                           >
-                            {message.sender.name}
+                            {message.sender?.name 
+                              || (typeof message.senderId === 'object' && 'name' in message.senderId && (message.senderId as { name?: string }).name)
+                              || (typeof message.senderId === 'object' && 'email' in message.senderId && (message.senderId as { email?: string }).email)
+                              || (typeof message.senderId === 'object' && '_id' in message.senderId && (message.senderId as { _id?: string })._id)
+                              || (typeof message.senderId === 'string' && message.senderId)
+                              || 'Unknown'} 
                           </Text>
                         </div>
                       )}

@@ -43,6 +43,8 @@ export class MessageService {
     if (!user) throw new NotFoundException('User not found');
 
     const conversation = await this.conversationModel.findById(conversationId);
+    console.log('DEBUG conversationId:', conversationId);
+    console.log('DEBUG conversation:', conversation);
     if (!conversation) throw new NotFoundException('Conversation not found');
 
     const isMember = await this.isMemberOfConversation(userId, conversationId);

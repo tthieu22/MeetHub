@@ -33,7 +33,7 @@ export default function ChatHeader({ room }: ChatHeaderProps) {
       justifyContent: 'space-between'
     }}>
       <Space>
-        <Badge dot={room.members.some(m => m.user.isOnline)} offset={[-5, 5]}>
+        <Badge dot={Array.isArray(room.members) && room.members.some(m => m.user.isOnline)} offset={[-5, 5]}>
           <Avatar 
             src={room.avatar} 
             icon={<UserOutlined />}
@@ -43,7 +43,9 @@ export default function ChatHeader({ room }: ChatHeaderProps) {
         <div>
           <Title level={5} style={{ margin: 0 }}>{room.name}</Title>
           <Text type="secondary" style={{ fontSize: '12px' }}>
-            {room.members.some(m => m.user.isOnline) ? 'Đang hoạt động' : 'Không hoạt động'}
+            {Array.isArray(room.members) && room.members.some(m => m.user.isOnline)
+              ? 'Đang hoạt động'
+              : 'Không hoạt động'}
           </Text>
         </div>
       </Space>

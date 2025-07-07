@@ -1,16 +1,19 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MessageService } from '@api/modules/chat-message/message.service';
 import { CreateMessageDto } from '@api/modules/chat-message/dto/create-message.dto';
+import { AuthGuard } from '../../auth/auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('messages')
+@UseGuards(AuthGuard)
 export class MessageController {
   constructor(private readonly messageService: MessageService) {}
 
   // 1. Gửi tin nhắn mới
   @Post()
-  async createMessage(@Body() createMessageDto: CreateMessageDto, @Query('userId') userId: string, @Query('conversationId') conversationId: string) {
-    return await this.messageService.createMessage(createMessageDto, userId, conversationId);
+  async createMessage(@Body() createMessageDto: CreateMessageDto, @CurrentUser() userId: string, @Query('conversationId') roomId: string) {
+    return await this.messageService.createMessage(createMessageDto, userId, roomId);
   }
 
   // 2. Lấy danh sách tin nhắn trong phòng

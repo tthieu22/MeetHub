@@ -13,26 +13,21 @@ export class MessageService {
     data: CreateMessageRequest,
     conversationId: string
   ): Promise<Message> {
-    const requestData = { ...data, conversationId };
-    const response = await apiClient.post<Message>("/messages", requestData);
+    const response = await apiClient.post<Message>(
+      `/messages?conversationId=${conversationId}`,
+      data
+    );
     return response.data;
   }
 
   // 2. Lấy danh sách tin nhắn trong phòng
   static async getMessages(
-    conversationId: string,
+    roomId: string,
     page = 1,
     limit = 50
   ): Promise<PaginatedResponse<Message>> {
     const response = await apiClient.get<PaginatedResponse<Message>>(
-      "/messages",
-      {
-        params: {
-          conversationId,
-          page,
-          limit,
-        },
-      }
+      `/messages?roomId=${roomId}&page=${page}&limit=${limit}`
     );
     return response.data;
   }

@@ -37,18 +37,14 @@ export function useMessages(roomId: string) {
   );
 
   const sendMessage = useCallback(
-    async (
-      content: string,
-      type: "text" | "file" | "image" | "video" = "text"
-    ) => {
+    async (content: string) => {
       if (!roomId) return;
 
       try {
-        const newMessage = await MessageService.sendMessage({
-          content,
-          roomId,
-          type,
-        });
+        const newMessage = await MessageService.sendMessage(
+          { text: content }, // body chỉ có text
+          roomId // conversationId truyền vào query string
+        );
 
         setMessages((prev) => [...prev, newMessage]);
         return newMessage;
@@ -88,7 +84,7 @@ export function useMessages(roomId: string) {
     try {
       await MessageService.addReaction(messageId, { emoji });
       // Refresh reactions for this message
-      const reactions = await MessageService.getMessageReactions(messageId);
+      const reactions = await MessageService.getMessageMentions(messageId);
       setMessages((prev) =>
         prev.map((msg) => (msg.id === messageId ? { ...msg, reactions } : msg))
       );

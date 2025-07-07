@@ -1,8 +1,15 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { createParamDecorator, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { Request } from 'express';
+
+interface AuthRequest extends Request {
+  user?: { sub?: string };
+}
 
 export const CurrentUser = createParamDecorator((data: unknown, ctx: ExecutionContext): string => {
-  const request = ctx.switchToHttp().getRequest();
-  // TODO: Extract user ID from JWT token
-  // For now, return a mock user ID
-  return (request.user?.sub as string) || 'mock-user-id';
+  const request = ctx.switchToHttp().getRequest<AuthRequest>();
+  const userId = request.user?.sub;
+  if (!userId) {
+    throw new UnauthorizedException('User not authenticated');
+  }
+  return userId;
 });
