@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Conversation, ConversationSchema } from '@api/modules/room-chat/schema/room-chat.schema';
-import { MessageController } from '@api/modules/message/message.controller';
-import { MessageService } from '@api/modules/message/message.service';
-import { Message, MessageSchema } from '@api/modules/message/schema/message.schema';
+import { Conversation, ConversationSchema } from '@api/modules/chat-room/schema/chat-room.schema';
+import { MessageController } from '@api/modules/chat-message/message.controller';
+import { MessageService } from '@api/modules/chat-message/message.service';
+import { Message, MessageSchema } from '@api/modules/chat-message/schema/message.schema';
 
 @Module({
   imports: [
