@@ -1,19 +1,19 @@
-import { IsString, IsNotEmpty, IsOptional, IsMongoId } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsMongoId } from 'class-validator';
 
 export class CreateMessageDto {
-  @IsMongoId()
-  @IsNotEmpty()
-  senderId: string;
-
-  @IsMongoId()
-  @IsNotEmpty()
-  receiverId: string;
-
   @IsString()
-  @IsNotEmpty()
-  content: string;
-
   @IsOptional()
+  text?: string;
+
   @IsString()
-  type?: string; // text, image, file, etc.
+  @IsOptional()
+  fileUrl?: string;
+
+  @IsMongoId()
+  @IsOptional()
+  replyTo?: string;
+
+  @IsArray()
+  @IsOptional()
+  mentions?: string[];
 }

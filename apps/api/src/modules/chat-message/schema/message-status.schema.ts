@@ -15,7 +15,7 @@ export class MessageStatus {
   isRead: boolean;
 
   @Prop({ type: Date, default: null })
-  readAt: Date;
+  readAt?: Date;
 }
 
 export const MessageStatusSchema = SchemaFactory.createForClass(MessageStatus);

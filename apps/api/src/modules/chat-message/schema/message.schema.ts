@@ -11,14 +11,14 @@ export class Message {
   @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
   senderId: Types.ObjectId;
 
-  @Prop({ type: String })
+  @Prop({ type: String, required: true })
   text: string;
 
   @Prop({ type: String, default: null })
-  fileUrl: string;
+  fileUrl?: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Message', default: null })
-  replyTo: Types.ObjectId;
+  replyTo?: Types.ObjectId;
 
   @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
   mentions: Types.ObjectId[];
@@ -30,7 +30,7 @@ export class Message {
   isDeleted: boolean;
 
   @Prop({ type: Date, default: null })
-  deletedAt: Date;
+  deletedAt?: Date;
 }
 
 export const MessageSchema = SchemaFactory.createForClass(Message);

@@ -17,7 +17,7 @@ export const useChatSocket = () => {
   // Join room
   const joinRoom = useCallback(
     (roomId: string) => {
-      socket.emit("room:joined", { roomId });
+      socket.emit("chat:room:joined", { roomId });
     },
     [socket]
   );
@@ -25,7 +25,7 @@ export const useChatSocket = () => {
   // Leave room
   const leaveRoom = useCallback(
     (roomId: string) => {
-      socket.emit("room:left", { roomId });
+      socket.emit("chat:room:left", { roomId });
     },
     [socket]
   );
@@ -33,7 +33,7 @@ export const useChatSocket = () => {
   // Send message
   const sendMessage = useCallback(
     (message: Message) => {
-      socket.emit("message:new", message);
+      socket.emit("chat:message:new", message);
     },
     [socket]
   );
@@ -41,7 +41,7 @@ export const useChatSocket = () => {
   // Delete message
   const removeMessage = useCallback(
     (messageId: string) => {
-      socket.emit("message:deleted", { messageId });
+      socket.emit("chat:message:deleted", { messageId });
     },
     [socket]
   );
@@ -49,7 +49,7 @@ export const useChatSocket = () => {
   // Update reaction
   const updateMessageReaction = useCallback(
     (messageId: string, reaction: string) => {
-      socket.emit("reaction:updated", { messageId, reaction });
+      socket.emit("chat:reaction:updated", { messageId, reaction });
     },
     [socket]
   );
@@ -57,60 +57,60 @@ export const useChatSocket = () => {
   // Mark message as read
   const markAsRead = useCallback(
     (messageId: string) => {
-      socket.emit("message:read", { messageId });
+      socket.emit("chat:message:read", { messageId });
     },
     [socket]
   );
 
   useEffect(() => {
     // Listen for new messages
-    socket.on("message:new", (data) => {
+    socket.on("chat:message:new", (data) => {
       addMessage(data);
     });
 
     // Listen for deleted messages
-    socket.on("message:deleted", (data) => {
+    socket.on("chat:message:deleted", (data) => {
       deleteMessage(data.messageId);
     });
 
     // Listen for reaction updates
-    socket.on("reaction:updated", (data) => {
+    socket.on("chat:reaction:updated", (data) => {
       updateReaction(data.messageId, data.reaction);
     });
 
     // Listen for room updates
-    socket.on("room:updated", (data) => {
+    socket.on("chat:room:updated", (data) => {
       updateRoom(data);
     });
 
     // Listen for room join/leave
-    socket.on("room:joined", (data) => {
+    socket.on("chat:room:joined", (data) => {
       console.log("User joined room:", data);
     });
 
-    socket.on("room:left", (data) => {
+    socket.on("chat:room:left", (data) => {
       console.log("User left room:", data);
     });
 
     // Listen for notifications
-    socket.on("notification:new", (data) => {
+    socket.on("chat:notification:new", (data) => {
       addNotification(data);
     });
 
     // Listen for message read status
-    socket.on("message:read", (data) => {
+    socket.on("chat:message:read", (data) => {
       markMessageAsRead(data.messageId);
     });
 
     return () => {
-      socket.off("message:new");
-      socket.off("message:deleted");
-      socket.off("reaction:updated");
-      socket.off("room:updated");
-      socket.off("room:joined");
-      socket.off("room:left");
-      socket.off("notification:new");
-      socket.off("message:read");
+      socket.off("chat:message:new");
+      socket.off("chat:message:deleted");
+      socket.off("chat:reaction:updated");
+      socket.off("chat:room:updated");
+      socket.off("chat:room:joined");
+      socket.off("chat:room:left");
+      socket.off("chat:notification:new");
+      socket.off("chat:message:read");
     };
   }, [
     socket,

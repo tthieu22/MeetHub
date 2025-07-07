@@ -1,11 +1,7 @@
 import { IsString, IsOptional } from 'class-validator';
 
 export class UpdateRoomDto {
-  @IsOptional()
   @IsString()
+  @IsOptional()
   name?: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
 }

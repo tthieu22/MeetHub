@@ -1,18 +1,15 @@
-import { Prop } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-export class BlockedUsers {
-  @Prop({ required: true })
-  _id: Types.ObjectId;
+export type BlockedUserDocument = BlockedUser & Document;
 
-  @Prop({ required: true, ref: 'User' })
+@Schema({ timestamps: { createdAt: 'blockedAt', updatedAt: false } })
+export class BlockedUser {
+  @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
   blockerId: Types.ObjectId;
 
-  @Prop({ required: true, ref: 'User' })
+  @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
   blockedId: Types.ObjectId;
-
-  @Prop({ required: true, default: Date.now })
-  blockedAt: Date;
 }
 
-export type BlockedUsersDocument = BlockedUsers & Document;
+export const BlockedUserSchema = SchemaFactory.createForClass(BlockedUser);

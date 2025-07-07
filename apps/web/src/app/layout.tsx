@@ -1,7 +1,9 @@
 import 'antd/dist/reset.css';
 import "@web/style/globals.css";
 
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, Layout } from 'antd';
+import Header from '@web/components/Header';
+import { Content } from 'antd/es/layout/layout';
 
 export default function RootLayout({
   children,
@@ -12,7 +14,12 @@ export default function RootLayout({
     <html lang="en" translate="no">
       <body>
         <ConfigProvider>
-          {children}
+          <Layout style={{ minHeight: '100vh' }}>
+            <Header />
+            <Content style={{ padding: '24px' }}>
+              {children}
+            </Content>
+          </Layout>
         </ConfigProvider>
       </body>
     </html>

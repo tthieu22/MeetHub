@@ -1,15 +1,16 @@
-import { IsString, IsArray, IsOptional, IsMongoId, IsNotEmpty } from 'class-validator';
+import { IsString, IsArray, IsOptional, IsMongoId, IsNotEmpty, IsEnum } from 'class-validator';
 
 export class CreateRoomDto {
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @IsOptional()
   @IsString()
-  description?: string;
+  @IsEnum(['private', 'group'])
+  type: string;
 
   @IsArray()
   @IsMongoId({ each: true })
-  members: string[];
+  @IsOptional()
+  members?: string[];
 }

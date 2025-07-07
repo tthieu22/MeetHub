@@ -1,6 +1,7 @@
-import { IsMongoId } from 'class-validator';
+import { IsMongoId, IsNotEmpty } from 'class-validator';
 
 export class BlockUserDto {
   @IsMongoId()
+  @IsNotEmpty()
   userId: string;
 }

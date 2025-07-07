@@ -1,4 +1,4 @@
-import { IsString, IsMongoId, IsNotEmpty } from 'class-validator';
+import { IsString, IsMongoId, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
 
 export class CreateNotificationDto {
   @IsMongoId()
@@ -8,4 +8,17 @@ export class CreateNotificationDto {
   @IsString()
   @IsNotEmpty()
   content: string;
+
+  @IsString()
+  @IsEnum(['message', 'mention', 'reaction', 'room_update'])
+  @IsOptional()
+  type?: string;
+
+  @IsMongoId()
+  @IsOptional()
+  messageId?: string;
+
+  @IsMongoId()
+  @IsOptional()
+  roomId?: string;
 }

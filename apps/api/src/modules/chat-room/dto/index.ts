@@ -1,3 +1,3 @@
-export * from '@api/modules/chat-room/dto/create-room.dto';
-export * from '@api/modules/chat-room/dto/update-room.dto';
-export * from '@api/modules/chat-room/dto/add-member.dto';
+export * from './create-room.dto';
+export * from './update-room.dto';
+export * from './add-member.dto';

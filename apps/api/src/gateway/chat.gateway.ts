@@ -1,5 +1,5 @@
 import { SubscribeMessage, WebSocketGateway, OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, MessageBody, ConnectedSocket } from '@nestjs/websockets';
-import { Socket, Server } from 'socket.io';
+import { Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({
@@ -10,7 +10,7 @@ import { Logger } from '@nestjs/common';
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   private logger = new Logger('ChatGateway');
 
-  afterInit(server: Server): void {
+  afterInit(): void {
     this.logger.log('WebSocket Initialized');
   }
 
@@ -23,50 +23,50 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   // 1. Gửi/nhận tin nhắn mới
-  @SubscribeMessage('message:new')
+  @SubscribeMessage('chat:message:new')
   handleNewMessage(@MessageBody() data: any, @ConnectedSocket() client: Socket): void {
-    client.broadcast.emit('message:new', data);
+    client.broadcast.emit('chat:message:new', data);
   }
 
   // 2. Thông báo tin nhắn bị thu hồi hoặc xóa
-  @SubscribeMessage('message:deleted')
+  @SubscribeMessage('chat:message:deleted')
   handleDeleteMessage(@MessageBody() data: any, @ConnectedSocket() client: Socket): void {
-    client.broadcast.emit('message:deleted', data);
+    client.broadcast.emit('chat:message:deleted', data);
   }
 
   // 3. Cập nhật emoji/cảm xúc của tin nhắn
-  @SubscribeMessage('reaction:updated')
+  @SubscribeMessage('chat:reaction:updated')
   handleReactionUpdated(@MessageBody() data: any, @ConnectedSocket() client: Socket): void {
-    client.broadcast.emit('reaction:updated', data);
+    client.broadcast.emit('chat:reaction:updated', data);
   }
 
   // 4. Phòng chat được chỉnh sửa (tên, mô tả, avatar)
-  @SubscribeMessage('room:updated')
+  @SubscribeMessage('chat:room:updated')
   handleRoomUpdated(@MessageBody() data: any, @ConnectedSocket() client: Socket): void {
-    client.broadcast.emit('room:updated', data);
+    client.broadcast.emit('chat:room:updated', data);
   }
 
   // 5. Thành viên mới tham gia phòng
-  @SubscribeMessage('room:joined')
+  @SubscribeMessage('chat:room:joined')
   handleRoomJoined(@MessageBody() data: any, @ConnectedSocket() client: Socket): void {
-    client.broadcast.emit('room:joined', data);
+    client.broadcast.emit('chat:room:joined', data);
   }
 
   // 6. Thành viên rời khỏi phòng
-  @SubscribeMessage('room:left')
+  @SubscribeMessage('chat:room:left')
   handleRoomLeft(@MessageBody() data: any, @ConnectedSocket() client: Socket): void {
-    client.broadcast.emit('room:left', data);
+    client.broadcast.emit('chat:room:left', data);
   }
 
   // 7. Thông báo mới từ hệ thống (tin nhắn, mention,...)
-  @SubscribeMessage('notification:new')
+  @SubscribeMessage('chat:notification:new')
   handleNotificationNew(@MessageBody() data: any, @ConnectedSocket() client: Socket): void {
-    client.broadcast.emit('notification:new', data);
+    client.broadcast.emit('chat:notification:new', data);
   }
 
   // 8. Tin nhắn đã được người khác đọc
-  @SubscribeMessage('message:read')
+  @SubscribeMessage('chat:message:read')
   handleMessageRead(@MessageBody() data: any, @ConnectedSocket() client: Socket): void {
-    client.broadcast.emit('message:read', data);
+    client.broadcast.emit('chat:message:read', data);
   }
 }

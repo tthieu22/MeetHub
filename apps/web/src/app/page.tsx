@@ -1,5 +1,8 @@
-export default function Home() {
+'use client';
+
+export default function Home() { 
+
   return (
-    <>Hello world</>
+    <>Hello world </>
   );
 }
