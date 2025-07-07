@@ -8,27 +8,27 @@ import { UpdateParticipationRequestDto } from './dto/update-participation-reques
 export class ParticipationRequestsController {
   constructor(private readonly participationRequestsService: ParticipationRequestsService) {}
 
-  @Post()
+  @Post("add-participation-request")
   async create(@Body() createDto: CreateParticipationRequestDto) {
     return this.participationRequestsService.create(createDto);
   }
 
-  @Get()
+  @Get("get-all-participation-requests")
   async findAll() {
     return this.participationRequestsService.findAll();
   }
 
-  @Get(':id')
+  @Get('/find/:id')
   async findOne(@Param('id') id: string) {
     return this.participationRequestsService.findOne(id);
   }
 
-  @Put(':id')
+  @Put('/update/:id')
   async update(@Param('id') id: string, @Body() updateDto: UpdateParticipationRequestDto) {
     return this.participationRequestsService.update(id, updateDto);
   }
 
-  @Delete(':id')
+  @Delete('/delete/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string) {
     await this.participationRequestsService.remove(id);

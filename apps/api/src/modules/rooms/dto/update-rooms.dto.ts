@@ -31,7 +31,7 @@ export class UpdateRoomDto {
 
   @IsNumber()
   @IsOptional()
-  @Min(6, { message: 'Sức chứa phải lớn hơn 5 người' })
+  @Min(2, { message: 'Sức chứa phải lớn hơn 5 người' })
   capacity?: number;
 
   @IsString()
