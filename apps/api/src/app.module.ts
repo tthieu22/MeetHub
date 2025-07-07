@@ -10,6 +10,7 @@ import { NotificationModule } from './modules/chat-notification/notification.mod
 import { UserChatModule } from './modules/chat-user/user-chat.module';
 import { ReactionModule } from './modules/chat-reactions/reaction.module';
 import { UsersModule } from './modules/users/users.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { UsersModule } from './modules/users/users.module';
     NotificationModule,
     UserChatModule,
     ReactionModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],
