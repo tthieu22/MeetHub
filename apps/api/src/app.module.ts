@@ -9,7 +9,8 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { LoginResgisterModule } from './login-resgister/login-resgister.module';
 import { UploadImageModule } from './modules/upload/upload.module';
-
+import { BookingsModule } from './modules/booking/bookings.module';
+import { ParticipationRequestsModule } from './modules/participation-requests/participation-requests.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,9 +24,6 @@ import { UploadImageModule } from './modules/upload/upload.module';
       }),
     }),
     UsersModule,
-    AuthModule,
-    LoginResgisterModule,
-    UploadImageModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway, MessageModule],

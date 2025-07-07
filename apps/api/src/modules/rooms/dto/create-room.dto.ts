@@ -1,11 +1,10 @@
-import { 
-  IsString, 
-  IsNumber, 
-  IsArray, 
-  ValidateNested, 
-  IsIn, 
-  IsOptional, 
-  Min, 
+import {
+  IsString,
+  IsNumber,
+  IsArray,
+  IsIn,
+  IsOptional,
+  Min,
   IsBoolean,
   IsObject,
   ValidateNested as ValidateNestedDto
@@ -15,10 +14,10 @@ import { Type } from 'class-transformer';
 class DeviceDto {
   @IsString()
   name: string;
-  
+
   @IsNumber()
   quantity: number;
-  
+
   @IsString()
   @IsOptional()
   note?: string;
@@ -76,25 +75,25 @@ class CancellationPolicyDto {
 export class CreateRoomDto {
   @IsString()
   name: string;
-  
+
   @IsNumber()
   @Min(6, { message: 'Sức chứa phải lớn hơn 5 người' })
   capacity: number;
-  
+
   @IsString()
-  @IsIn(['tầng 19 - 19 Tố Hữu' , 'tầng 17 - 19 Tố Hữu'])
+  @IsIn(['tầng 19 - 19 Tố Hữu', 'tầng 17 - 19 Tố Hữu'])
   location: string;
-  
+
   @IsString()
   @IsOptional()
   description?: string;
-  
+
   @IsArray()
   @ValidateNestedDto({ each: true })
   @Type(() => DeviceDto)
   @IsOptional()
   devices?: DeviceDto[];
-  
+
   @IsArray()
   @IsString({ each: true })
   @IsOptional()

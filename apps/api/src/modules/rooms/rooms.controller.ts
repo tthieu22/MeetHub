@@ -19,7 +19,7 @@ import { ROOM_SERVICE_TOKEN } from './room.tokens';
 export class RoomsController {
     constructor(
         @Inject(ROOM_SERVICE_TOKEN) private readonly roomService: IRoomService
-    ) {}
+    ) { }
 
     @Post()
     async create(@Body() createRoomDto: CreateRoomDto) {
