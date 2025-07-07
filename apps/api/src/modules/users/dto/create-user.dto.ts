@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { UserRole } from '../schema/user.schema';
 
 export class CreateUserDto {
@@ -8,11 +8,11 @@ export class CreateUserDto {
   @MaxLength(20, {
     message: 'Name chỉ tối đa 20 kí tự',
   })
-  @MinLength(5, {
-    message: 'Name phải ít nhất 5 kí tự',
+  @MinLength(4, {
+    message: 'Name phải ít nhất 4 kí tự',
   })
-  @Matches(/^[a-zA-ZÀ-ỹ\s]+$/, {
-    message: 'Name chỉ được chứa chữ cái và khoảng trắng',
+  @Matches(/^[a-zA-ZÀ-ỹ0-9\s]+$/, {
+    message: 'Name chỉ được chứa chữ cái, số và khoảng trắng',
   })
   name: string;
 

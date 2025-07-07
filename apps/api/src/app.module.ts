@@ -6,6 +6,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ChatGateway } from '@api/gateway/chat.gateway';
 import { MessageModule } from '@api/modules/chat-message/message.module';
 import { UsersModule } from './modules/users/users.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { UsersModule } from './modules/users/users.module';
       }),
     }),
     UsersModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway, MessageModule],
