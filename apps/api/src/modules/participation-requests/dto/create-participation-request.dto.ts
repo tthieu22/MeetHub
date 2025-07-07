@@ -1,9 +1,13 @@
-// import {  IsNotEmpty,  } from 'class-validator';
+import { IsNotEmpty, IsString, IsMongoId } from 'class-validator';
 
 export class CreateParticipationRequestDto {
-  // @IsNotEmpty()
+  @IsNotEmpty({ message: 'Booking ID is required' })
+  @IsString({ message: 'Booking ID must be a string' })
+  @IsMongoId({ message: 'Booking ID must be a valid MongoDB ObjectId' })
   booking: string;
 
-  // @IsNotEmpty()
-  user:  string;
+  @IsNotEmpty({ message: 'User ID is required' })
+  @IsString({ message: 'User ID must be a string' })
+  @IsMongoId({ message: 'User ID must be a valid MongoDB ObjectId' })
+  user: string;
 }
