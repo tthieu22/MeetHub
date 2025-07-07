@@ -6,6 +6,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ChatGateway } from '@api/gateway/chat.gateway';
 import { MessageModule } from '@api/modules/message/message.module';
 import { RoomsModule } from '@api/modules/rooms/rooms.module';
+import { UsersModule } from './modules/users/users.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -18,7 +20,8 @@ import { RoomsModule } from '@api/modules/rooms/rooms.module';
         uri: config.get<string>('MONGODB_URI'),
       }),
     }),
-     RoomsModule,
+    RoomsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway, MessageModule],
