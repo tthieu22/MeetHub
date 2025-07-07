@@ -7,7 +7,8 @@ import { ChatGateway } from '@api/gateway/chat.gateway';
 import { MessageModule } from '@api/modules/message/message.module';
 import { RoomsModule } from '@api/modules/rooms/rooms.module';
 import { UsersModule } from './modules/users/users.module';
-
+import { BookingsModule } from './modules/booking/bookings.module';
+import { ParticipationRequestsModule } from './modules/participation-requests/participation-requests.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -22,9 +23,11 @@ import { UsersModule } from './modules/users/users.module';
     }),
     RoomsModule,
     UsersModule,
+    BookingsModule,
+    ParticipationRequestsModule,
   ],
   controllers: [AppController],
-  providers: [AppService, ChatGateway, MessageModule],
+  providers: [AppService, ChatGateway, MessageModule  ],
   exports: [ChatGateway],
 })
 export class AppModule {}

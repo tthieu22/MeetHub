@@ -9,7 +9,7 @@ import { IRoom } from './interface/room.interface';
 
 @Injectable()
 export class RoomsService implements IRoomService {
-  constructor(@InjectModel(Room.name) private roomModel: Model<Room>) {}
+  constructor(@InjectModel(Room.name) private roomModel: Model<Room>) { }
 
   async createRoom(createRoomDto: CreateRoomDto): Promise<IRoom> {
     const createdRoom = new this.roomModel(createRoomDto);
@@ -37,7 +37,7 @@ export class RoomsService implements IRoomService {
     const updatedRoom = await this.roomModel
       .findByIdAndUpdate(id, updateRoomDto, { new: true })
       .exec();
-    
+
     if (!updatedRoom) {
       throw new NotFoundException(`Room with ID ${id} not found`);
     }
@@ -59,7 +59,7 @@ export class RoomsService implements IRoomService {
     const updatedRoom = await this.roomModel
       .findByIdAndUpdate(id, { isActive }, { new: true })
       .exec();
-    
+
     if (!updatedRoom) {
       throw new NotFoundException(`Room with ID ${id} not found`);
     }

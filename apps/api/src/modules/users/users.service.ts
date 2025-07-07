@@ -42,12 +42,24 @@ export class UsersService {
     }
   }
 
-  findOne(id: number) {
+  findOne(id: string) {
     return `This action returns a #${id} user`;
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  async update(id: number, updateUserDto: UpdateUserDto) {
+    try {
+      const updatedUser = await this.userDocumentModel.findByIdAndUpdate(
+        id,
+        updateUserDto,
+        { new: true }
+      );
+      if (!updatedUser) {
+        throw new BadRequestException(`User with id #${id} not found`);
+      }
+      return updatedUser;
+    } catch (error) {
+      throw error;
+    }
   }
 
   remove(id: number) {
