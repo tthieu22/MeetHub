@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, ForbiddenException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -6,11 +6,15 @@ import { AuthGuard } from '@api/auth/auth.guard';
 import { Roles } from '@api/auth/roles.decorator';
 import { UserRole } from './schema/user.schema';
 import { RolesGuard } from '@api/auth/roles.guard';
+import { Request } from 'express';
+import { RegisterDto } from './dto/register.dto';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   @Post()
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
@@ -35,5 +39,9 @@ export class UsersController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.usersService.remove(+id);
+  }
+  @Post('/register')
+  register(@Body() RegisterDto: RegisterDto) {
+    return this.usersService.register(RegisterDto);
   }
 }
