@@ -6,12 +6,12 @@ import { UpdateBookingDto } from './dto/update-booking.dto';
 export class BookingsController {
     constructor(private readonly bookingsService: BookingsService) { }
 
-    @Post()
+    @Post("add-booking")
     async create(@Body() createBookingDto: CreateBookingDto) {
         return this.bookingsService.create(createBookingDto);
     }
 
-    @Get()
+    @Get("get-all-bookings")
     async findAll() {
         return this.bookingsService.findAll();
     }

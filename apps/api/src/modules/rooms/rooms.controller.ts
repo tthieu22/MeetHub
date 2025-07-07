@@ -21,12 +21,12 @@ export class RoomsController {
         @Inject(ROOM_SERVICE_TOKEN) private readonly roomService: IRoomService
     ) { }
 
-    @Post()
+    @Post("/add-room")
     async create(@Body() createRoomDto: CreateRoomDto) {
         return this.roomService.createRoom(createRoomDto);
     }
 
-    @Get()
+    @Get("/get-all-rooms")
     async findAll() {
         return this.roomService.getAllRooms();
     }

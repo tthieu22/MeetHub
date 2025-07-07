@@ -1,11 +1,9 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+// import {  IsNotEmpty,  } from 'class-validator';
 
 export class CreateParticipationRequestDto {
-  @IsNotEmpty()
-  @IsString()
+  // @IsNotEmpty()
   booking: string;
 
-  @IsNotEmpty()
-  @IsString()
-  user: string;
+  // @IsNotEmpty()
+  user:  string;
 }
