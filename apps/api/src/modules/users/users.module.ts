@@ -9,8 +9,6 @@ import { User, UserSchema } from './schema/user.schema';
   controllers: [UsersController],
   providers: [UsersService],
   exports: [
-    UsersService,
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]) // Thêm dòng này
-  ],
+    UsersService  ],
 })
 export class UsersModule { }
