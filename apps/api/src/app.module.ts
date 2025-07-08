@@ -9,6 +9,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { LoginResgisterModule } from './login-resgister/login-resgister.module';
 import { UploadImageModule } from './modules/upload/upload.module';
+import { PasswordResetModule } from './modules/password-reset/password-reset.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { UploadImageModule } from './modules/upload/upload.module';
     AuthModule,
     LoginResgisterModule,
     UploadImageModule,
+    PasswordResetModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway, MessageModule],

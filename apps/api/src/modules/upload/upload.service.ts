@@ -11,36 +11,40 @@ import { Multer } from 'multer';
 export class UploadService {
   constructor(@InjectModel(Image.name) private imageModel: Model<Image>) {}
   async uploadImage(file: Express.Multer.File): Promise<{ success: boolean; data: { savedImage: Image } }> {
-    const result: UploadApiResponse = await new Promise((resolve, reject) => {
-      cloudinary.uploader
-        .upload_stream(
-          {
-            resource_type: 'auto',
-            folder: 'uploads',
-          },
-          (error, result) => {
-            if (error || !result) return reject(error);
-            resolve(result);
-          },
-        )
-        .end(file.buffer);
-    });
+    try {
+      const result: UploadApiResponse = await new Promise((resolve, reject) => {
+        cloudinary.uploader
+          .upload_stream(
+            {
+              resource_type: 'auto',
+              folder: 'uploads',
+            },
+            (error, result) => {
+              if (error || !result) return reject(error);
+              resolve(result);
+            },
+          )
+          .end(file.buffer);
+      });
 
-    // Lưu metadata vào MongoDB
-    const image = new this.imageModel({
-      public_id: result.public_id,
-      url: result.secure_url,
-      format: result.format,
-      resource_type: result.resource_type,
-    });
+      // Lưu metadata vào MongoDB
+      const image = new this.imageModel({
+        public_id: result.public_id,
+        url: result.secure_url,
+        format: result.format,
+        resource_type: result.resource_type,
+      });
 
-    const savedImage = await image.save();
+      const savedImage = await image.save();
 
-    return {
-      success: true,
-      data: {
-        savedImage,
-      },
-    };
+      return {
+        success: true,
+        data: {
+          savedImage,
+        },
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 }
