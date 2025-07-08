@@ -10,7 +10,7 @@ import { UsersController } from './users.controller';
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'defaultSecret',
-      signOptions: { expiresIn: '3000s' },
+      signOptions: { expiresIn: '7h' },
     }),
   ],
   controllers: [UsersController],
