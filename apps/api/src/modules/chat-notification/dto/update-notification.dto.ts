@@ -1,10 +1,3 @@
-export class CreateNotificationDto {
-  userId: string;
-  content: string;
-  type: string;
-  createdAt?: Date;
-}
-
 export class UpdateNotificationDto {
   notificationId: string;
   content?: string;
@@ -19,13 +12,4 @@ export class DeleteNotificationDto {
 export class MarkAsReadDto {
   notificationId: string;
   userId: string;
-}
-
-export interface NotificationDto {
-  _id: string;
-  userId: string;
-  content: string;
-  type: string;
-  read: boolean;
-  createdAt: Date;
 }

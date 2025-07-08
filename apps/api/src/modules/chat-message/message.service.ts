@@ -8,6 +8,14 @@ import { MessageStatus, MessageStatusDocument } from '@api/modules/chat-message/
 import { User, UserDocument } from '@api/modules/users/schema/user.schema';
 import { CreateMessageDto } from './dto/create-message.dto';
 
+export interface MessageInfo {
+  messageId: string;
+  conversationId: string;
+  senderId: string;
+  text: string;
+  createdAt: Date;
+}
+
 @Injectable()
 export class MessageService {
   constructor(
@@ -65,7 +73,23 @@ export class MessageService {
 
     const savedMessage = await message.save();
     await savedMessage.populate('senderId', 'username email avatar');
-
+    // Lấy createdAt an toàn
+    let createdAt: Date | undefined = undefined;
+    if (typeof savedMessage.toObject === 'function') {
+      const obj = savedMessage.toObject() as { createdAt?: Date };
+      createdAt = obj.createdAt;
+    } else if ((savedMessage as any)._doc && (savedMessage as any)._doc.createdAt) {
+      createdAt = (savedMessage as { _doc?: { createdAt?: Date } })._doc?.createdAt;
+    }
+    await this.conversationModel.findByIdAndUpdate(conversationId, {
+      $set: {
+        lastMessage: {
+          content: savedMessage.text,
+          createdAt: createdAt || new Date(),
+          senderId: savedMessage.senderId,
+        },
+      },
+    });
     return savedMessage;
   }
 
@@ -250,5 +274,15 @@ export class MessageService {
     });
 
     return totalMessages - readMessages;
+  }
+
+  getMessageById(messageId: string): MessageInfo {
+    return {
+      messageId,
+      conversationId: '1',
+      senderId: '1',
+      text: 'Demo message',
+      createdAt: new Date(),
+    };
   }
 }

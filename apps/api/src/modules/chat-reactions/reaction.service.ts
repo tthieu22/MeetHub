@@ -3,6 +3,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Reaction, ReactionDocument } from './schema/reaction.schema';
 
+export interface ReactionInfo {
+  messageId: string;
+  userId: string;
+  emoji: string;
+}
+
 @Injectable()
 export class ReactionService {
   constructor(@InjectModel(Reaction.name) private reactionModel: Model<ReactionDocument>) {}
@@ -38,5 +44,22 @@ export class ReactionService {
       .exec();
 
     return reactions;
+  }
+
+  async removeReaction(messageId: string, userId: string, emoji: string) {
+    // Xóa reaction cụ thể của user với emoji trên message
+    await this.reactionModel.deleteOne({
+      messageId: new Types.ObjectId(messageId),
+      userId: new Types.ObjectId(userId),
+      emoji,
+    });
+    return { message: 'Reaction removed' };
+  }
+
+  listReactionsForMessage(messageId: string): ReactionInfo[] {
+    return [
+      { messageId, userId: '1', emoji: '👍' },
+      { messageId, userId: '2', emoji: '❤️' },
+    ];
   }
 }

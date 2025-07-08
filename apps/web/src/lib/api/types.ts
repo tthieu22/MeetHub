@@ -1,5 +1,6 @@
 // Re-export types from central types file
-export { User, ChatRoom, RoomMember, Message } from "@web/types/chat";
+import type { User, ChatRoom, RoomMember, Message } from "@web/types/chat";
+export type { User, ChatRoom, RoomMember, Message };
 
 export interface MessageFile {
   id: string;

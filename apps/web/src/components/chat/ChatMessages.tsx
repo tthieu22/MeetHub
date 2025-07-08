@@ -52,14 +52,6 @@ export default function ChatMessages({ messages, currentUserId, onlineUserIds = 
               isOwn = senderId === currentUserId;
             }
             const isOnline = safeOnlineUserIds.includes(senderId);
-            console.log('Checking online status:', { 
-              senderId, 
-              senderIdType: typeof senderId,
-              safeOnlineUserIds, 
-              isOnline,
-              messageSender: message.sender,
-              messageSenderId: message.senderId
-            });
             return (
               <List.Item
                 style={{

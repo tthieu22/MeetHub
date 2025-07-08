@@ -8,10 +8,12 @@ import {
   ReactionData,
   MessageReadData,
   MessageDeletedData,
+  ChatRoom,
 } from "@web/types/chat";
+import type { Message } from "@web/types/chat";
 
 export class ChatService {
-  private socket = getSocket();
+  public socket = getSocket();
 
   /**
    * Gửi tin nhắn mới
@@ -67,6 +69,20 @@ export class ChatService {
   }
 
   /**
+   * Join socket.io room
+   */
+  joinRoomSocket(roomId: string) {
+    this.socket.emit("joinRoom", { roomId });
+  }
+
+  /**
+   * Leave socket.io room
+   */
+  leaveRoomSocket(roomId: string) {
+    this.socket.emit("leaveRoom", { roomId });
+  }
+
+  /**
    * Xóa tin nhắn
    */
   deleteMessage(messageId: string): void {
@@ -90,12 +106,15 @@ export class ChatService {
   /**
    * Lắng nghe sự kiện tin nhắn mới
    */
-  onNewMessage(callback: (message: StoreMessage) => void): void {
-    this.socket.on("chat:message:new", (data) => {
-      console.log("Received new message via WebSocket:", data);
-      callback(data);
-      console.log("Message added to store");
-    });
+  onNewMessage(callback: (msg: Message) => void): void {
+    this.socket.on("chat:message:new", callback);
+  }
+
+  /**
+   * Bỏ lắng nghe tin nhắn mới
+   */
+  offNewMessage(callback: (msg: Message) => void): void {
+    this.socket.off("chat:message:new", callback);
   }
 
   /**
@@ -139,8 +158,8 @@ export class ChatService {
   /**
    * Lắng nghe cập nhật room
    */
-  onRoomUpdated(callback: (data: RoomData) => void): void {
-    this.socket.on("chat:room:updated", (data) => {
+  onRoomUpdated(callback: (data: ChatRoom) => void): void {
+    this.socket.on("chat:room:updated", (data: ChatRoom) => {
       callback(data);
     });
   }
@@ -184,6 +203,13 @@ export class ChatService {
   }
 
   /**
+   * Lắng nghe sự kiện đã join room thành công
+   */
+  onJoinedRoom(callback: (data: { roomId: string }) => void): void {
+    this.socket.on("joinedRoom", callback);
+  }
+
+  /**
    * Cleanup tất cả event listeners
    */
   cleanup(): void {
@@ -197,6 +223,7 @@ export class ChatService {
     this.socket.off("chat:room:left");
     this.socket.off("chat:notification:new");
     this.socket.off("chat:message:read");
+    this.socket.off("joinedRoom");
   }
 }
 

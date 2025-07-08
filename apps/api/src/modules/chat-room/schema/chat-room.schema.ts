@@ -19,6 +19,21 @@ export class Conversation {
 
   @Prop({ type: Date })
   deletedAt?: Date;
+
+  // Thêm trường lastMessage
+  @Prop({
+    type: {
+      content: String,
+      createdAt: Date,
+      senderId: { type: Types.ObjectId, ref: 'User' },
+    },
+    default: null,
+  })
+  lastMessage?: {
+    content: string;
+    createdAt: Date;
+    senderId: Types.ObjectId;
+  };
 }
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);

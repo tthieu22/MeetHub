@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { RoomService, ChatRoom } from "@web/lib/api";
 import { ApiResponse } from "@web/lib/api/types";
+import { chatService } from "@web/lib/services/chatService";
 
 export function useRooms() {
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
+  const prevRoomId = useRef<string | null>(null);
 
   const fetchRooms = useCallback(async () => {
     try {
@@ -103,8 +106,37 @@ export function useRooms() {
     }
   }, []);
 
+  // Gọi khi user chọn phòng mới
+  const selectRoom = (roomId: string) => {
+    if (currentRoomId === roomId) return;
+    if (prevRoomId.current) {
+      chatService.leaveRoomSocket(prevRoomId.current);
+    }
+    chatService.joinRoomSocket(roomId);
+    setCurrentRoomId(roomId);
+    prevRoomId.current = roomId;
+  };
+
   useEffect(() => {
     fetchRooms();
+    const handleRoomUpdated = (updatedRoom: ChatRoom) => {
+      setRooms((prevRooms) =>
+        prevRooms.map((room) =>
+          room._id === updatedRoom._id
+            ? {
+                ...room,
+                ...updatedRoom,
+                lastMessage: updatedRoom.lastMessage ?? room.lastMessage,
+              }
+            : room
+        )
+      );
+    };
+    chatService.onRoomUpdated(handleRoomUpdated);
+
+    return () => {
+      chatService.cleanup();
+    };
   }, [fetchRooms]);
 
   return {
@@ -116,5 +148,7 @@ export function useRooms() {
     updateRoom,
     deleteRoom,
     markAllAsRead,
+    selectRoom, // export selectRoom để component dùng
+    currentRoomId,
   };
 }

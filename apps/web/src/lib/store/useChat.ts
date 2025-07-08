@@ -14,6 +14,7 @@ interface ChatState {
   markMessageAsRead: (messageId: string) => void;
   clearMessages: () => void;
   clearNotifications: () => void;
+  setMessages: (msgs: StoreMessage[]) => void;
 }
 
 export const useChat = create<ChatState>((set) => ({
@@ -75,4 +76,5 @@ export const useChat = create<ChatState>((set) => ({
 
   clearMessages: () => set({ messages: [] }),
   clearNotifications: () => set({ notifications: [] }),
+  setMessages: (msgs: StoreMessage[]) => set({ messages: msgs }),
 }));

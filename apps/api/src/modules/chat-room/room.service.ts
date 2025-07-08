@@ -8,6 +8,12 @@ import { MessageStatus, MessageStatusDocument } from '../chat-message/schema/mes
 import { User, UserDocument } from '../users/schema/user.schema';
 import { CreateRoomDto, UpdateRoomDto } from './dto';
 
+export interface RoomInfo {
+  roomId: string;
+  name: string;
+  type: string;
+}
+
 @Injectable()
 export class RoomService {
   constructor(
@@ -343,5 +349,12 @@ export class RoomService {
     });
 
     return totalMessages - readMessages;
+  }
+
+  listAllRooms(): RoomInfo[] {
+    return [
+      { roomId: '1', name: 'Phòng 1', type: 'group' },
+      { roomId: '2', name: 'Phòng 2', type: 'private' },
+    ];
   }
 }

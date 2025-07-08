@@ -1,130 +1,126 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MessageService, Message } from "@web/lib/api";
+import { MessageService } from "@web/lib/api";
+import { chatService } from "@web/lib/services/chatService";
+import { useChat } from "@web/lib/store/useChat";
+import { StoreMessage } from "@web/types/chat";
 
 export function useMessages(roomId: string) {
-  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
+  const [isJoinedRoom, setIsJoinedRoom] = useState(false);
+  const { messages, addMessage, clearMessages, setMessages } = useChat();
 
-  const fetchMessages = useCallback(
-    async (pageNum = 1, append = false) => {
-      if (!roomId) return;
-
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await MessageService.getMessages(roomId, pageNum, 50);
-
-        if (append) {
-          setMessages((prev) => [...response.data, ...prev]);
-        } else {
-          setMessages(response.data);
-        }
-
-        setHasMore(response.hasNext);
-        setPage(pageNum);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Có lỗi xảy ra");
-      } finally {
+  useEffect(() => {
+    if (!roomId) return;
+    clearMessages();
+    chatService.joinRoomSocket(roomId);
+    const handleJoinedRoom = (data: { roomId: string }) => {
+      if (data.roomId === roomId) {
+        setIsJoinedRoom(true);
         setLoading(false);
       }
-    },
-    [roomId]
-  );
+    };
+    chatService.onJoinedRoom(handleJoinedRoom);
 
-  const sendMessage = useCallback(
-    async (content: string) => {
+    function getRoomIdFromMessage(msg: StoreMessage): string {
+      if ("roomId" in msg && typeof msg.roomId === "string") return msg.roomId;
+      if ("conversationId" in msg && typeof msg.conversationId === "string")
+        return msg.conversationId;
+      return "";
+    }
+    const handleNewMessage = (msg: StoreMessage) => {
+      const msgRoomId = getRoomIdFromMessage(msg);
+      if (msgRoomId === roomId) {
+        // Chỉ thêm nếu chưa có id này trong store
+        if (!messages.some((m) => m.id === msg.id)) {
+          addMessage(msg);
+        }
+      }
+    };
+    const socketHandler = (msg: unknown) =>
+      handleNewMessage(msg as StoreMessage);
+    chatService.onNewMessage(socketHandler);
+
+    // Lắng nghe lịch sử tin nhắn khi join room
+    const handleHistory = (data: {
+      roomId: string;
+      messages: StoreMessage[];
+    }) => {
+      console.log("[SOCKET] Nhận lịch sử tin nhắn:", data);
+      if (data.roomId === roomId) {
+        setMessages(data.messages);
+      }
+    };
+    chatService.socket.on("chat:messages:history", handleHistory);
+
+    return () => {
+      chatService.leaveRoomSocket(roomId);
+      chatService.offNewMessage(socketHandler);
+      chatService.socket.off("chat:messages:history", handleHistory);
+      // clearMessages();
+    };
+  }, [roomId, addMessage, setMessages, clearMessages]);
+
+  return {
+    messages: [...messages].sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    ),
+    loading,
+    error,
+    sendMessage: async (content: string) => {
       if (!roomId) return;
-
+      if (!isJoinedRoom) {
+        await new Promise<void>((resolve) => {
+          const check = (data: { roomId: string }) => {
+            if (data.roomId === roomId) {
+              setIsJoinedRoom(true);
+              chatService.socket.off("joinedRoom", check);
+              resolve();
+            }
+          };
+          chatService.socket.on("joinedRoom", check);
+        });
+      }
       try {
-        const newMessage = await MessageService.sendMessage(
-          { text: content }, // body chỉ có text
-          roomId // conversationId truyền vào query string
-        );
-
-        setMessages((prev) => [...prev, newMessage]);
-        return newMessage;
+        // Gửi qua socket, không tự thêm vào state
+        await chatService.socket.emit("chat:message:new", {
+          text: content,
+          roomId,
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Không thể gửi tin nhắn");
         throw err;
       }
     },
-    [roomId]
-  );
-
-  const deleteMessage = useCallback(async (messageId: string) => {
-    try {
-      await MessageService.deleteMessage(messageId);
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId ? { ...msg, isDeleted: true } : msg
-        )
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể xóa tin nhắn");
-    }
-  }, []);
-
-  const togglePinMessage = useCallback(async (messageId: string) => {
-    try {
-      const updatedMessage = await MessageService.togglePinMessage(messageId);
-      setMessages((prev) =>
-        prev.map((msg) => (msg.id === messageId ? updatedMessage : msg))
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể ghim tin nhắn");
-    }
-  }, []);
-
-  const addReaction = useCallback(async (messageId: string, emoji: string) => {
-    try {
-      // Note: addReaction method might not exist in MessageService
-      // This is a placeholder for future implementation
-      console.log("Adding reaction:", emoji, "to message:", messageId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể thêm reaction");
-    }
-  }, []);
-
-  const markAsRead = useCallback(async (messageId: string) => {
-    try {
-      await MessageService.markAsRead(messageId);
-    } catch (err) {
-      console.error("Không thể đánh dấu đã đọc:", err);
-    }
-  }, []);
-
-  const loadMoreMessages = useCallback(() => {
-    if (hasMore && !loading) {
-      fetchMessages(page + 1, true);
-    }
-  }, [hasMore, loading, page, fetchMessages]);
-
-  useEffect(() => {
-    if (roomId) {
-      console.log("Room changed, fetching messages for:", roomId);
-      setMessages([]);
-      setPage(1);
-      setHasMore(true);
-      fetchMessages(1, false);
-    }
-  }, [roomId]); // Remove fetchMessages from dependency to avoid unnecessary re-fetches
-
-  return {
-    messages,
-    loading,
-    error,
-    hasMore,
-    sendMessage,
-    deleteMessage,
-    togglePinMessage,
-    addReaction,
-    markAsRead,
-    loadMoreMessages,
-    fetchMessages,
+    deleteMessage: useCallback(async (messageId: string) => {
+      try {
+        await MessageService.deleteMessage(messageId);
+        // setMessages((prev) =>
+        //   prev.map((msg) =>
+        //     msg.id === messageId ? { ...msg, isDeleted: true } : msg
+        //   )
+        // );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Không thể xóa tin nhắn");
+      }
+    }, []),
+    togglePinMessage: useCallback(async () => {}, []),
+    addReaction: useCallback(async () => {}, []),
+    markAsRead: useCallback(async (messageId: string) => {
+      try {
+        await MessageService.markAsRead(messageId);
+      } catch (err) {
+        console.error("Không thể đánh dấu đã đọc:", err);
+      }
+    }, []),
+    loadMoreMessages: useCallback(() => {
+      // This function is no longer needed as messages are fetched via socket
+    }, []),
+    fetchMessages: useCallback(() => {
+      // This function is no longer needed as messages are fetched via socket
+    }, []),
   };
 }

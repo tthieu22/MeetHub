@@ -7,9 +7,6 @@ import ChatMessages from '@web/components/chat/ChatMessages';
 import ChatInput from '@web/components/chat/ChatInput';
 import { useMessages } from '@web/hooks/useMessages';
 import { useOnlineStatus } from '@web/hooks/useOnlineStatus';
-import { useChat } from '@web/lib/store/useChat';
-import { StoreMessage, Message as ApiMessage } from '@web/types/chat';
-import { useChatService } from '@web/hooks/useChatService';
 import { message } from 'antd';
 import { useRooms } from '@web/hooks/useRooms';
 
@@ -22,60 +19,33 @@ interface ChatContentProps {
 
 export default function ChatContent({ selectedRoomId, currentUserId }: ChatContentProps) {
   const { rooms } = useRooms();
+
   const { 
-    messages: apiMessages, 
+    messages, 
     loading: messagesLoading, 
-    error: messagesError
+    error: messagesError,
+    sendMessage
   } = useMessages(selectedRoomId);
- 
-  const { onlineUsers } = useOnlineStatus(); 
-  
-  // Sử dụng chat service và store
-  const { sendMessage } = useChatService();
-  const { messages: socketMessages, addMessage } = useChat();
+
+  const { onlineUsers } = useOnlineStatus();
 
   const selectedRoom = useMemo(() => 
     rooms.find(room => room._id === selectedRoomId), 
     [rooms, selectedRoomId]
   );
 
-  // Chuyển đổi tin nhắn từ store sang format API cho component
-  const convertStoreMessageToApi = useCallback((msg: StoreMessage): ApiMessage => ({
-    id: msg.id,
-    conversationId: msg.roomId,
-    senderId: msg.senderId,
-    sender: { id: msg.senderId, name: 'User', email: '', isOnline: false },
-    text: msg.text,
-    mentions: [],
-    isPinned: false,
-    isDeleted: false,
-    createdAt: msg.createdAt,
-  }), []);
-
-  // Kết hợp tin nhắn từ API và WebSocket
-  const allMessages = useMemo(() => [
-    ...apiMessages,
-    ...socketMessages.map(convertStoreMessageToApi)
-  ], [apiMessages, socketMessages, convertStoreMessageToApi]);
-
   const handleSendMessage = useCallback(async (content: string) => {
     if (!selectedRoomId || !currentUserId) {
       message.error('Vui lòng chọn phòng chat và đăng nhập');
       return;
     }
-
     try {
-      // Gửi tin nhắn thông qua ChatService
-      const tempMessage = await sendMessage(content, currentUserId, selectedRoomId);
-      
-      // Thêm tin nhắn tạm vào store để hiển thị ngay
-      addMessage(tempMessage);
-      
+      await sendMessage(content);
     } catch (error) {
       console.error('Error sending message:', error);
       message.error('Không thể gửi tin nhắn');
     }
-  }, [selectedRoomId, currentUserId, sendMessage, addMessage]);
+  }, [selectedRoomId, currentUserId, sendMessage]);
 
   if (messagesError) {
     message.error(messagesError);
@@ -114,7 +84,17 @@ export default function ChatContent({ selectedRoomId, currentUserId }: ChatConte
               <div style={{ flex: 1, overflow: 'hidden' }}>
                 <ChatMessages 
                   key={selectedRoomId} 
-                  messages={allMessages} 
+                  messages={messages.map(msg => ({
+                    id: msg.id,
+                    conversationId: msg.roomId,
+                    senderId: msg.senderId,
+                    sender: { id: msg.senderId, name: 'User', email: '', isOnline: false },
+                    text: msg.text,
+                    mentions: [],
+                    isPinned: false,
+                    isDeleted: false,
+                    createdAt: msg.createdAt,
+                  }))} 
                   currentUserId={currentUserId || "686b2b9fef3f57bb0f638ba9"} 
                   onlineUserIds={onlineUsers} 
                 />
