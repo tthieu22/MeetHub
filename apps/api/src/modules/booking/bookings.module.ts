@@ -13,6 +13,6 @@ import { UsersModule } from '../users/users.module';
         UsersModule],
     controllers: [BookingsController],
     providers: [BookingsService],
-    exports: [MongooseModule.forFeature([{ name: Booking.name, schema: BookingSchema }])],
+    exports: [BookingsService , MongooseModule.forFeature([{ name: Booking.name, schema: BookingSchema }])],
 })
 export class BookingsModule { }

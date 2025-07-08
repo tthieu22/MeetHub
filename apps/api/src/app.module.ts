@@ -11,6 +11,7 @@ import { LoginResgisterModule } from './login-resgister/login-resgister.module';
 import { UploadImageModule } from './modules/upload/upload.module';
 import { BookingsModule } from './modules/booking/bookings.module';
 import { ParticipationRequestsModule } from './modules/participation-requests/participation-requests.module';
+import { RoomsModule } from './modules/rooms/rooms.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,7 +24,11 @@ import { ParticipationRequestsModule } from './modules/participation-requests/pa
         uri: config.get<string>('MONGODB_URI'),
       }),
     }),
+    AuthModule,
+    RoomsModule,
     UsersModule,
+    BookingsModule,
+    ParticipationRequestsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway, MessageModule],

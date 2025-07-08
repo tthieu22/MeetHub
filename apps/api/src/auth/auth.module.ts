@@ -30,5 +30,6 @@ import { LoginResgisterModule } from '@api/login-resgister/login-resgister.modul
   ],
   controllers: [AuthController],
   providers: [AuthService, RolesGuard, GoogleOidcStrategy, MailerService],
+  exports: [JwtModule, AuthService],
 })
 export class AuthModule {}
