@@ -10,6 +10,8 @@ import { ParticipationRequestsModule } from './modules/participation-requests/pa
 import { MessageModule } from '@api/modules/chat-message/message.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { LoginResgisterModule } from './login-resgister/login-resgister.module';
+import { UploadImageModule } from './modules/upload/upload.module';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { AuthModule } from './auth/auth.module';
     UsersModule,
     BookingsModule,
     ParticipationRequestsModule,
+    LoginResgisterModule,
+    UploadImageModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway, MessageModule  ],

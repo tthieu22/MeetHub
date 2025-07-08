@@ -2,10 +2,11 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import { User, UserDocument } from './schema/user.schema';
+import { User, UserDocument, UserRole } from './schema/user.schema';
 import { Model } from 'mongoose';
 
 import { hashPassword } from '@api/utils/brcrypt.password';
+import { RegisterDto } from '../../login-resgister/dto/register.dto';
 
 @Injectable()
 export class UsersService {
@@ -52,5 +53,8 @@ export class UsersService {
 
   remove(id: number) {
     return `This action removes a #${id} user`;
+  }
+  async activateUser(email: string) {
+    return this.userDocumentModel.updateOne({ email }, { isActive: true });
   }
 }
