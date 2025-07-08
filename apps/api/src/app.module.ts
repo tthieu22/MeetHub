@@ -8,6 +8,7 @@ import { MessageModule } from '@api/modules/chat-message/message.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { LoginResgisterModule } from './login-resgister/login-resgister.module';
+import { UploadImageModule } from './modules/upload/upload.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { LoginResgisterModule } from './login-resgister/login-resgister.module';
     UsersModule,
     AuthModule,
     LoginResgisterModule,
+    UploadImageModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway, MessageModule],
