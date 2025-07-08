@@ -8,7 +8,6 @@ export class PasswordResetService {
   forgotPassword(PasswordResetDto: PasswordResetDto) {
     try {
       const user = this.UsersService.findOne(PasswordResetDto.email);
-      return user;
     } catch (error) {
       throw error;
     }

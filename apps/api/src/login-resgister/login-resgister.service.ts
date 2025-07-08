@@ -7,9 +7,10 @@ import { User, UserDocument, UserRole } from '@api/modules/users/schema/user.sch
 import { Model } from 'mongoose';
 import { VerifyCodeDto } from './dto/verify-code.dto';
 import { SendCodeDto } from './dto/send-code.dto';
-import { VerifyCode } from '@api/login-resgister/shemas/verify-code.schema';
+import { VerifyCode, VerifyCodeType } from '@api/login-resgister/shemas/verify-code.schema';
 import { randomInt } from 'crypto';
 import { MailerService } from '@api/login-resgister/mailer.service';
+import { PasswordResetDto } from '@api/modules/password-reset/dto/create-password-reset.dto';
 
 @Injectable()
 export class LoginResgisterService {
@@ -37,22 +38,36 @@ export class LoginResgisterService {
       throw error;
     }
   }
-  async sendVerificationCode(dto: SendCodeDto) {
+  async sendVerificationCode(dto: SendCodeDto, type: VerifyCodeType) {
     const code = randomInt(100000, 999999).toString();
 
-    await this.verifyCodeModel.findOneAndUpdate({ email: dto.email }, { code, createdAt: new Date() }, { upsert: true, new: true });
+    await this.verifyCodeModel.findOneAndUpdate({ email: dto.email, type }, { code, createdAt: new Date() }, { upsert: true, new: true });
 
     await this.mailerService.sendCode(dto.email, code);
 
     return { sussess: true, message: 'Đã gửi mã xác thực về email' };
   }
-  async verifyCode(dto: VerifyCodeDto) {
-    const record: VerifyCode | null = await this.verifyCodeModel.findOne({ email: dto.email });
+  async verifyCode(dto: VerifyCodeDto, type: VerifyCodeType, dtopass: PasswordResetDto) {
+    const record: VerifyCode | null = await this.verifyCodeModel.findOne({ email: dto.email, type });
     if (!record || record.code !== dto.code) {
       throw new BadRequestException('Mã xác thực không đúng hoặc đã hết hạn');
     }
-    await Promise.all([this.userDocumentModel.updateOne({ email: dto.email }, { isActive: true }), this.verifyCodeModel.deleteMany({ email: dto.email })]);
+    if (type === VerifyCodeType.VERIFY_ACCOUNT) {
+      await this.activateAccount(dto.email);
+    } else if (type === VerifyCodeType.RESET_PASSWORD) {
+      await this.resetPassword(dto.email, dtopass.password);
+    }
 
     return { sussess: true, message: 'Xác thực thành công' };
+  }
+  private async activateAccount(email: string) {
+    await Promise.all([this.userDocumentModel.updateOne({ email }, { isActive: true }), this.verifyCodeModel.deleteMany({ email, type: VerifyCodeType.VERIFY_ACCOUNT })]);
+  }
+  private async resetPassword(email: string, newPassword?: string) {
+    if (!newPassword) {
+      throw new BadRequestException('Vui lòng cung cấp mật khẩu mới');
+    }
+    const hashed = await hashPassword(newPassword);
+    await Promise.all([this.userDocumentModel.updateOne({ email }, { password: hashed }), this.verifyCodeModel.deleteMany({ email, type: VerifyCodeType.RESET_PASSWORD })]);
   }
 }
