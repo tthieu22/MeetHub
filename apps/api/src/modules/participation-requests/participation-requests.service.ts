@@ -92,12 +92,37 @@ export class ParticipationRequestsService implements IParticipationRequestServic
     }
   }
 
-  async findAll(): Promise<ParticipationRequest[]> {
+   async findAll(
+    page: number = 1,
+    limit: number = 10,
+    filter: any = {}
+  ): Promise<{
+    data: ParticipationRequest[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     try {
-      return await this.participationRequestModel
-        .find()
-        .populate('booking user approvedBy')
-        .exec();
+      const skip = (page - 1) * limit;
+      const [data, total] = await Promise.all([
+        this.participationRequestModel.find(filter)
+          .skip(skip)
+          .limit(limit)
+          .populate('booking user approvedBy')
+          .exec(),
+        this.participationRequestModel.countDocuments(filter).exec()
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+      
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages
+      };
     } catch (error) {
       throw new BadRequestException('Failed to fetch participation requests: ' + error.message);
     }
