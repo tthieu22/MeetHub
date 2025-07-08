@@ -39,6 +39,7 @@
     "cookie-parser": "^1.4.7",
     "express-session": "^1.18.1",
     "mongoose": "^8.16.1",
+    "nodemailer": "^7.0.5",
     "passport": "^0.7.0",
     "passport-google-oidc": "^0.1.0",
     "reflect-metadata": "0.2.2",

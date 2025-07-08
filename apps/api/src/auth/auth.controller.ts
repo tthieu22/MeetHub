@@ -2,6 +2,8 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res, UseGuards,
 import { AuthService } from './auth.service';
 import { Response, Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
+import { SendCodeDto } from '../login-resgister/dto/send-code.dto';
+import { VerifyCodeDto } from '../login-resgister/dto/verify-code.dto';
 
 @Controller('auth')
 export class AuthController {

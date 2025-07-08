@@ -6,8 +6,6 @@ import { AuthGuard } from '@api/auth/auth.guard';
 import { Roles } from '@api/auth/roles.decorator';
 import { UserRole } from './schema/user.schema';
 import { RolesGuard } from '@api/auth/roles.guard';
-import { Request } from 'express';
-import { RegisterDto } from './dto/register.dto';
 
 @Controller('users')
 export class UsersController {
@@ -39,9 +37,5 @@ export class UsersController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.usersService.remove(+id);
-  }
-  @Post('/register')
-  register(@Body() RegisterDto: RegisterDto) {
-    return this.usersService.register(RegisterDto);
   }
 }

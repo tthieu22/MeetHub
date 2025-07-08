@@ -1,22 +1,23 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from '@api/modules/users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import { comparePassword } from '@api/utils/brcrypt.password';
-import { UserRole } from '@api/modules/users/schema/user.schema';
-import { RegisterDto } from '@api/modules/users/dto/register.dto';
+
+import { LoginResgisterService } from '@api/login-resgister/login-resgister.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private LoginResgisterService: LoginResgisterService,
   ) {}
 
   async signIn(email: string, pass: string, res: Response): Promise<any> {
     const user = await this.usersService.findOne(email);
     if (!user) throw new UnauthorizedException('Email không tồn tại');
-
+    if (!user.isActive) throw new BadRequestException('Vui lòng xác thực email trước khi đăng nhập');
     const isMatch = await comparePassword(pass, user.password);
     if (!isMatch) throw new UnauthorizedException('Mật khẩu sai');
 
@@ -59,16 +60,15 @@ export class AuthService {
   async googleLogin(userProfile: any, res: Response) {
     const { email, name } = userProfile;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    // Optional: Tạo user mới nếu chưa tồn tại (nếu dùng DB thực)
     let user = await this.usersService.findOne(email);
     if (!user) {
-      user = await this.usersService.register({
+      user = await this.LoginResgisterService.register({
         email,
         name,
         password: 'google-auth',
       });
     }
+    await this.usersService.activateUser(user.email);
     const payload = {
       sub: user.email,
       name: user.name,
