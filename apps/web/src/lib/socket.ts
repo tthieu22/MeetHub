@@ -1,5 +1,5 @@
 import { io, Socket } from "socket.io-client";
-const URL = process.env.NEXT_PUBLIC_API_URL;
+const URL = process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8000";
 let socket: Socket | null = null;
 
 export const getSocket = () => {
@@ -7,6 +7,7 @@ export const getSocket = () => {
     socket = io(URL, {
       transports: ["websocket"],
       autoConnect: true,
+      path: "/socket.io/",
     });
 
     // Event handlers

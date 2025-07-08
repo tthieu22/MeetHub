@@ -6,6 +6,7 @@ import { Logger } from '@nestjs/common';
   cors: {
     origin: '*',
   },
+  namespace: '/',
 })
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   private logger = new Logger('ChatGateway');
