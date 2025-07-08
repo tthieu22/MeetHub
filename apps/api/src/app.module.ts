@@ -9,6 +9,7 @@ import { BookingsModule } from './modules/booking/bookings.module';
 import { ParticipationRequestsModule } from './modules/participation-requests/participation-requests.module';
 import { MessageModule } from '@api/modules/chat-message/message.module';
 import { UsersModule } from './modules/users/users.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { UsersModule } from './modules/users/users.module';
         uri: config.get<string>('MONGODB_URI'),
       }),
     }),
+    AuthModule,
     RoomsModule,
     UsersModule,
     BookingsModule,
