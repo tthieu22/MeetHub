@@ -3,7 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from '@api/app.controller';
 import { AppService } from '@api/app.service';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ChatGateway } from '@api/gateway/chat.gateway';
+import { GatewayModule } from '@api/gateway/gateway.module';
 import { MessageModule } from './modules/chat-message/message.module';
 import { RoomModule } from './modules/chat-room/room.module';
 import { NotificationModule } from './modules/chat-notification/notification.module';
@@ -31,9 +31,9 @@ import { AuthModule } from './auth/auth.module';
     UserChatModule,
     ReactionModule,
     AuthModule,
+    GatewayModule,
   ],
   controllers: [AppController],
-  providers: [AppService, ChatGateway],
-  exports: [ChatGateway],
+  providers: [AppService],
 })
 export class AppModule {}

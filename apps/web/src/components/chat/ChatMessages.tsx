@@ -14,6 +14,8 @@ interface ChatMessagesProps {
 }
 
 export default function ChatMessages({ messages, currentUserId, onlineUserIds = [] }: ChatMessagesProps) {
+  // Đảm bảo onlineUserIds luôn là array
+  const safeOnlineUserIds = Array.isArray(onlineUserIds) ? onlineUserIds : [];
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -25,8 +27,17 @@ export default function ChatMessages({ messages, currentUserId, onlineUserIds = 
   }, [messages]);
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+    <div style={{
+      display: 'flex', 
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }}>
+      <div style={{ 
+        flex: 1, 
+        overflowY: 'auto', 
+        padding: '16px',
+        minHeight: 0 
+      }}>
         <List
           dataSource={messages}
           renderItem={(message) => {
@@ -40,7 +51,15 @@ export default function ChatMessages({ messages, currentUserId, onlineUserIds = 
               senderId = message.senderId as string;
               isOwn = senderId === currentUserId;
             }
-            const isOnline = onlineUserIds.includes(senderId);
+            const isOnline = safeOnlineUserIds.includes(senderId);
+            console.log('Checking online status:', { 
+              senderId, 
+              senderIdType: typeof senderId,
+              safeOnlineUserIds, 
+              isOnline,
+              messageSender: message.sender,
+              messageSenderId: message.senderId
+            });
             return (
               <List.Item
                 style={{
@@ -66,21 +85,26 @@ export default function ChatMessages({ messages, currentUserId, onlineUserIds = 
                     }}
                   >
                     {!isOwn && (
-                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <div style={{ position: 'relative', display: 'inline-block', flexShrink: 0 }}>
                         <Avatar 
                           size="small" 
                           icon={<UserOutlined />}
-                          style={{ flexShrink: 0, border: `2px solid ${isOnline ? '#52c41a' : '#bfbfbf'}` }}
+                          style={{ 
+                            border: `3px solid ${isOnline ? '#52c41a' : '#bfbfbf'}`,
+                            boxShadow: isOnline ? '0 0 8px rgba(82, 196, 26, 0.6)' : 'none'
+                          }}
                         />
                         <span style={{
                           position: 'absolute',
-                          bottom: 0,
-                          right: 0,
-                          width: 8,
-                          height: 8,
+                          bottom: -2,
+                          right: -2,
+                          width: 16,
+                          height: 16,
                           borderRadius: '50%',
                           background: isOnline ? '#52c41a' : '#bfbfbf',
-                          border: '1.5px solid white',
+                          border: '3px solid white',
+                          boxShadow: isOnline ? '0 0 6px rgba(82, 196, 26, 0.8)' : 'none',
+                          zIndex: 10,
                         }} />
                       </div>
                     )}
@@ -91,6 +115,8 @@ export default function ChatMessages({ messages, currentUserId, onlineUserIds = 
                         padding: '8px 12px',
                         borderRadius: '12px',
                         wordBreak: 'break-word',
+                        maxWidth: '100%',
+                        overflowWrap: 'break-word'
                       }}
                     >
                       {!isOwn && (
@@ -108,10 +134,29 @@ export default function ChatMessages({ messages, currentUserId, onlineUserIds = 
                               || (typeof message.senderId === 'object' && '_id' in message.senderId && (message.senderId as { _id?: string })._id)
                               || (typeof message.senderId === 'string' && message.senderId)
                               || 'Unknown'} 
+                            {isOnline && (
+                              <span style={{ 
+                                color: '#52c41a', 
+                                marginLeft: '4px',
+                                fontSize: '10px',
+                                fontWeight: 'bold'
+                              }}>
+                                ● ONLINE
+                              </span>
+                            )}
+                            {!isOnline && (
+                              <span style={{ 
+                                color: '#bfbfbf', 
+                                marginLeft: '4px',
+                                fontSize: '10px'
+                              }}>
+                                ○ Offline
+                              </span>
+                            )}
                           </Text>
                         </div>
                       )}
-                      <div>{message.text}</div>
+                      <div style={{ wordBreak: 'break-word' }}>{message.text}</div>
                       <div style={{ marginTop: '4px' }}>
                         <Text 
                           style={{ 

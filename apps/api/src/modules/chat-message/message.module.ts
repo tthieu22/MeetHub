@@ -20,5 +20,6 @@ import { User, UserSchema } from '@api/modules/users/schema/user.schema';
   ],
   controllers: [MessageController],
   providers: [MessageService],
+  exports: [MessageService],
 })
 export class MessageModule {}

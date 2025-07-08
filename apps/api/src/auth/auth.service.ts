@@ -22,7 +22,7 @@ export class AuthService {
         throw new UnauthorizedException('Mật khẩu sai');
       }
       const payload = { sub: String(user._id), name: user.name, role: user.role };
-      const access_token = await this.jwtService.signAsync(payload, { expiresIn: '5m' });
+      const access_token = await this.jwtService.signAsync(payload, { expiresIn: '500m' });
       const refresh_token = await this.jwtService.signAsync(payload, { expiresIn: '7d' });
       res.cookie('refresh_token', refresh_token, {
         httpOnly: true,

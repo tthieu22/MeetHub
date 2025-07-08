@@ -16,7 +16,7 @@ export default function RootLayout({
         <ConfigProvider>
           <Layout style={{ minHeight: '100vh' }}>
             <Header />
-            <Content style={{ padding: '24px' }}>
+            <Content>
               {children}
             </Content>
           </Layout>

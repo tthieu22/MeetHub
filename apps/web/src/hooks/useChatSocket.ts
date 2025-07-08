@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from "react";
-import { getSocket } from "../lib/socket";
-import { useChat, Message } from "../lib/store/useChat";
+import { getSocket } from "@web/lib/socket";
+import { useChat } from "@web/lib/store/useChat";
+import { Message } from "@web/types/chat";
 
 export const useChatSocket = () => {
   const {
@@ -63,9 +64,23 @@ export const useChatSocket = () => {
   );
 
   useEffect(() => {
-    // Listen for new messages
+    // Listen for new messages from other users
     socket.on("chat:message:new", (data) => {
+      console.log("Received new message via WebSocket:", data);
       addMessage(data);
+      console.log("Message added to store");
+    });
+
+    // Listen for saved message confirmation
+    socket.on("chat:message:saved", (data) => {
+      console.log("Message saved confirmation received:", data);
+      // Có thể cập nhật tin nhắn tạm với ID thật từ database
+    });
+
+    // Listen for message errors
+    socket.on("chat:message:error", (data) => {
+      console.error("Message error received:", data);
+      // Có thể hiển thị thông báo lỗi cho user
     });
 
     // Listen for deleted messages
@@ -104,6 +119,8 @@ export const useChatSocket = () => {
 
     return () => {
       socket.off("chat:message:new");
+      socket.off("chat:message:saved");
+      socket.off("chat:message:error");
       socket.off("chat:message:deleted");
       socket.off("chat:reaction:updated");
       socket.off("chat:room:updated");

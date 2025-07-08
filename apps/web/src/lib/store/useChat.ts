@@ -1,40 +1,16 @@
 import { create } from "zustand";
-
-export interface Message {
-  id: string;
-  text: string;
-  senderId: string;
-  roomId: string;
-  createdAt: string;
-  reactions?: Record<string, string[]>;
-  isRead?: boolean;
-}
-
-export interface Room {
-  id: string;
-  name: string;
-  description?: string;
-  avatar?: string;
-}
-
-export interface Notification {
-  id: string;
-  type: "message" | "mention" | "reaction";
-  message: string;
-  roomId: string;
-  createdAt: string;
-}
+import { StoreMessage, ChatRoom, NotificationData } from "@web/types/chat";
 
 interface ChatState {
-  messages: Message[];
-  rooms: Room[];
-  notifications: Notification[];
-  addMessage: (msg: Message) => void;
-  updateMessage: (messageId: string, updates: Partial<Message>) => void;
+  messages: StoreMessage[];
+  rooms: ChatRoom[];
+  notifications: NotificationData[];
+  addMessage: (msg: StoreMessage) => void;
+  updateMessage: (messageId: string, updates: Partial<StoreMessage>) => void;
   deleteMessage: (messageId: string) => void;
   updateReaction: (messageId: string, reaction: string) => void;
-  updateRoom: (room: Room) => void;
-  addNotification: (notification: Notification) => void;
+  updateRoom: (room: ChatRoom) => void;
+  addNotification: (notification: NotificationData) => void;
   markMessageAsRead: (messageId: string) => void;
   clearMessages: () => void;
   clearNotifications: () => void;
@@ -82,7 +58,7 @@ export const useChat = create<ChatState>((set) => ({
 
   updateRoom: (room) =>
     set((state) => ({
-      rooms: state.rooms.map((r) => (r.id === room.id ? room : r)),
+      rooms: state.rooms.map((r) => (r._id === room._id ? room : r)),
     })),
 
   addNotification: (notification) =>

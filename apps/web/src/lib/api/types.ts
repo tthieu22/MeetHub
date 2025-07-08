@@ -1,54 +1,5 @@
-// User types
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  isOnline: boolean;
-  lastSeen?: string;
-}
-
-// Room types
-export interface ChatRoom {
-  _id: string;
-  name: string;
-  type: "private" | "group";
-  creatorId: string;
-  isDeleted: boolean;
-  deletedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-  members: RoomMember[];
-  avatar?: string;
-  lastMessage?: {
-    content?: string;
-    createdAt?: string;
-  };
-  unreadCount?: number;
-}
-
-export interface RoomMember {
-  userId: string;
-  role: "admin" | "member";
-  joinedAt: string;
-  user: User;
-}
-
-// Message types
-export interface Message {
-  id: string;
-  conversationId: string;
-  senderId: string;
-  sender: User;
-  text: string;
-  fileUrl?: string;
-  replyTo?: string;
-  mentions: string[];
-  isPinned: boolean;
-  isDeleted: boolean;
-  deletedAt?: string;
-  createdAt: string;
-}
+// Re-export types from central types file
+export { User, ChatRoom, RoomMember, Message } from "@web/types/chat";
 
 export interface MessageFile {
   id: string;

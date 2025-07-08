@@ -1,6 +1,7 @@
 import { SubscribeMessage, WebSocketGateway, OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, MessageBody, ConnectedSocket } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
+import { ChatService, ChatMessageData } from './chat.service';
 
 @WebSocketGateway({
   cors: {
@@ -10,8 +11,8 @@ import { Logger } from '@nestjs/common';
 })
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   private logger = new Logger('ChatGateway');
-  private onlineUsers = new Set<string>(); // Lưu userId online
-  private clientUserMap = new Map<string, string>(); // Map clientId -> userId
+
+  constructor(private chatService: ChatService) {}
 
   afterInit(): void {
     this.logger.log('WebSocket Initialized');
@@ -19,35 +20,58 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   handleConnection(client: Socket): void {
     this.logger.log(`Client connected: ${client.id}`);
-    // Lắng nghe sự kiện user:online từ client
-    client.on('user:online', (userId: string) => {
-      this.onlineUsers.add(userId);
-      this.clientUserMap.set(client.id, userId);
-      this.emitOnlineUsers(client);
+
+    // Lắng nghe sự kiện user:online từ client với token
+    client.on('user:online:token', (data: { token: string }) => {
+      this.logger.log(`User online with token event received from client ${client.id}`);
+      const result = this.chatService.handleUserOnlineWithToken(data.token, client.id);
+
+      if (result.success) {
+        // Broadcast online users ngay khi có user mới online
+        this.chatService.broadcastOnlineUsers(client);
+      }
     });
+
+    // Lắng nghe sự kiện user:online từ client với userId trực tiếp (backward compatibility)
+    client.on('user:online', (userId: string) => {
+      this.logger.log(`User online event received: ${userId} from client ${client.id}`);
+      this.chatService.handleUserOnline(userId, client.id);
+      // Broadcast online users ngay khi có user mới online
+      this.chatService.broadcastOnlineUsers(client);
+    });
+
+    // Debug: Log tất cả clients đang connect
+    this.logger.log(`Total clients connected: ${this.chatService.getClientCount()}`);
   }
 
   handleDisconnect(client: Socket): void {
     this.logger.log(`Client disconnected: ${client.id}`);
-    // Xóa user khỏi danh sách online nếu có
-    const userId = this.clientUserMap.get(client.id);
-    if (userId) {
-      this.onlineUsers.delete(userId);
-      this.clientUserMap.delete(client.id);
-      this.emitOnlineUsers(client);
+    const result = this.chatService.handleUserOffline(client.id);
+    if (result.success) {
+      this.chatService.broadcastOnlineUsers(client);
     }
-  }
-
-  private emitOnlineUsers(client: Socket) {
-    const online = Array.from(this.onlineUsers);
-    client.broadcast.emit('users:online', online);
-    client.emit('users:online', online);
   }
 
   // 1. Gửi/nhận tin nhắn mới
   @SubscribeMessage('chat:message:new')
-  handleNewMessage(@MessageBody() data: any, @ConnectedSocket() client: Socket): void {
-    client.broadcast.emit('chat:message:new', data);
+  async handleNewMessage(@MessageBody() data: ChatMessageData, @ConnectedSocket() client: Socket): Promise<void> {
+    this.logger.log(`Received new message from client ${client.id}:`, JSON.stringify(data));
+
+    try {
+      // Xử lý tin nhắn mới thông qua ChatService
+      const savedMessage = await this.chatService.handleNewMessage(data);
+
+      // Broadcast tin nhắn đến tất cả clients khác
+      this.chatService.broadcastMessage(client, savedMessage);
+
+      // Gửi confirmation cho client gửi
+      this.chatService.sendMessageConfirmation(client, savedMessage);
+
+      this.logger.log(`Message processed successfully`);
+    } catch (error) {
+      this.logger.error(`Failed to process message: ${error.message}`);
+      this.chatService.sendErrorMessage(client, 'Failed to save message', data);
+    }
   }
 
   // 2. Thông báo tin nhắn bị thu hồi hoặc xóa
