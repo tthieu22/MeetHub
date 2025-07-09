@@ -1,4 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import mongoose, { Types } from 'mongoose';
 export type UserDocument = User & Document;
 export enum UserRole {
   ADMIN = 'admin',
@@ -22,8 +23,8 @@ export class User {
   })
   role: UserRole;
 
-  @Prop()
-  avatarURL: string;
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Image' })
+  avatarURL: Types.ObjectId;
 
   @Prop({
     type: Boolean,
