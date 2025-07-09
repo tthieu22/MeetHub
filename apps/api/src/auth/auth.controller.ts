@@ -1,41 +1,22 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res, UseGuards, Response as NestRes, Request as NestReq } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Request, Response } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { Response, Request } from 'express';
-import { AuthGuard } from '@nestjs/passport';
-import { SendCodeDto } from '../login-resgister/dto/send-code.dto';
-import { VerifyCodeDto } from '../login-resgister/dto/verify-code.dto';
-
+import { Response as Res, Request as Req } from 'express';
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @HttpCode(HttpStatus.OK)
   @Post('/signIn')
-  signIn(@Body('email') email: string, @Body('password') password: string, @NestRes({ passthrough: true }) res: Response) {
+  signIn(@Body('email') email: string, @Body('password') password: string, @Response({ passthrough: true }) res: Res) {
     return this.authService.signIn(email, password, res);
   }
-
   @Post('refresh-token')
-  refreshToken(@NestReq() req: Request, @NestRes({ passthrough: true }) res: Response) {
+  refreshToken(@Request() req: Req, @Response({ passthrough: true }) res: Res) {
     return this.authService.refreshToken(req, res);
   }
 
   @Post('logout')
-  logout(@NestRes({ passthrough: true }) res: Response) {
+  logout(@Response({ passthrough: true }) res: Res) {
     return this.authService.logout(res);
-  }
-
-  @Get('/google')
-  @UseGuards(AuthGuard('google'))
-  async googleLogin() {
-    // Tự động redirect tới Google
-  }
-
-  @Get('google/redirect')
-  @UseGuards(AuthGuard('google'))
-  googleRedirect(@Req() req: Request, @Res() res: Response) {
-    const userProfile = (req as any).user;
-    console.log(userProfile);
-    return this.authService.googleLogin(userProfile, res);
   }
 }

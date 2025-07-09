@@ -15,17 +15,8 @@ async function bootstrap() {
   app.setGlobalPrefix(apiPrefix);
   app.useGlobalPipes(new ValidationPipe());
   app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalFilters(new AllExceptionsFilter());
   app.use(cookieParser());
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET, // nên để vào .env
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        maxAge: 1000 * 60 * 60, // 1 giờ
-      },
-    }),
-  );
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}/${apiPrefix}`);
 }
