@@ -17,6 +17,7 @@ export class RoomsService implements IRoomService {
             const savedRoom = await createdRoom.save();
             return savedRoom.toObject() as IRoom;
         } catch (error) {
+            
             if (error.name === 'ValidationError') {
                 const errors = Object.values(error.errors).map((err: any) => ({
                     field: err.path,
