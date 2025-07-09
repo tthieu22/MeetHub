@@ -33,6 +33,8 @@ import { UploadImageModule } from './modules/upload/upload.module';
     ParticipationRequestsModule,
     BookingsModule,
     ParticipationRequestsModule,
+    UploadImageModule,
+    LoginResgisterModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway, MessageModule],
