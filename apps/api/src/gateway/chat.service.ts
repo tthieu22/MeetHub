@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { MessageService } from '@api/modules/chat/chat-message/message.service';
 import { RoomService } from '@api/modules/chat/chat-room/room.service';
 import { UserChatService } from '@api/modules/chat/chat-user/user-chat.service';
@@ -6,9 +6,14 @@ import { ReactionService } from '@api/modules/chat/chat-reactions/reaction.servi
 import { UsersService } from '@api/modules/users/users.service';
 import { CreateMessageDto } from '@api/modules/chat/chat-message/dto/create-message.dto';
 import { CreateRoomDto } from '@api/modules/chat/chat-room/dto/create-room.dto';
+import { REDIS_CLIENT } from '@api/modules/redis';
+import type Redis from 'ioredis';
+import { RoomSidebarInfo } from '@api/modules/chat/chat-room/interfaces/room-sidebar.interface';
 
 @Injectable()
 export class ChatService {
+  @Inject(REDIS_CLIENT) private readonly redisClient: Redis;
+
   constructor(
     private messageService: MessageService,
     private roomService: RoomService,
@@ -79,6 +84,10 @@ export class ChatService {
     return await this.roomService.getRoomMembers(conversationId, userId);
   }
 
+  async getRoomSidebarInfo(userId: string): Promise<RoomSidebarInfo[]> {
+    return this.roomService.getRoomSidebarInfo(userId);
+  }
+
   async getBlockedUsers(userId: string) {
     return await this.userChatService.getBlockedUsers(userId);
   }
@@ -93,6 +102,16 @@ export class ChatService {
   }
 
   async getNotifications() {}
+
+  /**
+   * Đánh dấu user online trên Redis
+   * @param userId string
+   * @returns { success: boolean; userId: string; }
+   */
+  async setUserOnline(userId: string): Promise<{ success: boolean; userId: string }> {
+    await this.redisClient.set(`user:online:${userId}`, '1');
+    return { success: true, userId };
+  }
 
   // User info methods
   async getUser(userId: string) {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Conversation, ConversationDocument } from '@api/modules/chat/chat-room/schema/chat-room.schema';
@@ -7,12 +7,9 @@ import { Message, MessageDocument } from '@api/modules/chat/chat-message/schema/
 import { MessageStatus, MessageStatusDocument } from '@api/modules/chat/chat-message/schema/message-status.schema';
 import { User, UserDocument } from '@api/modules/users/schema/user.schema';
 import { CreateRoomDto, UpdateRoomDto } from '@api/modules/chat/chat-room/dto';
-
-export interface RoomInfo {
-  roomId: string;
-  name: string;
-  type: string;
-}
+import { Redis } from 'ioredis';
+import { REDIS_CLIENT } from '@api/modules/redis';
+import { RoomInfo, RoomMemberInfo, LastMessageInfo, RoomSidebarInfo, PopulatedUser } from '@api/modules/chat/chat-room/interfaces/room-sidebar.interface';
 
 @Injectable()
 export class RoomService {
@@ -27,9 +24,9 @@ export class RoomService {
     private messageStatusModel: Model<MessageStatusDocument>,
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
+    @Inject(REDIS_CLIENT) private readonly redisClient: Redis,
   ) {}
 
-  // Helper: check if user is member of conversation
   private async isMemberOfConversation(userId: string, conversationId: string): Promise<boolean> {
     try {
       if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(conversationId)) {
@@ -102,35 +99,30 @@ export class RoomService {
   }
 
   // 11. Danh sách phòng của user
-  async getRooms(userId: string) {
+  async getRooms(userId: string): Promise<RoomInfo[]> {
     try {
-      // Kiểm tra userId hợp lệ
       if (!userId || userId === 'mock-user-id') {
         return [];
       }
-
-      // Lấy danh sách conversation IDs mà user tham gia
       const memberConversations = await this.conversationMemberModel
         .find({ userId: new Types.ObjectId(userId) })
         .select('conversationId')
         .exec();
-
       const conversationIds = memberConversations.map((mc) => mc.conversationId);
-
-      // Nếu không có conversation nào, trả về mảng rỗng
       if (conversationIds.length === 0) {
         return [];
       }
-
-      // Lấy thông tin chi tiết các conversation chưa bị xóa
       const conversations = await this.conversationModel
         .find({
           _id: { $in: conversationIds },
           isDeleted: false,
         })
         .exec();
-
-      return conversations;
+      return conversations.map((conv) => ({
+        roomId: String(conv._id),
+        name: conv.name,
+        type: conv.type,
+      }));
     } catch (error) {
       console.error('Error in getRooms:', error);
       throw error;
@@ -327,28 +319,46 @@ export class RoomService {
     return { success: true };
   }
 
-  // 23. Lấy số lượng tin nhắn chưa đọc trong phòng
-  async getUnreadCount(conversationId: string, userId: string) {
-    const isMember = await this.isMemberOfConversation(userId, conversationId);
+  async getLastMessage(roomId: string): Promise<LastMessageInfo | null> {
+    const msg = await this.messageModel
+      .findOne({ conversationId: new Types.ObjectId(roomId), isDeleted: false })
+      .sort({ createdAt: -1 })
+      .lean();
+    if (!msg) return null;
+    const getIdString = (id: unknown) => (typeof id === 'object' && id && 'toString' in id ? (id as { toString(): string }).toString() : String(id));
+    return {
+      messageId: getIdString(msg._id),
+      conversationId: getIdString(msg.conversationId),
+      senderId: getIdString(msg.senderId),
+      text: msg.text,
+      createdAt: (msg as { createdAt?: Date | string }).createdAt ? new Date((msg as { createdAt?: Date | string }).createdAt!) : new Date(0),
+    };
+  }
+  async getUnreadCount(roomId: string, userId: string): Promise<number> {
+    const isMember = await this.isMemberOfConversation(userId, roomId);
     if (!isMember) throw new ForbiddenException('You are not a member of this conversation');
-
     const totalMessages = await this.messageModel.countDocuments({
-      conversationId: new Types.ObjectId(conversationId),
+      conversationId: new Types.ObjectId(roomId),
       isDeleted: false,
     });
-
     const readMessages = await this.messageStatusModel.countDocuments({
       userId: new Types.ObjectId(userId),
       isRead: true,
       messageId: {
         $in: await this.messageModel
-          .find({ conversationId: new Types.ObjectId(conversationId), isDeleted: false })
+          .find({ conversationId: new Types.ObjectId(roomId), isDeleted: false })
           .select('_id')
           .then((messages) => messages.map((m) => m._id)),
       },
     });
-
     return totalMessages - readMessages;
+  }
+
+  async getOnlineMemberIds(roomId: string): Promise<string[]> {
+    const members = await this.conversationMemberModel.find({ conversationId: roomId }).select('userId').lean();
+    const userIds = members.map((m) => String(m.userId));
+    const onlineChecks = await Promise.all(userIds.map((uid) => this.redisClient.get(`user:online:${uid}`)));
+    return userIds.filter((uid, idx) => onlineChecks[idx] === '1');
   }
 
   listAllRooms(): RoomInfo[] {
@@ -356,5 +366,39 @@ export class RoomService {
       { roomId: '1', name: 'Phòng 1', type: 'group' },
       { roomId: '2', name: 'Phòng 2', type: 'private' },
     ];
+  }
+
+  async getRoomSidebarInfo(userId: string): Promise<RoomSidebarInfo[]> {
+    const rooms = await this.getRooms(userId);
+    const result: RoomSidebarInfo[] = [];
+    for (const room of rooms) {
+      const membersRaw = await this.conversationMemberModel
+        .find({ conversationId: new Types.ObjectId(room.roomId) })
+        .populate('userId', 'name avatarURL')
+        .lean();
+
+      const members: RoomMemberInfo[] = membersRaw.map((m) => {
+        const u = m.userId as PopulatedUser;
+        return {
+          userId: u._id.toString(),
+          name: u.name || '',
+          avatarURL: u.avatarURL,
+        };
+      });
+
+      const lastMessage = await this.getLastMessage(room.roomId);
+      const unreadCount = await this.getUnreadCount(room.roomId, userId);
+      const onlineMemberIds = await this.getOnlineMemberIds(room.roomId);
+      result.push({
+        roomId: room.roomId,
+        name: room.name,
+        isGroup: room.type === 'group',
+        members,
+        lastMessage,
+        unreadCount,
+        onlineMemberIds,
+      });
+    }
+    return result;
   }
 }

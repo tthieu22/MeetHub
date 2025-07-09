@@ -1,13 +1,19 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
 import { RoomService } from './room.service';
 import { CreateRoomDto, UpdateRoomDto, AddMemberDto } from './dto';
-import { AuthGuard } from '@api/auth/auth.guard';
 import { CurrentUser } from '@api/common/decorators/current-user.decorator';
+import { AuthGuard } from '@api/auth/auth.guard';
 
-@Controller('rooms')
+@Controller('chat/rooms')
 @UseGuards(AuthGuard)
 export class RoomController {
   constructor(private readonly roomService: RoomService) {}
+
+  @Get()
+  async getSidebarRooms(@Req() req: Request & { user: { sub: string } }) {
+    const userId = req.user.sub;
+    return this.roomService.getRoomSidebarInfo(userId);
+  }
 
   // 10. Tạo phòng mới (1-1 hoặc group)
   @Post()
