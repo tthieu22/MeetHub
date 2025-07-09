@@ -47,7 +47,7 @@ export class LoginResgisterService {
 
     return { sussess: true, message: 'Đã gửi mã xác thực về email' };
   }
-  async verifyCode(dto: VerifyCodeDto, type: VerifyCodeType, dtopass: PasswordResetDto) {
+  async verifyCode(dto: VerifyCodeDto, type: VerifyCodeType, ResetDto: PasswordResetDto) {
     const record: VerifyCode | null = await this.verifyCodeModel.findOne({ email: dto.email, type });
     if (!record || record.code !== dto.code) {
       throw new BadRequestException('Mã xác thực không đúng hoặc đã hết hạn');
@@ -55,7 +55,7 @@ export class LoginResgisterService {
     if (type === VerifyCodeType.VERIFY_ACCOUNT) {
       await this.activateAccount(dto.email);
     } else if (type === VerifyCodeType.RESET_PASSWORD) {
-      await this.resetPassword(dto.email, dtopass.password);
+      await this.resetPassword(ResetDto);
     }
 
     return { sussess: true, message: 'Xác thực thành công' };
@@ -63,11 +63,20 @@ export class LoginResgisterService {
   private async activateAccount(email: string) {
     await Promise.all([this.userDocumentModel.updateOne({ email }, { isActive: true }), this.verifyCodeModel.deleteMany({ email, type: VerifyCodeType.VERIFY_ACCOUNT })]);
   }
-  private async resetPassword(email: string, newPassword?: string) {
-    if (!newPassword) {
+  private async resetPassword(ResetDto: PasswordResetDto) {
+    if (!ResetDto.newPass) {
       throw new BadRequestException('Vui lòng cung cấp mật khẩu mới');
     }
-    const hashed = await hashPassword(newPassword);
-    await Promise.all([this.userDocumentModel.updateOne({ email }, { password: hashed }), this.verifyCodeModel.deleteMany({ email, type: VerifyCodeType.RESET_PASSWORD })]);
+    if (!ResetDto.newPassAgain) {
+      throw new BadRequestException('Vui lòng nhập lại mật khẩu');
+    }
+    if (ResetDto.newPass != ResetDto.newPassAgain) {
+      throw new BadRequestException('Vui lòng nhập lại giống mật khẩu đã nhập');
+    }
+    const hashed = await hashPassword(ResetDto.newPass);
+    await Promise.all([
+      this.userDocumentModel.updateOne({ email: ResetDto.email }, { password: hashed }),
+      this.verifyCodeModel.deleteMany({ email: ResetDto.email, type: VerifyCodeType.RESET_PASSWORD }),
+    ]);
   }
 }

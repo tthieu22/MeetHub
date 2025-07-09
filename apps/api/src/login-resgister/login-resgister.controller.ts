@@ -7,7 +7,7 @@ import { VerifyCodeDto } from './dto/verify-code.dto';
 import { VerifyCodeType } from './shemas/verify-code.schema';
 import { PasswordResetDto } from '@api/modules/password-reset/dto/create-password-reset.dto';
 
-@Controller('redirect')
+@Controller('register')
 export class LoginResgisterController {
   constructor(private readonly loginResgisterService: LoginResgisterService) {}
 
@@ -16,8 +16,8 @@ export class LoginResgisterController {
     return this.loginResgisterService.register(RegisterDto);
   }
   @Post('send-code')
-  sendCode(@Body() dto: SendCodeDto, type: VerifyCodeType) {
-    return this.loginResgisterService.sendVerificationCode(dto, type);
+  sendCode(@Body() dto: SendCodeDto) {
+    return this.loginResgisterService.sendVerificationCode(dto, VerifyCodeType.VERIFY_ACCOUNT);
   }
 
   @Post('verify-code')
