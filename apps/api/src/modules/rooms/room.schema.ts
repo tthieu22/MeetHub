@@ -9,7 +9,7 @@ export class Room extends Document {
   @Prop({ required: true })
   capacity: number;
 
-  @Prop({ required: true, enum: ['tầng 19 - 19 Tố Hữu', 'tầng 17 - 19 Tố Hữu'] })
+  @Prop({ required: true, enum: ['phòng 1901 - tầng 19 - 19 Tố Hữu', 'phòng 1902 - tầng 19 - 19 Tố Hữu', 'tầng 1704 - tầng 17 - 19 Tố Hữu'] })
   location: string;
 
   @Prop()
@@ -30,7 +30,7 @@ export class Room extends Document {
 
   @Prop({ 
     type: String, 
-    enum: ['available', 'occupied', 'maintenance', 'cleaning'], // Thêm trạng thái dọn dẹp
+    enum: ['available', 'occupied', 'maintenance', 'cleaning', 'deleted'], // Thêm trạng thái dọn dẹp
     default: 'available'
   })
   status: string;
