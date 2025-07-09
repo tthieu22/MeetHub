@@ -25,7 +25,7 @@ import { UserRole } from '@api/modules/users/schema/user.schema';
 export class RoomsController {
     constructor(
         @Inject(ROOM_SERVICE_TOKEN) private readonly roomService: IRoomService
-    ) {}
+    ) { }
 
     @Post('/add-room')
     @UseGuards(AuthGuard, RolesGuard)
@@ -91,4 +91,57 @@ export class RoomsController {
         await this.roomService.deleteRoom(id);
         return { success: true };
     }
+// Xóa mềm - Chuyển trạng thái phòng thành deleted
+    @Get(':id/soft-delete')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
+    async softDelete(@Param('id') id: string) {
+        await this.roomService.statusChangeDeleteRoom(id);
+        return {
+            success: true,
+            message: 'Chuyển trạng thái phòng thành đã xóa thành công'
+        };
+    }
+
+    @Get('active')
+    @UseGuards(AuthGuard)
+    async getAllActiveRooms(
+        @Query('page') page: number = 1,
+        @Query('limit') limit: number = 10
+    ) {
+        const result = await this.roomService.getAllActiveRooms(page, limit);
+        return result;
+    }
+
+    @Get('search')
+    @UseGuards(AuthGuard)
+    async searchRooms(@Query() query: Record<string, string>) {
+        // Chuẩn bị filters từ query parameters
+        const filters: any = {};
+
+        // Xử lý các tham số đơn giản (keyword, location, status, dates)
+        if (query.keyword) filters.keyword = query.keyword;
+        if (query.location) filters.location = query.location;
+        if (query.status) filters.status = query.status;
+        if (query.fromDate) filters.fromDate = query.fromDate;
+        if (query.toDate) filters.toDate = query.toDate;
+
+        // Xử lý các tham số số (minCapacity, maxCapacity, page, limit)
+        if (query.minCapacity) filters.minCapacity = parseInt(query.minCapacity, 10);
+        if (query.maxCapacity) filters.maxCapacity = parseInt(query.maxCapacity, 10);
+        if (query.page) filters.page = parseInt(query.page, 10);
+        if (query.limit) filters.limit = parseInt(query.limit, 10);
+
+        // Xử lý các tham số boolean (hasProjector, allowFood)
+        if (query.hasProjector) filters.hasProjector = query.hasProjector === 'true';
+        if (query.allowFood) filters.allowFood = query.allowFood === 'true';
+
+        // Xử lý mảng features
+        if (query.features) filters.features = query.features.split(',');
+
+        // Gọi service để xử lý tìm kiếm (service sẽ chịu trách nhiệm validate)
+        const result = await this.roomService.searchRooms(filters);
+        return result;
+    }
+
 }
