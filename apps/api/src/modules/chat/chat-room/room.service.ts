@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Conversation, ConversationDocument } from './schema/chat-room.schema';
-import { ConversationMember, ConversationMemberDocument } from './schema/conversation-member.schema';
-import { Message, MessageDocument } from '../chat-message/schema/message.schema';
-import { MessageStatus, MessageStatusDocument } from '../chat-message/schema/message-status.schema';
-import { User, UserDocument } from '../users/schema/user.schema';
-import { CreateRoomDto, UpdateRoomDto } from './dto';
+import { Conversation, ConversationDocument } from '@api/modules/chat/chat-room/schema/chat-room.schema';
+import { ConversationMember, ConversationMemberDocument } from '@api/modules/chat/chat-room/schema/conversation-member.schema';
+import { Message, MessageDocument } from '@api/modules/chat/chat-message/schema/message.schema';
+import { MessageStatus, MessageStatusDocument } from '@api/modules/chat/chat-message/schema/message-status.schema';
+import { User, UserDocument } from '@api/modules/users/schema/user.schema';
+import { CreateRoomDto, UpdateRoomDto } from '@api/modules/chat/chat-room/dto';
 
 export interface RoomInfo {
   roomId: string;

@@ -9,6 +9,9 @@ import { User, UserDocument } from '@api/modules/users/schema/user.schema';
 import { CreateMessageDto } from '@api/modules/chat/chat-message/dto/create-message.dto';
 import { MessagesResponse, SuccessResponse, FileResponse } from '@api/modules/chat/chat-message/interfaces/response.interface';
 import { UploadedFile } from '@api/modules/chat/chat-message/interfaces/file.interface';
+import { Inject } from '@nestjs/common';
+import { REDIS_CLIENT } from '@api/modules/redis';
+import type Redis from 'ioredis';
 
 export interface MessageInfo {
   messageId: string;
@@ -31,6 +34,7 @@ export class MessageService {
     private messageStatusModel: Model<MessageStatusDocument>,
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
+    @Inject(REDIS_CLIENT) private readonly redisClient: Redis,
   ) {}
 
   // Helper: get user by id

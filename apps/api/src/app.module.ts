@@ -4,13 +4,14 @@ import { AppController } from '@api/app.controller';
 import { AppService } from '@api/app.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { GatewayModule } from '@api/gateway/gateway.module';
-import { MessageModule } from './modules/chat-message/message.module';
-import { RoomModule } from './modules/chat-room/room.module';
-import { NotificationModule } from './modules/chat-notification/notification.module';
-import { UserChatModule } from './modules/chat-user/user-chat.module';
-import { ReactionModule } from './modules/chat-reactions/reaction.module';
+import { MessageModule } from './modules/chat/chat-message/message.module';
+import { RoomModule } from './modules/chat/chat-room/room.module';
+import { NotificationModule } from './modules/chat/chat-notification/notification.module';
+import { UserChatModule } from './modules/chat/chat-user/user-chat.module';
+import { ReactionModule } from './modules/chat/chat-reactions/reaction.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { RedisModule } from './modules/redis';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { AuthModule } from './auth/auth.module';
     ReactionModule,
     AuthModule,
     GatewayModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Conversation, ConversationSchema } from './schema/chat-room.schema';
-import { ConversationMember, ConversationMemberSchema } from './schema/conversation-member.schema';
-import { Message, MessageSchema } from '../chat-message/schema/message.schema';
-import { MessageStatus, MessageStatusSchema } from '../chat-message/schema/message-status.schema';
-import { User, UserSchema } from '../users/schema/user.schema';
-import { RoomController } from './room.controller';
-import { RoomService } from './room.service';
+import { Conversation, ConversationSchema } from '@api/modules/chat/chat-room/schema/chat-room.schema';
+import { ConversationMember, ConversationMemberSchema } from '@api/modules/chat/chat-room/schema/conversation-member.schema';
+import { Message, MessageSchema } from '@api/modules/chat/chat-message/schema/message.schema';
+import { MessageStatus, MessageStatusSchema } from '@api/modules/chat/chat-message/schema/message-status.schema';
+import { User, UserSchema } from '@api/modules/users/schema/user.schema';
+import { RoomController } from '@api/modules/chat/chat-room/room.controller';
+import { RoomService } from '@api/modules/chat/chat-room/room.service';
 
 @Module({
   imports: [

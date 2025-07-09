@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsEnum, IsMongoId, IsBoolean } from 'class-validator';
-import { NotificationType } from '@api/modules/chat-notification/schema/notification.schema';
+import { NotificationType } from '@api/modules/chat/chat-notification/schema/notification.schema';
 
 export class CreateNotificationDto {
   @IsMongoId()

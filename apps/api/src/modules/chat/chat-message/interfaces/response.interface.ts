@@ -1,4 +1,4 @@
-import { Message } from '@api/modules/chat-message/schema/message.schema';
+import { Message } from '@api/modules/chat/chat-message/schema/message.schema';
 
 export interface MessagesResponse {
   data: Message[];

@@ -1,5 +1,5 @@
 import { Controller } from '@nestjs/common';
-import { ReactionService } from './reaction.service';
+import { ReactionService } from '@api/modules/chat/chat-reactions/reaction.service';
 
 @Controller('messages')
 export class ReactionController {

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Reaction, ReactionDocument } from './schema/reaction.schema';
+import { Reaction, ReactionDocument } from '@api/modules/chat/chat-reactions/schema/reaction.schema';
 
 export interface ReactionInfo {
   messageId: string;

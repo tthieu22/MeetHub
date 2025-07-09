@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { RoomService } from './room.service';
 import { CreateRoomDto, UpdateRoomDto, AddMemberDto } from './dto';
-import { AuthGuard } from '../../auth/auth.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthGuard } from '@api/auth/auth.guard';
+import { CurrentUser } from '@api/common/decorators/current-user.decorator';
 
 @Controller('rooms')
 @UseGuards(AuthGuard)
