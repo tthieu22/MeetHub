@@ -52,7 +52,7 @@ export class RoomsService implements IRoomService {
         }
     }
 
-        async getAllRooms(page: number = 1, limit: number = 10, filter: any = {}): Promise<any> {
+    async getAllRooms(page: number = 1, limit: number = 10, filter: any = {}): Promise<any> {
         // Validate phân trang
         if (page < 1 || limit < 1) {
             throw new BadRequestException({
@@ -71,9 +71,9 @@ export class RoomsService implements IRoomService {
                 .exec(),
             this.roomModel.countDocuments(filter),
         ]);
-        
+
         const totalPages = Math.ceil(total / limit);
-        
+
         return {
             success: true,
             message: `Lấy danh sách phòng thành công (trang ${page}/${totalPages})`,
@@ -121,7 +121,20 @@ export class RoomsService implements IRoomService {
                     message: `Phòng với tên ${updateRoomDto.name} đã tồn tại`,
                 });
             }
-
+            if (updateRoomDto.capacity !== undefined && updateRoomDto.capacity < 6) {
+                throw new BadRequestException({
+                    success: false,
+                    message: 'Sức chứa phòng phải lớn hơn 5 người',
+                    errorCode: 'INVALID_CAPACITY'
+                });
+            }
+            if (updateRoomDto.status === 'Deleted') {
+                throw new BadRequestException({
+                    success: false,
+                    message: 'Không thể cập nhật trạng thái phòng thành "Deleted"',
+                    errorCode: 'INVALID_STATUS'
+                });
+            }
             if (updateRoomDto.location === 'tầng 1704 - tầng 17 - 19 Tố Hữu') {
                 throw new BadRequestException({
                     success: false,
@@ -140,7 +153,7 @@ export class RoomsService implements IRoomService {
                     errors,
                 });
             }
-            
+
             throw error;
         }
     }
@@ -154,4 +167,198 @@ export class RoomsService implements IRoomService {
             });
         }
     }
+
+    async searchRooms(filters: {
+        keyword?: string;
+        location?: string;
+        minCapacity?: number;
+        maxCapacity?: number;
+        status?: string;
+        hasProjector?: boolean;
+        allowFood?: boolean;
+        features?: string[];
+        fromDate?: string;
+        toDate?: string;
+        page?: number;
+        limit?: number;
+    }): Promise<{
+        success: boolean;
+        message: string;
+        data: IRoom[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+            appliedFilters: Partial<typeof filters>;
+        };
+    }> {
+        // Validate phân trang
+        const page = filters.page || 1;
+        const limit = filters.limit || 10;
+
+        if (page < 1 || limit < 1) {
+            throw new BadRequestException({
+                success: false,
+                message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
+                errorCode: 'INVALID_PAGINATION'
+            });
+        }
+
+        // Xây dựng query MongoDB
+        const query: any = { isActive: true }; // Mặc định chỉ tìm phòng active
+
+        // 1. Tìm kiếm đa trường (name, description)
+        if (filters.keyword) {
+            const keywordRegex = new RegExp(filters.keyword, 'i');
+            query.$or = [
+                { name: { $regex: keywordRegex } },
+                { description: { $regex: keywordRegex } },
+                { 'devices.name': { $regex: keywordRegex } }
+            ];
+        }
+
+        // 2. Lọc theo location
+        if (filters.location) {
+            query.location = filters.location;
+        }
+
+        // 3. Lọc theo sức chứa
+        if (filters.minCapacity || filters.maxCapacity) {
+            query.capacity = {};
+            if (filters.minCapacity) {
+                if (filters.minCapacity < 0) {
+                    throw new BadRequestException({
+                        success: false,
+                        message: 'Sức chứa tối thiểu không được âm',
+                        errorCode: 'INVALID_MIN_CAPACITY'
+                    });
+                }
+                query.capacity.$gte = filters.minCapacity;
+            }
+            if (filters.maxCapacity) {
+                if (filters.maxCapacity < 0) {
+                    throw new BadRequestException({
+                        success: false,
+                        message: 'Sức chứa tối đa không được âm',
+                        errorCode: 'INVALID_MAX_CAPACITY'
+                    });
+                }
+                query.capacity.$lte = filters.maxCapacity;
+            }
+        }
+
+        // 4. Lọc theo trạng thái
+        if (filters.status) {
+            const validStatuses = ['available', 'occupied', 'maintenance'];
+            if (!validStatuses.includes(filters.status)) {
+                throw new BadRequestException({
+                    success: false,
+                    message: `Trạng thái không hợp lệ. Giá trị hợp lệ: ${validStatuses.join(', ')}`,
+                    errorCode: 'INVALID_STATUS'
+                });
+            }
+            query.status = filters.status;
+        }
+
+        // 5. Lọc theo thiết bị (máy chiếu)
+        if (filters.hasProjector !== undefined) {
+            query.devices = {
+                $elemMatch: {
+                    name: 'Máy chiếu',
+                    quantity: { $gt: 0 }
+                }
+            };
+        }
+
+        // 6. Lọc theo tính năng (features)
+        if (filters.features && filters.features.length > 0) {
+            query.features = { $all: filters.features };
+        }
+
+        // 7. Lọc theo thời gian khả dụng (nếu cần)
+        if (filters.fromDate || filters.toDate) {
+            query.$and = [];
+
+            if (filters.fromDate) {
+                if (!this.isValidDate(filters.fromDate)) {
+                    throw new BadRequestException({
+                        success: false,
+                        message: 'Ngày bắt đầu không hợp lệ (định dạng YYYY-MM-DD)',
+                        errorCode: 'INVALID_FROM_DATE'
+                    });
+                }
+                query.$and.push({
+                    $or: [
+                        { 'operatingHours.close': { $gte: filters.fromDate } },
+                        { 'operatingHours.closedDays': { $nin: [this.getDayOfWeek(filters.fromDate)] } }
+                    ]
+                });
+            }
+
+            if (filters.toDate) {
+                if (!this.isValidDate(filters.toDate)) {
+                    throw new BadRequestException({
+                        success: false,
+                        message: 'Ngày kết thúc không hợp lệ (định dạng YYYY-MM-DD)',
+                        errorCode: 'INVALID_TO_DATE'
+                    });
+                }
+                query.$and.push({
+                    $or: [
+                        { 'operatingHours.open': { $lte: filters.toDate } },
+                        { 'operatingHours.closedDays': { $nin: [this.getDayOfWeek(filters.toDate)] } }
+                    ]
+                });
+            }
+        }
+
+        // Thực hiện truy vấn
+        try {
+            const skip = (page - 1) * limit;
+            const [rooms, total] = await Promise.all([
+                this.roomModel.find(query)
+                    .skip(skip)
+                    .limit(limit)
+                    .sort({ name: 1 }) // Sắp xếp theo tên
+                    .lean()
+                    .exec(),
+                this.roomModel.countDocuments(query)
+            ]);
+
+            const totalPages = Math.ceil(total / limit);
+
+            return {
+                success: true,
+                message: `Tìm thấy ${rooms.length} phòng phù hợp`,
+                data: rooms as IRoom[],
+                meta: {
+                    total,
+                    page,
+                    limit,
+                    totalPages,
+                    appliedFilters: { ...filters }
+                }
+            };
+        } catch (error) {
+            throw new BadRequestException({
+                success: false,
+                message: 'Lỗi khi tìm kiếm phòng',
+                errorCode: 'SEARCH_ERROR',
+                details: error.message
+            });
+        }
+    }
+
+    // Helper functions
+    private isValidDate(dateString: string): boolean {
+        return /^\d{4}-\d{2}-\d{2}$/.test(dateString);
+    }
+
+    private getDayOfWeek(dateString: string): string {
+        const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+        const date = new Date(dateString);
+        return days[date.getDay()];
+    }
+
 }
