@@ -8,5 +8,6 @@ import { Image, ImageSchema } from './schema/image.schema';
   imports: [MongooseModule.forFeature([{ name: Image.name, schema: ImageSchema }])],
   controllers: [UploadController],
   providers: [UploadService],
+  exports: [UploadService],
 })
 export class UploadImageModule {}
