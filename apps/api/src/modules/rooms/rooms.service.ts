@@ -60,7 +60,7 @@ export class RoomsService implements IRoomService {
         if (!room) {
             throw new NotFoundException({
                 success: false,
-                message: `Room with ID ${id} not found`,
+                message: `Không tìm thấy mã phòng ${id} `,
             });
         }
         return room as IRoom;
@@ -75,7 +75,7 @@ export class RoomsService implements IRoomService {
             if (!updatedRoom) {
                 throw new NotFoundException({
                     success: false,
-                    message: `Room with ID ${id} not found`,
+                    message: `Phòng với mã ${id} không tìm thấy`,
                 });
             }
             return updatedRoom as IRoom;
@@ -100,7 +100,7 @@ export class RoomsService implements IRoomService {
         if (!result) {
             throw new NotFoundException({
                 success: false,
-                message: `Room with ID ${id} not found`,
+                message: `Phòng với mã ${id} không tìm thấy`,
             });
         }
     }
