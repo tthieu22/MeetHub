@@ -4,6 +4,7 @@ import { ChatService } from '@api/gateway/chat.service';
 import { WsAuthGuard, AuthenticatedSocket } from '@api/common/guards/ws-auth.guard';
 import { Server } from 'socket.io';
 import { RoomSidebarInfo } from '@api/modules/chat/chat-room/interfaces/room-sidebar.interface';
+import { WsAuthService } from '@api/common/services/ws-auth.service';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -13,9 +14,21 @@ import { RoomSidebarInfo } from '@api/modules/chat/chat-room/interfaces/room-sid
 @UseGuards(WsAuthGuard)
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
-  constructor(private chatService: ChatService) {}
+  constructor(
+    private chatService: ChatService,
+    private wsAuthService: WsAuthService,
+  ) {}
 
   async handleConnection(client: AuthenticatedSocket): Promise<void> {
+    try {
+      const payload = await this.wsAuthService.validateToken(client);
+      client.user = payload;
+    } catch (err) {
+      client.emit('auth_error', { success: false, message: (err as Error).message, code: 'TOKEN_INVALID' });
+      client.disconnect();
+      return;
+    }
+
     const { user } = client;
     if (!user?.sub) {
       client.emit('auth_error', { success: false, message: 'User không xác thực', code: 'USER_INVALID' });
@@ -42,7 +55,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(`room:${roomId}`).emit('user_online', { userId, roomId });
     });
   }
-
   @SubscribeMessage('get_rooms')
   async handleGetRooms(@ConnectedSocket() client: AuthenticatedSocket) {
     const user = client.user;

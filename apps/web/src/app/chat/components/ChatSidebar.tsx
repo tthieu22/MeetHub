@@ -7,6 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import ChatList from '@web/components/chat/ChatList';
 import ChatDebugInfo from '@web/components/chat/ChatDebugInfo';
 import RelatedOnlineUsers from '@web/components/chat/RelatedOnlineUsers';
+import { useChatRooms } from '@web/lib/services/useChatRooms';
 
 const { Sider } = Layout;
 const { Title } = Typography;
@@ -22,6 +23,7 @@ export default function ChatSidebar({
 }: ChatSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { rooms, loading, error } = useChatRooms();
   
   // Lấy roomId từ URL path
   const selectedRoomId = pathname.split('/').pop() || '';
@@ -80,6 +82,9 @@ export default function ChatSidebar({
           <ChatList
             selectedRoomId={selectedRoomId}
             onRoomSelect={handleRoomSelect}
+            rooms={rooms}
+            loading={loading}
+            error={error}
           />
         </div>
         
