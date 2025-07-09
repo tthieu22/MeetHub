@@ -24,7 +24,7 @@ import { LoginResgisterModule } from '@api/login-resgister/login-resgister.modul
     JwtModule.register({
       global: true,
       secret: process.env.SECRET_JWT,
-      signOptions: { expiresIn: '3000s' },
+      signOptions: { expiresIn: '10d' },
     }),
     MongooseModule.forFeature([{ name: VerifyCode.name, schema: VerifyCodeSchema }]),
   ],

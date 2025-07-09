@@ -23,8 +23,8 @@ export class User {
   })
   role: UserRole;
 
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Image' })
-  avatarURL: Types.ObjectId;
+  @Prop()
+  avatarURL: string;
 
   @Prop({
     type: Boolean,
