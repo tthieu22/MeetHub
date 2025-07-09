@@ -7,7 +7,9 @@ import {
   Min,
   IsBoolean,
   IsObject,
-  ValidateNested as ValidateNestedDto
+  ValidateNested as ValidateNestedDto,
+  IsNotEmpty,
+  Validate,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -74,14 +76,17 @@ class CancellationPolicyDto {
 
 export class CreateRoomDto {
   @IsString()
+  @IsNotEmpty({ message: 'Tên phòng không được để trống' })
   name: string;
 
   @IsNumber()
   @Min(6, { message: 'Sức chứa phải lớn hơn 5 người' })
+  @IsNotEmpty({ message: 'Sức chứa phòng không  được để trống' })
   capacity: number;
 
   @IsString()
-  @IsIn(['tầng 19 - 19 Tố Hữu', 'tầng 17 - 19 Tố Hữu'])
+  @IsIn(['phòng 1901 - tầng 19 - 19 Tố Hữu', 'phòng 1902 - tầng 19 - 19 Tố Hữu', 'tầng 1704 - tầng 17 - 19 Tố Hữu'])
+  @IsOptional()
   location: string;
 
   @IsString()
@@ -100,8 +105,8 @@ export class CreateRoomDto {
   features?: string[];
 
   @IsString()
-  @IsIn(['available', 'occupied', 'maintenance', 'cleaning'])
-  @IsOptional()
+  @IsIn(['available', 'occupied', 'maintenance', 'cleaning', "Deleted"])
+  @IsNotEmpty({ message: 'trạng thái hoạt động chưa được định nghĩa' })
   status?: string;
 
   @IsObject()

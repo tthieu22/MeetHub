@@ -9,7 +9,7 @@ import { IRoom } from './interface/room.interface';
 
 @Injectable()
 export class RoomsService implements IRoomService {
-    constructor(@InjectModel(Room.name) private roomModel: Model<Room>) {}
+    constructor(@InjectModel(Room.name) private roomModel: Model<Room>) { }
 
     async createRoom(createRoomDto: CreateRoomDto): Promise<IRoom> {
         try {
@@ -17,6 +17,26 @@ export class RoomsService implements IRoomService {
             const savedRoom = await createdRoom.save();
             return savedRoom.toObject() as IRoom;
         } catch (error) {
+            if (error.code === 11000) {
+                throw new BadRequestException({
+                    success: false,
+                    message: `Phòng với tên ${createRoomDto.name} đã tồn tại`,
+                });
+            }
+            if (createRoomDto.capacity < 6) {
+                throw new BadRequestException({
+                    success: false,
+                    message: 'Sức chứa phòng phải lớn hơn 5 người',
+                    errorCode: 'INVALID_CAPACITY'
+                });
+            }
+            if (createRoomDto.location === 'tầng 1704 - tầng 17 - 19 Tố Hữu') {
+                throw new BadRequestException({
+                    success: false,
+                    message: 'Vị trí phòng không hợp lệ',
+                    errorCode: 'INVALID_LOCATION'
+                });
+            }
             if (error.name === 'ValidationError') {
                 const errors = Object.values(error.errors).map((err: any) => ({
                     field: err.path,
@@ -32,21 +52,36 @@ export class RoomsService implements IRoomService {
         }
     }
 
-    async getAllRooms(page: number = 1, limit: number = 10, filter: any = {}): Promise<any> {
+        async getAllRooms(page: number = 1, limit: number = 10, filter: any = {}): Promise<any> {
+        // Validate phân trang
+        if (page < 1 || limit < 1) {
+            throw new BadRequestException({
+                success: false,
+                message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
+                errorCode: 'INVALID_PAGINATION'
+            });
+        }
+
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
-            this.roomModel.find(filter).skip(skip).limit(limit).lean().exec(),
+            this.roomModel.find(filter)
+                .skip(skip)
+                .limit(limit)
+                .lean()
+                .exec(),
             this.roomModel.countDocuments(filter),
         ]);
+        
         const totalPages = Math.ceil(total / limit);
+        
         return {
             success: true,
+            message: `Lấy danh sách phòng thành công (trang ${page}/${totalPages})`,
             total,
             page,
             limit,
             totalPages,
             data,
-            filter,
         };
     }
 
@@ -80,6 +115,20 @@ export class RoomsService implements IRoomService {
             }
             return updatedRoom as IRoom;
         } catch (error) {
+            if (error.code === 11000) {
+                throw new BadRequestException({
+                    success: false,
+                    message: `Phòng với tên ${updateRoomDto.name} đã tồn tại`,
+                });
+            }
+
+            if (updateRoomDto.location === 'tầng 1704 - tầng 17 - 19 Tố Hữu') {
+                throw new BadRequestException({
+                    success: false,
+                    message: 'Vị trí phòng không hợp lệ',
+                    errorCode: 'INVALID_LOCATION'
+                });
+            }
             if (error.name === 'ValidationError') {
                 const errors = Object.values(error.errors).map((err: any) => ({
                     field: err.path,
@@ -91,6 +140,7 @@ export class RoomsService implements IRoomService {
                     errors,
                 });
             }
+            
             throw error;
         }
     }
