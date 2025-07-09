@@ -39,8 +39,10 @@ function Header() {
           style={{ 
             margin: 0, 
             color: '#1890ff',
-            fontWeight: 'bold'
+            fontWeight: 'bold',
+            cursor: 'pointer'
           }}
+          onClick={() => handleMenuClick('home')}
         >
           MeetHub
         </Title>
@@ -55,18 +57,18 @@ function Header() {
         <Space size="large">
           <Button 
             type="text" 
-            icon={<HomeOutlined />}
             onClick={() => handleMenuClick('home')}
-            style={{ fontSize: '16px' }}
+            style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
           >
+            <HomeOutlined />
             Trang chủ
           </Button>
           <Button 
             type="text" 
-            icon={<MessageOutlined />}
             onClick={() => handleMenuClick('chat')}
-            style={{ fontSize: '16px' }}
+            style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
           >
+            <MessageOutlined />
             Chat
           </Button>
         </Space>

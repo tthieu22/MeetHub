@@ -1,26 +1,6 @@
 import React, { memo } from 'react';
 
-interface ChatDebugInfoProps {
-  onlineUserIds: string[];
-  currentUserId: string;
-  tokenStatus: string;
-  apiMessagesCount: number;
-  socketMessagesCount: number;
-  totalMessagesCount: number;
-  isConnected: boolean;
-  onTestToken: () => void;
-}
-
-const ChatDebugInfo = memo(({
-  onlineUserIds,
-  currentUserId,
-  tokenStatus,
-  apiMessagesCount,
-  socketMessagesCount,
-  totalMessagesCount,
-  isConnected,
-  onTestToken
-}: ChatDebugInfoProps) => {
+const ChatDebugInfo = memo(() => {
   return (
     <div style={{ 
       padding: '10px', 
@@ -32,15 +12,14 @@ const ChatDebugInfo = memo(({
       overflow: 'auto',
       flexShrink: 0
     }}>
-      <div style={{ color: isConnected ? '#52c41a' : '#ff4d4f', fontWeight: 'bold' }}>
-        WebSocket: {isConnected ? 'Connected' : 'Disconnected'}
+      <div style={{ color: '#52c41a', fontWeight: 'bold' }}>
+        WebSocket: Connected
       </div>
-      <div style={{ marginBottom: '2px' }}>Online Users: {onlineUserIds.length}</div>
-      <div style={{ marginBottom: '2px' }}>Current User: {currentUserId ? currentUserId.substring(0, 8) + '...' : 'Not loaded'}</div>
-      <div style={{ marginBottom: '2px' }}>Token: {tokenStatus}</div>
-      <div style={{ marginBottom: '2px' }}>API: {apiMessagesCount} | Socket: {socketMessagesCount} | Total: {totalMessagesCount}</div>
+      <div style={{ marginBottom: '2px' }}>Related Online Users: 3</div>
+      <div style={{ marginBottom: '2px' }}>Current User: user123...</div>
+      <div style={{ marginBottom: '2px' }}>Token: Valid</div>
+      <div style={{ marginBottom: '2px' }}>API: 5 | Socket: 3 | Total: 8</div>
       <button 
-        onClick={onTestToken}
         style={{ 
           marginTop: '5px', 
           fontSize: '10px', 

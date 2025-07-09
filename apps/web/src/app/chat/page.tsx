@@ -1,8 +1,24 @@
 'use client';
 
-import React from 'react';
-import ChatLayout from './layout';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function ChatPage() {
-  return <ChatLayout />;
+  const router = useRouter();
+
+  useEffect(() => {
+    router.push('/chat/1');
+  }, [router]);
+
+  return (
+    <div style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      height: '100vh',
+      color: '#888' 
+    }}>
+      Đang chuyển hướng...
+    </div>
+  );
 } 

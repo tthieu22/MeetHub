@@ -3,25 +3,45 @@
 import React from 'react';
 import { List, Avatar, Typography, Badge, Space } from 'antd';
 import { UserOutlined } from '@ant-design/icons';
-import { ChatRoom } from '@web/lib/api';
-import { useOnlineUsers } from '@web/hooks/useOnlineUsers';
 
 const { Text } = Typography;
 
+// Dữ liệu mẫu cho giao diện
+const mockChatRooms = [
+  {
+    _id: '1',
+    name: 'Phòng chat 1',
+    members: [{ user: { id: '1', avatar: null } }],
+    lastMessage: { content: 'Xin chào!', createdAt: new Date() },
+    unreadCount: 2
+  },
+  {
+    _id: '2', 
+    name: 'Phòng chat 2',
+    members: [{ user: { id: '2', avatar: null } }],
+    lastMessage: { content: 'Tin nhắn cuối', createdAt: new Date() },
+    unreadCount: 0
+  },
+  {
+    _id: '3',
+    name: 'Phòng chat 3', 
+    members: [{ user: { id: '3', avatar: null } }],
+    lastMessage: null,
+    unreadCount: 0
+  }
+];
+
 interface ChatListProps {
-  chatRooms: ChatRoom[];
   selectedRoomId?: string;
-  onRoomSelect: (roomId: string) => void;
+  onRoomSelect?: (roomId: string) => void;
 }
 
-export default function ChatList({ chatRooms, selectedRoomId, onRoomSelect }: ChatListProps) {
-  const { onlineUserIds } = useOnlineUsers();
-
+export default function ChatList({ selectedRoomId, onRoomSelect }: ChatListProps) {
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <List
         itemLayout="horizontal"
-        dataSource={chatRooms}
+        dataSource={mockChatRooms}
         style={{ padding: 0 }}
         renderItem={(room) => {
           const firstMember = Array.isArray(room.members) && room.members.length > 0 ? room.members[0] : null;
@@ -29,7 +49,7 @@ export default function ChatList({ chatRooms, selectedRoomId, onRoomSelect }: Ch
           
           return (
             <List.Item
-              onClick={() => onRoomSelect(room._id)}
+              onClick={() => onRoomSelect?.(room._id)}
               style={{
                 cursor: 'pointer',
                 padding: '12px 16px',
@@ -47,24 +67,9 @@ export default function ChatList({ chatRooms, selectedRoomId, onRoomSelect }: Ch
                       icon={<UserOutlined />}
                       size="large"
                       style={{
-                        border: `2px solid ${Array.isArray(room.members) && room.members.some(m => onlineUserIds.includes(m.user.id)) ? '#52c41a' : '#bfbfbf'}`,
-                        boxShadow: Array.isArray(room.members) && room.members.some(m => onlineUserIds.includes(m.user.id)) ? '0 0 6px rgba(82, 196, 26, 0.6)' : 'none'
+                        border: '2px solid #bfbfbf'
                       }}
                     />
-                    {Array.isArray(room.members) && room.members.some(m => onlineUserIds.includes(m.user.id)) && (
-                      <span style={{
-                        position: 'absolute',
-                        bottom: -2,
-                        right: -2,
-                        width: 12,
-                        height: 12,
-                        borderRadius: '50%',
-                        background: '#52c41a',
-                        border: '2px solid white',
-                        boxShadow: '0 0 4px rgba(82, 196, 26, 0.8)',
-                        zIndex: 10,
-                      }} />
-                    )}
                   </div>
                 }
                 title={

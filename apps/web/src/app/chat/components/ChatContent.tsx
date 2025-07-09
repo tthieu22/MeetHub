@@ -1,54 +1,79 @@
 'use client';
 
-import React, { useCallback, useMemo } from 'react';
-import { Layout, Spin } from 'antd';
-import ChatHeader from '@web/components/chat/ChatHeader';
-import ChatMessages from '@web/components/chat/ChatMessages';
-import ChatInput from '@web/components/chat/ChatInput';
-import { useMessages } from '@web/hooks/useMessages';
-import { useOnlineStatus } from '@web/hooks/useOnlineStatus';
-import { message } from 'antd';
-import { useRooms } from '@web/hooks/useRooms';
+import React from 'react';
+import { Layout, Result } from 'antd';
+import { usePathname, useRouter } from 'next/navigation';
+import ChatRoom from '@web/components/chat/ChatRoom';
 
 const { Content } = Layout;
 
-interface ChatContentProps {
-  selectedRoomId: string;
-  currentUserId: string;
-}
+// Danh sách roomId hợp lệ
+const validRoomIds = ['1', '2', '3'];
 
-export default function ChatContent({ selectedRoomId, currentUserId }: ChatContentProps) {
-  const { rooms } = useRooms();
+// Component riêng cho button để tránh lỗi React 19
+const GoToFirstRoomButton = () => {
+  const router = useRouter();
+  
+  const handleClick = () => {
+    router.push('/chat/1');
+  };
 
-  const { 
-    messages, 
-    loading: messagesLoading, 
-    error: messagesError,
-    sendMessage
-  } = useMessages(selectedRoomId);
-
-  const { onlineUsers } = useOnlineStatus();
-
-  const selectedRoom = useMemo(() => 
-    rooms.find(room => room._id === selectedRoomId), 
-    [rooms, selectedRoomId]
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      style={{
+        backgroundColor: '#1890ff',
+        color: 'white',
+        border: 'none',
+        padding: '8px 16px',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        fontSize: '14px',
+        fontWeight: '500'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = '#40a9ff';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = '#1890ff';
+      }}
+    >
+      Về phòng chat đầu tiên
+    </button>
   );
+};
 
-  const handleSendMessage = useCallback(async (content: string) => {
-    if (!selectedRoomId || !currentUserId) {
-      message.error('Vui lòng chọn phòng chat và đăng nhập');
-      return;
-    }
-    try {
-      await sendMessage(content);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      message.error('Không thể gửi tin nhắn');
-    }
-  }, [selectedRoomId, currentUserId, sendMessage]);
+export default function ChatContent() {
+  const pathname = usePathname();
+  const roomId = pathname.split('/').pop() || '';
 
-  if (messagesError) {
-    message.error(messagesError);
+  // Kiểm tra roomId có hợp lệ không
+  const isValidRoom = validRoomIds.includes(roomId);
+
+  if (roomId && !isValidRoom) {
+    return (
+      <Content style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        height: '100vh',
+        overflow: 'hidden'
+      }}>
+        <div style={{ 
+          flex: 1, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center' 
+        }}>
+          <Result
+            status="404"
+            title="Không tìm thấy phòng chat"
+            subTitle={`Phòng chat "${roomId}" không tồn tại.`}
+            extra={<GoToFirstRoomButton />}
+          />
+        </div>
+      </Content>
+    );
   }
 
   return (
@@ -58,53 +83,11 @@ export default function ChatContent({ selectedRoomId, currentUserId }: ChatConte
       height: '100vh',
       overflow: 'hidden'
     }}>
-      {selectedRoomId ? (
-        <>
-          <div style={{ flexShrink: 0 }}>
-            <ChatHeader room={selectedRoom} />
-          </div>
-          <div style={{ 
-            flex: 1, 
-            display: 'flex', 
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}>
-            {messagesLoading ? (
-              <div style={{ 
-                padding: '20px', 
-                textAlign: 'center', 
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <Spin />
-              </div>
-            ) : (
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <ChatMessages 
-                  key={selectedRoomId} 
-                  messages={messages.map(msg => ({
-                    id: msg.id,
-                    conversationId: msg.roomId,
-                    senderId: msg.senderId,
-                    sender: { id: msg.senderId, name: 'User', email: '', isOnline: false },
-                    text: msg.text,
-                    mentions: [],
-                    isPinned: false,
-                    isDeleted: false,
-                    createdAt: msg.createdAt,
-                  }))} 
-                  currentUserId={currentUserId || "686b2b9fef3f57bb0f638ba9"} 
-                  onlineUserIds={onlineUsers} 
-                />
-              </div>
-            )}
-            <div style={{ flexShrink: 0 }}>
-              <ChatInput onSendMessage={handleSendMessage} disabled={!selectedRoomId} />
-            </div>
-          </div>
-        </>
+      {roomId ? (
+        <ChatRoom 
+          roomId={roomId} 
+          roomName={`Phòng chat ${roomId}`} 
+        />
       ) : (
         <div style={{ 
           flex: 1, 
