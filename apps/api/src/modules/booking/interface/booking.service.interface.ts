@@ -15,4 +15,5 @@ export interface IBookingService {
   searchBookingsDetailed(dto: SearchBookingsDetailedDto): Promise<any>;
   setBookingStatusToDeleted(id: string): Promise<IBooking>;
   findAllExcludeDeleted(page?: number, limit?: number): Promise<any>;
+  addParticipant(bookingId: string, userId: string, requesterId: string): Promise<IBooking>;
 }
