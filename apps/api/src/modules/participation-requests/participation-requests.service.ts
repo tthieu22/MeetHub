@@ -18,84 +18,124 @@ export class ParticipationRequestsService implements IParticipationRequestServic
 
   async create(createDto: CreateParticipationRequestDto): Promise<ParticipationRequest> {
     try {
-      // Validate MongoDB ObjectId format
       if (!Types.ObjectId.isValid(createDto.booking)) {
-        throw new BadRequestException('Invalid booking ID format');
+        throw new BadRequestException({
+          success: false,
+          message: 'Booking ID không hợp lệ',
+          errorCode: 'INVALID_BOOKING_ID',
+        });
       }
       
       if (!Types.ObjectId.isValid(createDto.user)) {
-        throw new BadRequestException('Invalid user ID format');
+        throw new BadRequestException({
+          success: false,
+          message: 'User ID không hợp lệ',
+          errorCode: 'INVALID_USER_ID',
+        });
       }
 
-      // Check if booking exists
-      const booking = await this.bookingModel.findById(createDto.booking).exec();
+      const booking = await this.bookingModel
+        .findOne({ _id: createDto.booking, status: { $ne: 'DELETED' } })
+        .exec();
       if (!booking) {
-        throw new NotFoundException('Booking not found');
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy đặt phòng với ID ${createDto.booking}`,
+          errorCode: 'BOOKING_NOT_FOUND',
+        });
       }
 
-      // Check if user exists
       const user = await this.userModel.findById(createDto.user).exec();
       if (!user) {
-        throw new NotFoundException('User not found');
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy người dùng với ID ${createDto.user}`,
+          errorCode: 'USER_NOT_FOUND',
+        });
       }
 
-      // Check if user is trying to join their own booking
       if (booking.user.toString() === createDto.user) {
-        throw new BadRequestException('Cannot request to join your own booking');
+        throw new BadRequestException({
+          success: false,
+          message: 'Không thể yêu cầu tham gia đặt phòng của chính bạn',
+          errorCode: 'SELF_REQUEST_DENIED',
+        });
       }
 
-      // Check if request already exists
       const existingRequest = await this.participationRequestModel.findOne({
         booking: createDto.booking,
         user: createDto.user,
       }).exec();
-
       if (existingRequest) {
-        throw new BadRequestException('Participation request already exists');
+        throw new BadRequestException({
+          success: false,
+          message: 'Yêu cầu tham gia đã tồn tại',
+          errorCode: 'DUPLICATE_REQUEST',
+        });
       }
 
-      // Check if user is already a participant
       const isAlreadyParticipant = booking.participants.some(
-        participantId => participantId.toString() === createDto.user
+        participantId => participantId.toString() === createDto.user,
       );
-
       if (isAlreadyParticipant) {
-        throw new BadRequestException('User is already a participant in this booking');
+        throw new BadRequestException({
+          success: false,
+          message: 'Người dùng đã là thành viên tham gia trong đặt phòng này',
+          errorCode: 'ALREADY_PARTICIPANT',
+        });
       }
 
-      // Create the request
       const createdRequest = new this.participationRequestModel({
-        booking: new Types.ObjectId(createDto.booking),
-        user: new Types.ObjectId(createDto.user),
-        status: RequestStatus.PENDING
+        booking: createDto.booking,
+        user: createDto.user,
+        status: RequestStatus.PENDING,
       });
 
       const savedRequest = await createdRequest.save();
       
-      // Populate and return
       const populatedRequest = await this.participationRequestModel
         .findById(savedRequest._id)
         .populate('booking user approvedBy')
+        .lean()
         .exec();
 
       if (!populatedRequest) {
-        throw new NotFoundException('Participation request not found after creation');
+        throw new NotFoundException({
+          success: false,
+          message: 'Yêu cầu tham gia không tìm thấy sau khi tạo',
+          errorCode: 'REQUEST_NOT_FOUND',
+        });
       }
 
-      return populatedRequest;
-        
+      return populatedRequest as ParticipationRequest;
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
-        throw error;
+      if (error.name === 'ValidationError') {
+        const errors = Object.values(error.errors).map((err: any) => ({
+          field: err.path,
+          message: err.message,
+        }));
+        throw new BadRequestException({
+          success: false,
+          message: 'Dữ liệu yêu cầu tham gia không hợp lệ',
+          errors,
+          errorCode: 'VALIDATION_ERROR',
+        });
       }
-      throw new BadRequestException('Failed to create participation request: ' + error.message);
+      if (error.code === 11000) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Yêu cầu tham gia đã tồn tại với thông tin tương tự',
+          errorCode: 'DUPLICATE_REQUEST',
+        });
+      }
+      throw error;
     }
   }
 
-   async findAll(
+  async findAll(
     page: number = 1,
     limit: number = 10,
-    filter: any = {}
+    filter: any = {},
   ): Promise<{
     data: ParticipationRequest[];
     total: number;
@@ -104,63 +144,140 @@ export class ParticipationRequestsService implements IParticipationRequestServic
     totalPages: number;
   }> {
     try {
+      if (page < 1 || limit < 1) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
+          errorCode: 'INVALID_PAGINATION',
+        });
+      }
+
       const skip = (page - 1) * limit;
       const [data, total] = await Promise.all([
-        this.participationRequestModel.find(filter)
+        this.participationRequestModel
+          .find(filter)
           .skip(skip)
           .limit(limit)
           .populate('booking user approvedBy')
+          .lean()
           .exec(),
-        this.participationRequestModel.countDocuments(filter).exec()
+        this.participationRequestModel.countDocuments(filter).exec(),
       ]);
 
       const totalPages = Math.ceil(total / limit);
-      
       return {
         data,
         total,
         page,
         limit,
-        totalPages
+        totalPages,
       };
     } catch (error) {
-      throw new BadRequestException('Failed to fetch participation requests: ' + error.message);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException({
+        success: false,
+        message: 'Không thể lấy danh sách yêu cầu tham gia',
+        errorCode: 'FETCH_REQUESTS_FAILED',
+      });
     }
   }
 
   async findOne(id: string): Promise<ParticipationRequest> {
     try {
       if (!Types.ObjectId.isValid(id)) {
-        throw new BadRequestException('Invalid participation request ID format');
+        throw new BadRequestException({
+          success: false,
+          message: 'ID yêu cầu tham gia không hợp lệ',
+          errorCode: 'INVALID_REQUEST_ID',
+        });
       }
 
       const request = await this.participationRequestModel
         .findById(id)
         .populate('booking user approvedBy')
+        .lean()
         .exec();
-        
+
       if (!request) {
-        throw new NotFoundException(`Participation request with ID ${id} not found`);
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy yêu cầu tham gia với ID ${id}`,
+          errorCode: 'REQUEST_NOT_FOUND',
+        });
       }
-      
-      return request;
+
+      return request as ParticipationRequest;
     } catch (error) {
       if (error instanceof BadRequestException || error instanceof NotFoundException) {
         throw error;
       }
-      throw new BadRequestException('Failed to fetch participation request: ' + error.message);
+      throw new BadRequestException({
+        success: false,
+        message: 'Không thể lấy thông tin yêu cầu tham gia',
+        errorCode: 'FETCH_REQUEST_FAILED',
+      });
     }
   }
 
   async update(id: string, updateDto: UpdateParticipationRequestDto): Promise<ParticipationRequest> {
     try {
       if (!Types.ObjectId.isValid(id)) {
-        throw new BadRequestException('Invalid participation request ID format');
+        throw new BadRequestException({
+          success: false,
+          message: 'ID yêu cầu tham gia không hợp lệ',
+          errorCode: 'INVALID_REQUEST_ID',
+        });
       }
 
       const request = await this.participationRequestModel.findById(id).exec();
       if (!request) {
-        throw new NotFoundException(`Participation request with ID ${id} not found`);
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy yêu cầu tham gia với ID ${id}`,
+          errorCode: 'REQUEST_NOT_FOUND',
+        });
+      }
+
+      if (updateDto.booking) {
+        if (!Types.ObjectId.isValid(updateDto.booking)) {
+          throw new BadRequestException({
+            success: false,
+            message: 'Booking ID không hợp lệ',
+            errorCode: 'INVALID_BOOKING_ID',
+          });
+        }
+        const booking = await this.bookingModel
+          .findOne({ _id: updateDto.booking, status: { $ne: 'DELETED' } })
+          .exec();
+        if (!booking) {
+          throw new NotFoundException({
+            success: false,
+            message: `Không tìm thấy đặt phòng với ID ${updateDto.booking}`,
+            errorCode: 'BOOKING_NOT_FOUND',
+          });
+        }
+        request.booking = updateDto.booking as any;
+      }
+
+      if (updateDto.user) {
+        if (!Types.ObjectId.isValid(updateDto.user)) {
+          throw new BadRequestException({
+            success: false,
+            message: 'User ID không hợp lệ',
+            errorCode: 'INVALID_USER_ID',
+          });
+        }
+        const user = await this.userModel.findById(updateDto.user).exec();
+        if (!user) {
+          throw new NotFoundException({
+            success: false,
+            message: `Không tìm thấy người dùng với ID ${updateDto.user}`,
+            errorCode: 'USER_NOT_FOUND',
+          });
+        }
+        request.user = updateDto.user as any;
       }
 
       if (updateDto.status) {
@@ -169,172 +286,296 @@ export class ParticipationRequestsService implements IParticipationRequestServic
 
       if (updateDto.approvedBy) {
         if (!Types.ObjectId.isValid(updateDto.approvedBy)) {
-          throw new BadRequestException('Invalid approver ID format');
+          throw new BadRequestException({
+            success: false,
+            message: 'ApprovedBy ID không hợp lệ',
+            errorCode: 'INVALID_APPROVER_ID',
+          });
         }
-        
         const approver = await this.userModel.findById(updateDto.approvedBy).exec();
         if (!approver) {
-          throw new NotFoundException('Approver user not found');
+          throw new NotFoundException({
+            success: false,
+            message: `Không tìm thấy người duyệt với ID ${updateDto.approvedBy}`,
+            errorCode: 'APPROVER_NOT_FOUND',
+          });
         }
-        request.approvedBy = approver;
+        request.approvedBy = updateDto.approvedBy as any;
       }
 
       const updatedRequest = await request.save();
-      
+
       const populatedRequest = await this.participationRequestModel
         .findById(updatedRequest._id)
         .populate('booking user approvedBy')
+        .lean()
         .exec();
 
       if (!populatedRequest) {
-        throw new NotFoundException('Participation request not found after update');
+        throw new NotFoundException({
+          success: false,
+          message: 'Yêu cầu tham gia không tìm thấy sau khi cập nhật',
+          errorCode: 'REQUEST_NOT_FOUND',
+        });
       }
 
-      return populatedRequest;
-        
+      return populatedRequest as ParticipationRequest;
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
-        throw error;
+      if (error.name === 'ValidationError') {
+        const errors = Object.values(error.errors).map((err: any) => ({
+          field: err.path,
+          message: err.message,
+        }));
+        throw new BadRequestException({
+          success: false,
+          message: 'Dữ liệu yêu cầu tham gia không hợp lệ',
+          errors,
+          errorCode: 'VALIDATION_ERROR',
+        });
       }
-      throw new BadRequestException('Failed to update participation request: ' + error.message);
+      if (error.code === 11000) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Yêu cầu tham gia đã tồn tại với thông tin tương tự',
+          errorCode: 'DUPLICATE_REQUEST',
+        });
+      }
+      throw error;
     }
   }
 
   async remove(id: string): Promise<void> {
     try {
       if (!Types.ObjectId.isValid(id)) {
-        throw new BadRequestException('Invalid participation request ID format');
+        throw new BadRequestException({
+          success: false,
+          message: 'ID yêu cầu tham gia không hợp lệ',
+          errorCode: 'INVALID_REQUEST_ID',
+        });
       }
 
       const result = await this.participationRequestModel.findByIdAndDelete(id).exec();
       if (!result) {
-        throw new NotFoundException(`Participation request with ID ${id} not found`);
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy yêu cầu tham gia với ID ${id}`,
+          errorCode: 'REQUEST_NOT_FOUND',
+        });
       }
     } catch (error) {
       if (error instanceof BadRequestException || error instanceof NotFoundException) {
         throw error;
       }
-      throw new BadRequestException('Failed to delete participation request: ' + error.message);
+      throw new BadRequestException({
+        success: false,
+        message: 'Không thể xóa yêu cầu tham gia',
+        errorCode: 'DELETE_REQUEST_FAILED',
+      });
     }
   }
 
   async approveRequest(id: string, approverId: string): Promise<ParticipationRequest> {
     try {
       if (!Types.ObjectId.isValid(id)) {
-        throw new BadRequestException('Invalid participation request ID format');
+        throw new BadRequestException({
+          success: false,
+          message: 'ID yêu cầu tham gia không hợp lệ',
+          errorCode: 'INVALID_REQUEST_ID',
+        });
       }
-      
+
       if (!Types.ObjectId.isValid(approverId)) {
-        throw new BadRequestException('Invalid approver ID format');
+        throw new BadRequestException({
+          success: false,
+          message: 'ID người duyệt không hợp lệ',
+          errorCode: 'INVALID_APPROVER_ID',
+        });
       }
 
       const request = await this.participationRequestModel.findById(id).exec();
       if (!request) {
-        throw new NotFoundException(`Participation request with ID ${id} not found`);
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy yêu cầu tham gia với ID ${id}`,
+          errorCode: 'REQUEST_NOT_FOUND',
+        });
       }
 
       if (request.status !== RequestStatus.PENDING) {
-        throw new BadRequestException('Request has already been processed');
+        throw new BadRequestException({
+          success: false,
+          message: 'Yêu cầu đã được xử lý (không còn ở trạng thái PENDING)',
+          errorCode: 'REQUEST_ALREADY_PROCESSED',
+        });
       }
 
       const approver = await this.userModel.findById(approverId).exec();
       if (!approver) {
-        throw new NotFoundException('Approver not found');
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy người duyệt với ID ${approverId}`,
+          errorCode: 'APPROVER_NOT_FOUND',
+        });
       }
 
-      const booking = await this.bookingModel.findById(request.booking).exec();
+      const booking = await this.bookingModel
+        .findOne({ _id: request.booking, status: { $ne: 'DELETED' } })
+        .populate('room')
+        .exec();
       if (!booking) {
-        throw new NotFoundException('Booking not found');
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy đặt phòng với ID ${request.booking}`,
+          errorCode: 'BOOKING_NOT_FOUND',
+        });
       }
 
       if (booking.user.toString() !== approverId) {
-        throw new BadRequestException('Only the booking creator can approve requests');
+        throw new BadRequestException({
+          success: false,
+          message: 'Chỉ người tạo đặt phòng mới có thể duyệt yêu cầu',
+          errorCode: 'UNAUTHORIZED_APPROVER',
+        });
+      }
+
+      const totalParticipants = booking.participants.length + 1; // +1 for the creator
+      if (totalParticipants >= (booking.room as any).capacity) {
+        throw new BadRequestException({
+          success: false,
+          message: `Số lượng người tham gia (${totalParticipants}) vượt quá sức chứa phòng (${(booking.room as any).capacity})`,
+          errorCode: 'EXCEEDED_CAPACITY',
+        });
       }
 
       request.status = RequestStatus.ACCEPTED;
-      request.approvedBy = approver;
+      request.approvedBy = approverId as any;
 
-      // Add user to participants if not already added
       if (!booking.participants.includes(request.user)) {
         booking.participants.push(request.user);
         await booking.save();
       }
 
       const updatedRequest = await request.save();
-      
+
       const populatedRequest = await this.participationRequestModel
         .findById(updatedRequest._id)
         .populate('booking user approvedBy')
+        .lean()
         .exec();
 
       if (!populatedRequest) {
-        throw new NotFoundException('Participation request not found after approval');
+        throw new NotFoundException({
+          success: false,
+          message: 'Yêu cầu tham gia không tìm thấy sau khi duyệt',
+          errorCode: 'REQUEST_NOT_FOUND',
+        });
       }
 
-      return populatedRequest;
-        
+      return populatedRequest as ParticipationRequest;
     } catch (error) {
       if (error instanceof BadRequestException || error instanceof NotFoundException) {
         throw error;
       }
-      throw new BadRequestException('Failed to approve participation request: ' + error.message);
+      throw new BadRequestException({
+        success: false,
+        message: 'Không thể duyệt yêu cầu tham gia',
+        errorCode: 'APPROVE_REQUEST_FAILED',
+      });
     }
   }
 
   async rejectRequest(id: string, approverId: string): Promise<ParticipationRequest> {
     try {
       if (!Types.ObjectId.isValid(id)) {
-        throw new BadRequestException('Invalid participation request ID format');
+        throw new BadRequestException({
+          success: false,
+          message: 'ID yêu cầu tham gia không hợp lệ',
+          errorCode: 'INVALID_REQUEST_ID',
+        });
       }
-      
+
       if (!Types.ObjectId.isValid(approverId)) {
-        throw new BadRequestException('Invalid approver ID format');
+        throw new BadRequestException({
+          success: false,
+          message: 'ID người duyệt không hợp lệ',
+          errorCode: 'INVALID_APPROVER_ID',
+        });
       }
 
       const request = await this.participationRequestModel.findById(id).exec();
       if (!request) {
-        throw new NotFoundException(`Participation request with ID ${id} not found`);
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy yêu cầu tham gia với ID ${id}`,
+          errorCode: 'REQUEST_NOT_FOUND',
+        });
       }
 
       if (request.status !== RequestStatus.PENDING) {
-        throw new BadRequestException('Request has already been processed');
+        throw new BadRequestException({
+          success: false,
+          message: 'Yêu cầu đã được xử lý (không còn ở trạng thái PENDING)',
+          errorCode: 'REQUEST_ALREADY_PROCESSED',
+        });
       }
 
       const approver = await this.userModel.findById(approverId).exec();
       if (!approver) {
-        throw new NotFoundException('Approver not found');
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy người duyệt với ID ${approverId}`,
+          errorCode: 'APPROVER_NOT_FOUND',
+        });
       }
 
-      const booking = await this.bookingModel.findById(request.booking).exec();
+      const booking = await this.bookingModel
+        .findOne({ _id: request.booking, status: { $ne: 'DELETED' } })
+        .exec();
       if (!booking) {
-        throw new NotFoundException('Booking not found');
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy đặt phòng với ID ${request.booking}`,
+          errorCode: 'BOOKING_NOT_FOUND',
+        });
       }
 
       if (booking.user.toString() !== approverId) {
-        throw new BadRequestException('Only the booking creator can reject requests');
+        throw new BadRequestException({
+          success: false,
+          message: 'Chỉ người tạo đặt phòng mới có thể từ chối yêu cầu',
+          errorCode: 'UNAUTHORIZED_APPROVER',
+        });
       }
 
       request.status = RequestStatus.REJECTED;
-      request.approvedBy = approver;
+      request.approvedBy = approverId as any;
 
       const updatedRequest = await request.save();
-      
+
       const populatedRequest = await this.participationRequestModel
         .findById(updatedRequest._id)
         .populate('booking user approvedBy')
+        .lean()
         .exec();
 
       if (!populatedRequest) {
-        throw new NotFoundException('Participation request not found after rejection');
+        throw new NotFoundException({
+          success: false,
+          message: 'Yêu cầu tham gia không tìm thấy sau khi từ chối',
+          errorCode: 'REQUEST_NOT_FOUND',
+        });
       }
 
-      return populatedRequest;
-        
+      return populatedRequest as ParticipationRequest;
     } catch (error) {
       if (error instanceof BadRequestException || error instanceof NotFoundException) {
         throw error;
       }
-      throw new BadRequestException('Failed to reject participation request: ' + error.message);
+      throw new BadRequestException({
+        success: false,
+        message: 'Không thể từ chối yêu cầu tham gia',
+        errorCode: 'REJECT_REQUEST_FAILED',
+      });
     }
   }
 }
