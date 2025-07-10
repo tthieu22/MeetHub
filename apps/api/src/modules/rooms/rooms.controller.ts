@@ -92,7 +92,7 @@ export class RoomsController {
         await this.roomService.deleteRoom(id);
         return { success: true };
     }
-// Xóa mềm - Chuyển trạng thái phòng thành deleted
+    // Xóa mềm - Chuyển trạng thái phòng thành deleted
     @Get(':id/soft-delete')
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
@@ -145,6 +145,14 @@ export class RoomsController {
         return result;
     }
 
-    
+    @Get('activity')
+    @UseGuards(AuthGuard)
+    async findActivityRooms(
+        @Query('page') page: number = 1,
+        @Query('limit') limit: number = 10
+    ) {
+        const result = await this.roomService.findActivityRooms(page, limit);
+        return result;
+    }
 
 }

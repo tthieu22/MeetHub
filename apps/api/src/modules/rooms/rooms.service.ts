@@ -484,10 +484,10 @@ export class RoomsService implements IRoomService {
         }
     }
 
-    findActivityRooms(page?: number, limit?: number): Promise<{
+ async findActivityRooms(page: number = 1, limit: number = 10): Promise<{
         success: boolean;
         message: string;
-        data: IRoom[];  
+        data: IRoom[];
         meta: {
             total: number;
             page: number;
@@ -495,7 +495,54 @@ export class RoomsService implements IRoomService {
             totalPages: number;
         };
     }> {
-        throw new Error('Method not implemented.');
+        // Validate pagination
+        if (page < 1 || limit < 1) {
+            throw new BadRequestException({
+                success: false,
+                message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
+                errorCode: 'INVALID_PAGINATION'
+            });
+        }
+
+        // Query for active rooms excluding deleted status
+        const query = {
+            status: { $ne: 'deleted' },
+            isActive: true
+        };
+
+        try {
+            const skip = (page - 1) * limit;
+            const [rooms, total] = await Promise.all([
+                this.roomModel.find(query)
+                    .skip(skip)
+                    .limit(limit)
+                    .sort({ bookingCount: -1, name: 1 }) // Sort by booking count (descending) then name
+                    .lean()
+                    .exec(),
+                this.roomModel.countDocuments(query)
+            ]);
+
+            const totalPages = Math.ceil(total / limit);
+
+            return {
+                success: true,
+                message: `Tìm thấy ${rooms.length} phòng đang hoạt động`,
+                data: rooms as IRoom[],
+                meta: {
+                    total,
+                    page,
+                    limit,
+                    totalPages
+                }
+            };
+        } catch (error) {
+            throw new BadRequestException({
+                success: false,
+                message: 'Lỗi khi tìm kiếm phòng đang hoạt động',
+                errorCode: 'SEARCH_ACTIVITY_ERROR',
+                details: error.message
+            });
+        }
     }
 
 
