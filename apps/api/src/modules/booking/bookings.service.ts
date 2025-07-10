@@ -1,10 +1,4 @@
-import { 
-  BadRequestException, 
-  Injectable, 
-  NotFoundException,
-  forwardRef,
-  Inject,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, forwardRef, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -15,6 +9,7 @@ import { IBooking } from './interface/booking.interface';
 import { ROOM_SERVICE_TOKEN } from '../rooms/room.tokens';
 import { IRoomService } from '../rooms/interface/room.service.interface';
 import { User } from '../users/schema/user.schema';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class BookingsService implements IBookingService {
@@ -23,6 +18,7 @@ export class BookingsService implements IBookingService {
     @InjectModel('User') private userModel: Model<User>,
     @Inject(forwardRef(() => ROOM_SERVICE_TOKEN))
     private roomService: IRoomService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(createBookingDto: CreateBookingDto): Promise<IBooking> {
@@ -53,16 +49,14 @@ export class BookingsService implements IBookingService {
             });
           }
           return participant;
-        })
+        }),
       );
 
       // Kiểm tra xem phòng đã được đặt trong khoảng thời gian này chưa
       const existingBooking = await this.bookingModel.findOne({
         room: createBookingDto.room,
-        $or: [
-          { startTime: { $lt: createBookingDto.endTime }, endTime: { $gt: createBookingDto.startTime } }
-        ],
-        status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] }
+        $or: [{ startTime: { $lt: createBookingDto.endTime }, endTime: { $gt: createBookingDto.startTime } }],
+        status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
       });
 
       if (existingBooking) {
@@ -74,9 +68,20 @@ export class BookingsService implements IBookingService {
 
       const createdBooking = new this.bookingModel({
         ...createBookingDto,
-        participants
+        participants,
       });
       const savedBooking = await createdBooking.save();
+      for (const participant of participants) {
+        try {
+          await this.notificationService.notify(
+            participant._id.toString(),
+            `Bạn đã được thêm vào lịch họp "${room.name}" lúc ${createdBooking.startTime.toLocaleString()} do ${user.name} tạo `,
+            'booking',
+          );
+        } catch (err) {
+          console.error(`Không thể gửi noti cho ${participant._id}:`, err.message);
+        }
+      }
       return savedBooking.toObject() as IBooking;
     } catch (error) {
       if (error.name === 'ValidationError') {
@@ -96,16 +101,8 @@ export class BookingsService implements IBookingService {
 
   async findAll(page: number = 1, limit: number = 10, filter: any = {}): Promise<any> {
     const skip = (page - 1) * limit;
-    const [data, total] = await Promise.all([
-      this.bookingModel.find(filter)
-        .skip(skip)
-        .limit(limit)
-        .populate('room user participants')
-        .lean()
-        .exec(),
-      this.bookingModel.countDocuments(filter),
-    ]);
-    
+    const [data, total] = await Promise.all([this.bookingModel.find(filter).skip(skip).limit(limit).populate('room user participants').lean().exec(), this.bookingModel.countDocuments(filter)]);
+
     const totalPages = Math.ceil(total / limit);
     return {
       success: true,
@@ -119,11 +116,8 @@ export class BookingsService implements IBookingService {
   }
 
   async findOne(id: string): Promise<IBooking> {
-    const booking = await this.bookingModel.findById(id)
-      .populate('room user participants')
-      .lean()
-      .exec();
-    
+    const booking = await this.bookingModel.findById(id).populate('room user participants').lean().exec();
+
     if (!booking) {
       throw new NotFoundException({
         success: false,
@@ -135,12 +129,8 @@ export class BookingsService implements IBookingService {
 
   async update(id: string, updateBookingDto: UpdateBookingDto): Promise<IBooking> {
     try {
-      const updatedBooking = await this.bookingModel
-        .findByIdAndUpdate(id, updateBookingDto, { new: true })
-        .populate('room user participants')
-        .lean()
-        .exec();
-      
+      const updatedBooking = await this.bookingModel.findByIdAndUpdate(id, updateBookingDto, { new: true }).populate('room user participants').lean().exec();
+
       if (!updatedBooking) {
         throw new NotFoundException({
           success: false,
@@ -175,15 +165,8 @@ export class BookingsService implements IBookingService {
   }
 
   async cancelBooking(id: string): Promise<IBooking> {
-    const booking = await this.bookingModel.findByIdAndUpdate(
-      id,
-      { status: BookingStatus.CANCELLED },
-      { new: true }
-    )
-    .populate('room user participants')
-    .lean()
-    .exec();
-    
+    const booking = await this.bookingModel.findByIdAndUpdate(id, { status: BookingStatus.CANCELLED }, { new: true }).populate('room user participants').lean().exec();
+
     if (!booking) {
       throw new NotFoundException({
         success: false,
