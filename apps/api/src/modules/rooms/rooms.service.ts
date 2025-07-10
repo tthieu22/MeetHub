@@ -484,5 +484,20 @@ export class RoomsService implements IRoomService {
         }
     }
 
+    findActivityRooms(page?: number, limit?: number): Promise<{
+        success: boolean;
+        message: string;
+        data: IRoom[];  
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+    }> {
+        throw new Error('Method not implemented.');
+    }
+
+
 
 }

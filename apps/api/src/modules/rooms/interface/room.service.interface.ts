@@ -63,4 +63,17 @@ export interface IRoomService {
             totalPages: number;
         };
     }>;
+
+    findActivityRooms(page?: number, limit?: number): Promise<{
+        success: boolean;
+        message: string;
+        data: IRoom[];  
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+    }>;
+
 }
