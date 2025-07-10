@@ -354,7 +354,6 @@ export class BookingsService implements IBookingService {
         .populate('room user participants')
         .lean()
         .exec();
-
       if (!updatedBooking) {
         throw new NotFoundException({
           success: false,
@@ -362,6 +361,18 @@ export class BookingsService implements IBookingService {
           errorCode: 'BOOKING_NOT_FOUND',
         });
       }
+      for (const participant of updatedBooking.participants || []) {
+        try {
+          await this.notificationService.notify(
+            (participant as any)._id.toString(),
+            `Lịch họp "${updatedBooking.title}" đã được cập nhật: bắt đầu lúc ${new Date(updatedBooking.startTime).toLocaleString()}, kết thúc lúc ${new Date(updatedBooking.endTime).toLocaleString()} tại phòng "${updatedBooking.room.name}"`,
+            'booking-update',
+          );
+        } catch (err) {
+          console.error(`Không thể gửi noti cho ${(participant as any)._id}:`, err.message);
+        }
+      }
+
       return updatedBooking as IBooking;
     } catch (error) {
       if (error.name === 'ValidationError') {
@@ -400,7 +411,22 @@ export class BookingsService implements IBookingService {
         errorCode: 'BOOKING_NOT_FOUND',
       });
     }
-    const updatedBooking = await this.bookingModel.findByIdAndUpdate(id, { status: BookingStatus.CANCELLED }, { new: true }).populate('room user participants').lean().exec();
+    const updatedBooking = await this.bookingModel.findByIdAndUpdate(id, { status: BookingStatus.CANCELLED }, { new: true }).populate('room user participants').exec();
+    if (updatedBooking) {
+      for (const participant of updatedBooking.participants || []) {
+        const p = participant as any;
+        try {
+          await this.notificationService.notify(
+            p._id.toString(),
+            `Phòng "${updatedBooking.room.name}" bắt đầu lúc ${updatedBooking.startTime.toLocaleString()} kết thúc lúc ${updatedBooking.endTime.toLocaleString()} do ${updatedBooking.user.name} tạo đã bị huỷ`,
+            'booking',
+          );
+        } catch (err) {
+          console.error(`Không thể gửi noti cho ${p._id}:`, err.message);
+        }
+      }
+    }
+
     return updatedBooking as IBooking;
   }
 
