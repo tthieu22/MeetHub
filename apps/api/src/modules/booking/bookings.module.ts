@@ -7,14 +7,10 @@ import { BOOKING_SERVICE_TOKEN } from './booking.tokens';
 import { RoomsModule } from '../rooms/rooms.module';
 import { UsersModule } from '../users/users.module';
 import { AuthModule } from '@api/auth/auth.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [
-    MongooseModule.forFeature([{ name: Booking.name, schema: BookingSchema }]),
-    RoomsModule,
-    UsersModule,
-    AuthModule,
-  ],
+  imports: [MongooseModule.forFeature([{ name: Booking.name, schema: BookingSchema }]), RoomsModule, UsersModule, AuthModule, NotificationModule],
   controllers: [BookingsController],
   providers: [
     BookingsService,

@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-  forwardRef,
-  Inject,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, forwardRef, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Document, PipelineStage, Types } from 'mongoose';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -17,6 +11,7 @@ import { IRoomService } from '../rooms/interface/room.service.interface';
 import { User } from '../users/schema/user.schema';
 import { SearchBookingsDto } from './dto/search-bookings.dto';
 import { SearchBookingsDetailedDto } from './dto/search-bookings-detailed.dto';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class BookingsService implements IBookingService {
@@ -25,12 +20,13 @@ export class BookingsService implements IBookingService {
     @InjectModel('User') private userModel: Model<User>,
     @Inject(forwardRef(() => ROOM_SERVICE_TOKEN))
     private roomService: IRoomService,
+    private notificationService: NotificationService,
   ) {}
 
   async create(createBookingDto: CreateBookingDto): Promise<IBooking> {
     try {
       // VALIDATION: Kiểm tra phòng tồn tại và trạng thái
-      const room = await this.roomService.getRoomById(createBookingDto.room) as Document & { _id: string; capacity: number; status: string };
+      const room = (await this.roomService.getRoomById(createBookingDto.room)) as Document & { _id: string; capacity: number; status: string };
       if (!room) {
         throw new NotFoundException({
           success: false,
@@ -124,7 +120,20 @@ export class BookingsService implements IBookingService {
         participants,
       });
       const savedBooking = await createdBooking.save();
-
+      for (const participant of participants) {
+        const userObj = user as any;
+        const roomObj = room as any;
+        const participantObj = participant as any;
+        try {
+          await this.notificationService.notify(
+            participantObj._id.toString(),
+            `Bạn đã được thêm vào lịch họp "${roomObj.name}" lúc ${createdBooking.startTime.toLocaleString()} do ${userObj.name} tạo `,
+            'booking',
+          );
+        } catch (err) {
+          console.error(`Không thể gửi noti cho ${participantObj._id}:`, err.message);
+        }
+      }
       return savedBooking.toObject() as IBooking;
     } catch (error) {
       if (error.name === 'ValidationError') {
@@ -233,11 +242,7 @@ export class BookingsService implements IBookingService {
   }
 
   async findOne(id: string): Promise<IBooking> {
-    const booking = await this.bookingModel
-      .findById(id)
-      .populate('room user participants')
-      .lean()
-      .exec();
+    const booking = await this.bookingModel.findById(id).populate('room user participants').lean().exec();
 
     if (!booking) {
       throw new NotFoundException({
@@ -252,9 +257,9 @@ export class BookingsService implements IBookingService {
   async update(id: string, updateBookingDto: UpdateBookingDto): Promise<IBooking> {
     try {
       // VALIDATION: Kiểm tra phòng nếu được cập nhật
-      let room: Document & { _id: string; capacity: number; status: string } | null = null;
+      let room: (Document & { _id: string; capacity: number; status: string }) | null = null;
       if (updateBookingDto.room) {
-        room = await this.roomService.getRoomById(updateBookingDto.room) as Document & { _id: string; capacity: number; status: string };
+        room = (await this.roomService.getRoomById(updateBookingDto.room)) as Document & { _id: string; capacity: number; status: string };
         if (!room) {
           throw new NotFoundException({
             success: false,
@@ -311,7 +316,7 @@ export class BookingsService implements IBookingService {
             errorCode: 'BOOKING_NOT_FOUND',
           });
         }
-        room = room || (await this.roomService.getRoomById(booking.room.toString()) as Document & { _id: string; capacity: number; status: string });
+        room = room || ((await this.roomService.getRoomById(booking.room.toString())) as Document & { _id: string; capacity: number; status: string });
         const totalParticipants = (updateBookingDto.participants?.length || booking.participants.length) + 1;
         if (totalParticipants > room.capacity) {
           throw new BadRequestException({
@@ -332,12 +337,8 @@ export class BookingsService implements IBookingService {
             errorCode: 'BOOKING_NOT_FOUND',
           });
         }
-        const startTime = updateBookingDto.startTime
-          ? new Date(updateBookingDto.startTime)
-          : new Date(booking.startTime);
-        const endTime = updateBookingDto.endTime
-          ? new Date(updateBookingDto.endTime)
-          : new Date(booking.endTime);
+        const startTime = updateBookingDto.startTime ? new Date(updateBookingDto.startTime) : new Date(booking.startTime);
+        const endTime = updateBookingDto.endTime ? new Date(updateBookingDto.endTime) : new Date(booking.endTime);
         if (startTime >= endTime) {
           throw new BadRequestException({
             success: false,
@@ -359,7 +360,6 @@ export class BookingsService implements IBookingService {
         .populate('room user participants')
         .lean()
         .exec();
-
       if (!updatedBooking) {
         throw new NotFoundException({
           success: false,
@@ -367,6 +367,18 @@ export class BookingsService implements IBookingService {
           errorCode: 'BOOKING_NOT_FOUND',
         });
       }
+      for (const participant of updatedBooking.participants || []) {
+        try {
+          await this.notificationService.notify(
+            (participant as any)._id.toString(),
+            `Lịch họp "${updatedBooking.title}" đã được cập nhật: bắt đầu lúc ${new Date(updatedBooking.startTime).toLocaleString()}, kết thúc lúc ${new Date(updatedBooking.endTime).toLocaleString()} tại phòng "${updatedBooking.room.name}"`,
+            'booking-update',
+          );
+        } catch (err) {
+          console.error(`Không thể gửi noti cho ${(participant as any)._id}:`, err.message);
+        }
+      }
+
       return updatedBooking as IBooking;
     } catch (error) {
       if (error.name === 'ValidationError') {
@@ -405,11 +417,22 @@ export class BookingsService implements IBookingService {
         errorCode: 'BOOKING_NOT_FOUND',
       });
     }
-    const updatedBooking = await this.bookingModel
-      .findByIdAndUpdate(id, { status: BookingStatus.CANCELLED }, { new: true })
-      .populate('room user participants')
-      .lean()
-      .exec();
+    const updatedBooking = await this.bookingModel.findByIdAndUpdate(id, { status: BookingStatus.CANCELLED }, { new: true }).populate('room user participants').exec();
+    if (updatedBooking) {
+      for (const participant of updatedBooking.participants || []) {
+        const p = participant as any;
+        try {
+          await this.notificationService.notify(
+            p._id.toString(),
+            `Phòng "${updatedBooking.room.name}" bắt đầu lúc ${updatedBooking.startTime.toLocaleString()} kết thúc lúc ${updatedBooking.endTime.toLocaleString()} do ${updatedBooking.user.name} tạo đã bị huỷ`,
+            'booking',
+          );
+        } catch (err) {
+          console.error(`Không thể gửi noti cho ${p._id}:`, err.message);
+        }
+      }
+    }
+
     return updatedBooking as IBooking;
   }
 
@@ -459,12 +482,7 @@ export class BookingsService implements IBookingService {
       }
       const [year, month, day] = date.split('-').map(Number);
       const parsedDate = new Date(year, month - 1, day);
-      if (
-        isNaN(parsedDate.getTime()) ||
-        parsedDate.getFullYear() !== year ||
-        parsedDate.getMonth() + 1 !== month ||
-        parsedDate.getDate() !== day
-      ) {
+      if (isNaN(parsedDate.getTime()) || parsedDate.getFullYear() !== year || parsedDate.getMonth() + 1 !== month || parsedDate.getDate() !== day) {
         throw new BadRequestException({
           success: false,
           message: 'Ngày không hợp lệ',
@@ -490,16 +508,7 @@ export class BookingsService implements IBookingService {
     }
 
     const skip = (page - 1) * limit;
-    const [data, total] = await Promise.all([
-      this.bookingModel
-        .find(filter)
-        .skip(skip)
-        .limit(limit)
-        .populate('room user participants')
-        .lean()
-        .exec(),
-      this.bookingModel.countDocuments(filter),
-    ]);
+    const [data, total] = await Promise.all([this.bookingModel.find(filter).skip(skip).limit(limit).populate('room user participants').lean().exec(), this.bookingModel.countDocuments(filter)]);
 
     const totalPages = Math.ceil(total / limit);
     const message = `Tìm thấy ${data.length} đặt phòng khớp với tiêu chí (trang ${page}/${totalPages})`;
@@ -560,12 +569,7 @@ export class BookingsService implements IBookingService {
       }
       const [year, month, day] = date.split('-').map(Number);
       const parsedDate = new Date(year, month - 1, day);
-      if (
-        isNaN(parsedDate.getTime()) ||
-        parsedDate.getFullYear() !== year ||
-        parsedDate.getMonth() + 1 !== month ||
-        parsedDate.getDate() !== day
-      ) {
+      if (isNaN(parsedDate.getTime()) || parsedDate.getFullYear() !== year || parsedDate.getMonth() + 1 !== month || parsedDate.getDate() !== day) {
         throw new BadRequestException({
           success: false,
           message: 'Ngày không hợp lệ',
@@ -651,10 +655,7 @@ export class BookingsService implements IBookingService {
                     {
                       $cond: [
                         {
-                          $and: [
-                            { $gte: ['$startTime', filter.startTime.$gte] },
-                            { $lte: ['$startTime', filter.startTime.$lte] },
-                          ],
+                          $and: [{ $gte: ['$startTime', filter.startTime.$gte] }, { $lte: ['$startTime', filter.startTime.$lte] }],
                         },
                         1,
                         0,
@@ -673,10 +674,7 @@ export class BookingsService implements IBookingService {
       { $limit: limit },
     ];
 
-    const [data, total] = await Promise.all([
-      this.bookingModel.aggregate(pipeline).exec(),
-      this.bookingModel.countDocuments(filter),
-    ]);
+    const [data, total] = await Promise.all([this.bookingModel.aggregate(pipeline).exec(), this.bookingModel.countDocuments(filter)]);
 
     const totalPages = Math.ceil(total / limit);
     const message = `Tìm thấy ${data.length} đặt phòng khớp với tiêu chí (trang ${page}/${totalPages})`;
