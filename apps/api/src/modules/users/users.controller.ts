@@ -1,10 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, ForbiddenException, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, ForbiddenException, UploadedFile, UseInterceptors, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AuthGuard } from '@api/auth/auth.guard';
 import { Roles } from '@api/auth/roles.decorator';
-import { UserRole } from './schema/user.schema';
+import { UserDocument, UserRole } from './schema/user.schema';
 import { RolesGuard } from '@api/auth/roles.guard';
 import { Express, Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -72,5 +72,20 @@ export class UsersController {
       return this.usersService.updateMe(req.user._id, dto);
     }
     return this.usersService.updateMe(req.user._id, dto);
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Get('/find-by-query')
+  findByFilter(@Query() queryParams: any): Promise<{
+    success: boolean;
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    data: UserDocument[];
+  }> {
+    console.log(queryParams);
+    return this.usersService.findByFilter(queryParams);
   }
 }
