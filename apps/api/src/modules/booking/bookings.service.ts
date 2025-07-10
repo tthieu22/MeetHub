@@ -6,7 +6,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Document } from 'mongoose';
+import { Model, Document , PipelineStage } from 'mongoose';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import { Booking, BookingStatus } from './booking.schema';
@@ -15,6 +15,8 @@ import { IBooking } from './interface/booking.interface';
 import { ROOM_SERVICE_TOKEN } from '../rooms/room.tokens';
 import { IRoomService } from '../rooms/interface/room.service.interface';
 import { User } from '../users/schema/user.schema';
+import { SearchBookingsDto } from './dto/search-bookings.dto';
+import { SearchBookingsDetailedDto } from './dto/search-bookings-detailed.dto';
 
 @Injectable()
 export class BookingsService implements IBookingService {
@@ -412,193 +414,282 @@ export class BookingsService implements IBookingService {
       .exec();
     return updatedBooking as IBooking;
   }
-  // async getBookingsByMonth(
-  //   page: number = 1,
-  //   limit: number = 10,
-  //   month: number,
-  //   year: number,
-  //   filter: any = {},
-  // ): Promise<any> {
-  //   if (page < 1 || limit < 1) {
-  //     throw new BadRequestException({
-  //       success: false,
-  //       message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
-  //       errorCode: 'INVALID_PAGINATION',
-  //     });
-  //   }
 
-  //   if (month < 1 || month > 12) {
-  //     throw new BadRequestException({
-  //       success: false,
-  //       message: 'Tháng không hợp lệ, phải nằm trong khoảng từ 1 đến 12',
-  //       errorCode: 'INVALID_MONTH',
-  //     });
-  //   }
+async searchBookings(dto: SearchBookingsDto): Promise<any> {
+    const { page = 1, limit = 10, roomName, userName, date } = dto;
 
-  //   if (year < 1900 || !Number.isInteger(year)) {
-  //     throw new BadRequestException({
-  //       success: false,
-  //       message: 'Năm không hợp lệ, phải là số nguyên lớn hơn hoặc bằng 1900',
-  //       errorCode: 'INVALID_YEAR',
-  //     });
-  //   }
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
+        errorCode: 'INVALID_PAGINATION',
+      });
+    }
 
-  //   const startOfMonth = new Date(year, month - 1, 1);
-  //   const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+    const filter: any = {};
 
-  //   const timeFilter = {
-  //     startTime: {
-  //       $gte: startOfMonth,
-  //       $lte: endOfMonth,
-  //     },
-  //   };
+    if (roomName) {
+      if (typeof roomName !== 'string' || roomName.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Tên phòng phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_ROOM_NAME',
+        });
+      }
+      filter['room.name'] = { $regex: roomName.trim(), $options: 'i' };
+    }
 
-  //   const finalFilter = { ...filter, ...timeFilter };
+    if (userName) {
+      if (typeof userName !== 'string' || userName.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Tên người dùng phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_USER_NAME',
+        });
+      }
+      filter['user.name'] = { $regex: userName.trim(), $options: 'i' };
+    }
 
-  //   const skip = (page - 1) * limit;
-  //   const [data, total] = await Promise.all([
-  //     this.bookingModel
-  //       .find(finalFilter)
-  //       .skip(skip)
-  //       .limit(limit)
-  //       .populate('room user participants')
-  //       .lean()
-  //       .exec(),
-  //     this.bookingModel.countDocuments(finalFilter),
-  //   ]);
+    if (date) {
+      const dateRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
+      if (!dateRegex.test(date)) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Định dạng ngày không hợp lệ, phải là YYYY-MM-DD (ví dụ: 2025-07-10)',
+          errorCode: 'INVALID_DATE_FORMAT',
+        });
+      }
+      const [year, month, day] = date.split('-').map(Number);
+      const parsedDate = new Date(year, month - 1, day);
+      if (
+        isNaN(parsedDate.getTime()) ||
+        parsedDate.getFullYear() !== year ||
+        parsedDate.getMonth() + 1 !== month ||
+        parsedDate.getDate() !== day
+      ) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Ngày không hợp lệ',
+          errorCode: 'INVALID_DATE',
+        });
+      }
+      const startOfDay = new Date(parsedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(parsedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      filter.startTime = {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      };
+    }
 
-  //   const totalPages = Math.ceil(total / limit);
-  //   return {
-  //     success: true,
-  //     message: `Lấy danh sách ${data.length} đặt phòng thành công trong tháng ${month} năm ${year} (trang ${page}/${totalPages})`,
-  //     total,
-  //     page,
-  //     limit,
-  //     totalPages,
-  //     data,
-  //   };
-  // }
-  // async getBookingsByWeek(
-  //   page: number = 1,
-  //   limit: number = 10,
-  //   week: number,
-  //   year: number,
-  //   filter: any = {},
-  // ): Promise<any> {
-  //   if (page < 1 || limit < 1) {
-  //     throw new BadRequestException({
-  //       success: false,
-  //       message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
-  //       errorCode: 'INVALID_PAGINATION',
-  //     });
-  //   }
+    if (!roomName && !userName && !date) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Phải cung cấp ít nhất một tiêu chí tìm kiếm: tên phòng, tên người dùng hoặc ngày',
+        errorCode: 'MISSING_SEARCH_CRITERIA',
+      });
+    }
 
-  //   if (week < 1 || week > 53) {
-  //     throw new BadRequestException({
-  //       success: false,
-  //       message: 'Số tuần phải nằm trong khoảng từ 1 đến 53',
-  //       errorCode: 'INVALID_WEEK_NUMBER',
-  //     });
-  //   }
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.bookingModel
+        .find(filter)
+        .skip(skip)
+        .limit(limit)
+        .populate('room user participants')
+        .lean()
+        .exec(),
+      this.bookingModel.countDocuments(filter),
+    ]);
 
-  //   if (year < 1900 || !Number.isInteger(year)) {
-  //     throw new BadRequestException({
-  //       success: false,
-  //       message: 'Năm không hợp lệ, phải là số nguyên lớn hơn hoặc bằng 1900',
-  //       errorCode: 'INVALID_YEAR',
-  //     });
-  //   }
+    const totalPages = Math.ceil(total / limit);
+    const message = `Tìm thấy ${data.length} đặt phòng khớp với tiêu chí (trang ${page}/${totalPages})`;
+    return {
+      success: true,
+      message,
+      total,
+      page,
+      limit,
+      totalPages,
+      data,
+    };
+  }
 
-  //   const startOfYear = new Date(year, 0, 1);
-  //   const daysToFirstMonday = (1 + 7 - startOfYear.getDay()) % 7;
-  //   const startOfWeek = new Date(year, 0, 1 + daysToFirstMonday + (week - 1) * 7);
-  //   const endOfWeek = new Date(startOfWeek);
-  //   endOfWeek.setDate(endOfWeek.getDate() + 7);
+  async searchBookingsDetailed(dto: SearchBookingsDetailedDto): Promise<any> {
+    const { page = 1, limit = 10, roomName, userName, date, title, description } = dto;
 
-  //   const timeFilter = {
-  //     startTime: {
-  //       $gte: startOfWeek,
-  //       $lt: endOfWeek,
-  //     },
-  //   };
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
+        errorCode: 'INVALID_PAGINATION',
+      });
+    }
 
-  //   const finalFilter = { ...filter, ...timeFilter };
+    const filter: any = {};
 
-  //   const skip = (page - 1) * limit;
-  //   const [data, total] = await Promise.all([
-  //     this.bookingModel
-  //       .find(finalFilter)
-  //       .skip(skip)
-  //       .limit(limit)
-  //       .populate('room user participants')
-  //       .lean()
-  //       .exec(),
-  //     this.bookingModel.countDocuments(finalFilter),
-  //   ]);
+    if (roomName) {
+      if (typeof roomName !== 'string' || roomName.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Tên phòng phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_ROOM_NAME',
+        });
+      }
+      filter['room.name'] = { $regex: roomName.trim(), $options: 'i' };
+    }
 
-  //   const totalPages = Math.ceil(total / limit);
-  //   return {
-  //     success: true,
-  //     message: `Lấy danh sách ${data.length} đặt phòng thành công trong tuần ${week} năm ${year} (trang ${page}/${totalPages})`,
-  //     total,
-  //     page,
-  //     limit,
-  //     totalPages,
-  //     data,
-  //   };
-  // }
+    if (userName) {
+      if (typeof userName !== 'string' || userName.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Tên người dùng phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_USER_NAME',
+        });
+      }
+      filter['user.name'] = { $regex: userName.trim(), $options: 'i' };
+    }
 
-  // async getBookingsToday(
-  //   page: number = 1,
-  //   limit: number = 10,
-  //   filter: any = {},
-  // ): Promise<any> {
-  //   if (page < 1 || limit < 1) {
-  //     throw new BadRequestException({
-  //       success: false,
-  //       message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
-  //       errorCode: 'INVALID_PAGINATION',
-  //     });
-  //   }
+    if (date) {
+      const dateRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
+      if (!dateRegex.test(date)) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Định dạng ngày không hợp lệ, phải là YYYY-MM-DD (ví dụ: 2025-07-10)',
+          errorCode: 'INVALID_DATE_FORMAT',
+        });
+      }
+      const [year, month, day] = date.split('-').map(Number);
+      const parsedDate = new Date(year, month - 1, day);
+      if (
+        isNaN(parsedDate.getTime()) ||
+        parsedDate.getFullYear() !== year ||
+        parsedDate.getMonth() + 1 !== month ||
+        parsedDate.getDate() !== day
+      ) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Ngày không hợp lệ',
+          errorCode: 'INVALID_DATE',
+        });
+      }
+      const startOfDay = new Date(parsedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(parsedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      filter.startTime = {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      };
+    }
 
-  //   const today = new Date();
-  //   const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-  //   const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    if (title) {
+      if (typeof title !== 'string' || title.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Tiêu đề phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_TITLE',
+        });
+      }
+      filter.title = { $regex: title.trim(), $options: 'i' };
+    }
 
-  //   const timeFilter = {
-  //     startTime: {
-  //       $gte: startOfDay,
-  //       $lte: endOfDay,
-  //     },
-  //   };
+    if (description) {
+      if (typeof description !== 'string' || description.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Mô tả phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_DESCRIPTION',
+        });
+      }
+      filter.description = { $regex: description.trim(), $options: 'i' };
+    }
 
-  //   const finalFilter = { ...filter, ...timeFilter };
+    if (!roomName && !userName && !date && !title && !description) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Phải cung cấp ít nhất một tiêu chí tìm kiếm',
+        errorCode: 'MISSING_SEARCH_CRITERIA',
+      });
+    }
 
-  //   const skip = (page - 1) * limit;
-  //   const [data, total] = await Promise.all([
-  //     this.bookingModel
-  //       .find(finalFilter)
-  //       .skip(skip)
-  //       .limit(limit)
-  //       .populate('room user participants')
-  //       .lean()
-  //       .exec(),
-  //     this.bookingModel.countDocuments(finalFilter),
-  //   ]);
+    const pipeline: PipelineStage[] = [
+      {
+        $lookup: {
+          from: 'rooms',
+          localField: 'room',
+          foreignField: '_id',
+          as: 'room',
+        },
+      },
+      { $unwind: '$room' },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      { $unwind: '$user' },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'participants',
+          foreignField: '_id',
+          as: 'participants',
+        },
+      },
+      { $match: filter },
+      {
+        $addFields: {
+          matchScore: {
+            $sum: [
+              ...(roomName ? [{ $cond: [{ $regexMatch: { input: '$room.name', regex: roomName, options: 'i' } }, 1, 0] }] : []),
+              ...(userName ? [{ $cond: [{ $regexMatch: { input: '$user.name', regex: userName, options: 'i' } }, 1, 0] }] : []),
+              ...(date
+                ? [
+                    {
+                      $cond: [
+                        {
+                          $and: [
+                            { $gte: ['$startTime', filter.startTime.$gte] },
+                            { $lte: ['$startTime', filter.startTime.$lte] },
+                          ],
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  ]
+                : []),
+              ...(title ? [{ $cond: [{ $regexMatch: { input: '$title', regex: title, options: 'i' } }, 1, 0] }] : []),
+              ...(description ? [{ $cond: [{ $regexMatch: { input: '$description', regex: description, options: 'i' } }, 1, 0] }] : []),
+            ],
+          },
+        },
+      },
+      { $sort: { matchScore: -1, startTime: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ];
 
-  //   const totalPages = Math.ceil(total / limit);
-  //   return {
-  //     success: true,
-  //     message: `Lấy danh sách ${data.length} đặt phòng thành công trong ngày hôm nay (trang ${page}/${totalPages})`,
-  //     total,
-  //     page,
-  //     limit,
-  //     totalPages,
-  //     data,
-  //   };
-  // }
+    const [data, total] = await Promise.all([
+      this.bookingModel.aggregate(pipeline).exec(),
+      this.bookingModel.countDocuments(filter),
+    ]);
 
-  
-
-
+    const totalPages = Math.ceil(total / limit);
+    const message = `Tìm thấy ${data.length} đặt phòng khớp với tiêu chí (trang ${page}/${totalPages})`;
+    return {
+      success: true,
+      message,
+      total,
+      page,
+      limit,
+      totalPages,
+      data,
+    };
+  }
 }

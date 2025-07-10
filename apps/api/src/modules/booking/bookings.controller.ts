@@ -22,7 +22,8 @@ import { Roles } from '@api/auth/roles.decorator';
 import { UserRole } from '@api/modules/users/schema/user.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { BookingsService } from './bookings.service';
-
+import { SearchBookingsDto } from './dto/search-bookings.dto';
+import { SearchBookingsDetailedDto } from './dto/search-bookings-detailed.dto';
 @Controller('bookings')
 export class BookingsController {
     constructor(
@@ -89,5 +90,18 @@ export class BookingsController {
             success: true,
             data: booking,
         };
+    }
+    @Get('search')
+    @UseGuards(AuthGuard)
+    async searchBookings(@Query() dto: SearchBookingsDto) {
+        const result = await this.bookingService.searchBookings(dto);
+        return result;
+    }
+
+    @Get('search-detailed')
+    @UseGuards(AuthGuard)
+    async searchBookingsDetailed(@Query() dto: SearchBookingsDetailedDto) {
+        const result = await this.bookingService.searchBookingsDetailed(dto);
+        return result;
     }
 }

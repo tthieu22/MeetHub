@@ -1,5 +1,7 @@
 import { CreateBookingDto } from '../dto/create-booking.dto';
 import { UpdateBookingDto } from '../dto/update-booking.dto';
+import { SearchBookingsDto } from '../dto/search-bookings.dto';
+import { SearchBookingsDetailedDto } from '../dto/search-bookings-detailed.dto';
 import { IBooking } from './booking.interface';
 
 export interface IBookingService {
@@ -9,4 +11,6 @@ export interface IBookingService {
   update(id: string, updateBookingDto: UpdateBookingDto): Promise<IBooking>;
   remove(id: string): Promise<void>;
   cancelBooking(id: string): Promise<IBooking>;
+  searchBookings(dto: SearchBookingsDto): Promise<any>;
+  searchBookingsDetailed(dto: SearchBookingsDetailedDto): Promise<any>;
 }
