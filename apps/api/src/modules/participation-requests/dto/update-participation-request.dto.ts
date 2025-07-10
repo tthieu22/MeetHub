@@ -9,7 +9,7 @@ export class UpdateParticipationRequestDto extends PartialType(CreateParticipati
   status?: RequestStatus;
 
   @IsOptional()
-  @IsString({ message: 'ApprovedBy phải là chuỗi' })
-  @IsMongoId({ message: 'ApprovedBy phải là ObjectId hợp lệ của MongoDB' })
+  @IsString({ message: 'Người phê duyệt tên phải là chuỗi' })
+  @IsMongoId({ message: 'Đây không phải đúng người phê duyệt' })
   approvedBy?: string;
 }

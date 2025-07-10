@@ -10,7 +10,7 @@ import { UserRole } from '@api/modules/users/schema/user.schema';
 @Controller('participation-requests')
 @UseGuards(AuthGuard)
 export class ParticipationRequestsController {
-  constructor(private readonly service: ParticipationRequestsService) {}
+  constructor(private readonly service: ParticipationRequestsService) { }
 
   @Post("add-participation-request")
   async create(@Body() createDto: CreateParticipationRequestDto) {
@@ -74,5 +74,30 @@ export class ParticipationRequestsController {
   ) {
     const data = await this.service.rejectRequest(id, approverId);
     return { success: true, data };
+  }
+
+  @Post(':id/soft-delete')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async softDelete(@Param('id') id: string) {
+    const data = await this.service.softDelete(id);
+    return { success: true, data };
+  }
+  
+  @Get('exclude-deleted')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async findAllExcludeDeleted(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('filter') filter: string = '{}'
+  ) {
+    const parsedFilter = JSON.parse(filter);
+    const result = await this.service.findAllExcludeDeleted(page, limit, parsedFilter);
+    return {
+      success: true,
+      ...result,
+      filter: parsedFilter
+    };
   }
 }

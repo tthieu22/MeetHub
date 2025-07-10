@@ -14,7 +14,7 @@ export class ParticipationRequestsService implements IParticipationRequestServic
     @InjectModel(ParticipationRequest.name) private participationRequestModel: Model<ParticipationRequest>,
     @InjectModel(Booking.name) private bookingModel: Model<Booking>,
     @InjectModel(User.name) private userModel: Model<User>,
-  ) {}
+  ) { }
 
   async create(createDto: CreateParticipationRequestDto): Promise<ParticipationRequest> {
     try {
@@ -25,7 +25,7 @@ export class ParticipationRequestsService implements IParticipationRequestServic
           errorCode: 'INVALID_BOOKING_ID',
         });
       }
-      
+
       if (!Types.ObjectId.isValid(createDto.user)) {
         throw new BadRequestException({
           success: false,
@@ -92,7 +92,7 @@ export class ParticipationRequestsService implements IParticipationRequestServic
       });
 
       const savedRequest = await createdRequest.save();
-      
+
       const populatedRequest = await this.participationRequestModel
         .findById(savedRequest._id)
         .populate('booking user approvedBy')
@@ -152,16 +152,22 @@ export class ParticipationRequestsService implements IParticipationRequestServic
         });
       }
 
+      // Lọc các yêu cầu có status không phải DELETED
+      const updatedFilter = {
+        ...filter,
+        status: { $ne: RequestStatus.DELETED },
+      };
+
       const skip = (page - 1) * limit;
       const [data, total] = await Promise.all([
         this.participationRequestModel
-          .find(filter)
+          .find(updatedFilter)
           .skip(skip)
           .limit(limit)
           .populate('booking user approvedBy')
           .lean()
           .exec(),
-        this.participationRequestModel.countDocuments(filter).exec(),
+        this.participationRequestModel.countDocuments(updatedFilter).exec(),
       ]);
 
       const totalPages = Math.ceil(total / limit);
@@ -195,7 +201,7 @@ export class ParticipationRequestsService implements IParticipationRequestServic
       }
 
       const request = await this.participationRequestModel
-        .findById(id)
+        .findOne({ _id: id, status: { $ne: RequestStatus.DELETED } })
         .populate('booking user approvedBy')
         .lean()
         .exec();
@@ -231,7 +237,9 @@ export class ParticipationRequestsService implements IParticipationRequestServic
         });
       }
 
-      const request = await this.participationRequestModel.findById(id).exec();
+      const request = await this.participationRequestModel
+        .findOne({ _id: id, status: { $ne: RequestStatus.DELETED } })
+        .exec();
       if (!request) {
         throw new NotFoundException({
           success: false,
@@ -392,7 +400,9 @@ export class ParticipationRequestsService implements IParticipationRequestServic
         });
       }
 
-      const request = await this.participationRequestModel.findById(id).exec();
+      const request = await this.participationRequestModel
+        .findOne({ _id: id, status: { $ne: RequestStatus.DELETED } })
+        .exec();
       if (!request) {
         throw new NotFoundException({
           success: false,
@@ -502,7 +512,9 @@ export class ParticipationRequestsService implements IParticipationRequestServic
         });
       }
 
-      const request = await this.participationRequestModel.findById(id).exec();
+      const request = await this.participationRequestModel
+        .findOne({ _id: id, status: { $ne: RequestStatus.DELETED } })
+        .exec();
       if (!request) {
         throw new NotFoundException({
           success: false,
@@ -578,4 +590,121 @@ export class ParticipationRequestsService implements IParticipationRequestServic
       });
     }
   }
+
+  async softDelete(id: string): Promise<ParticipationRequest> {
+    try {
+      if (!Types.ObjectId.isValid(id)) {
+        throw new BadRequestException({
+          success: false,
+          message: 'ID yêu cầu tham gia không hợp lệ',
+          errorCode: 'INVALID_REQUEST_ID',
+        });
+      }
+
+      const request = await this.participationRequestModel
+        .findOne({ _id: id, status: { $ne: RequestStatus.DELETED } })
+        .exec();
+      if (!request) {
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy yêu cầu tham gia với ID ${id}`,
+          errorCode: 'REQUEST_NOT_FOUND',
+        });
+      }
+
+      request.status = RequestStatus.DELETED;
+      const updatedRequest = await request.save();
+
+      const populatedRequest = await this.participationRequestModel
+        .findById(updatedRequest._id)
+        .populate('booking user approvedBy')
+        .lean()
+        .exec();
+
+      if (!populatedRequest) {
+        throw new NotFoundException({
+          success: false,
+          message: 'Yêu cầu tham gia không tìm thấy sau khi xóa mềm',
+          errorCode: 'REQUEST_NOT_FOUND',
+        });
+      }
+
+      return populatedRequest as ParticipationRequest;
+    } catch (error) {
+      if (error.name === 'ValidationError') {
+        const errors = Object.values(error.errors).map((err: any) => ({
+          field: err.path,
+          message: err.message,
+        }));
+        throw new BadRequestException({
+          success: false,
+          message: 'Dữ liệu yêu cầu tham gia không hợp lệ',
+          errors,
+          errorCode: 'VALIDATION_ERROR',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        message: 'Không thể xóa mềm yêu cầu tham gia',
+        errorCode: 'SOFT_DELETE_REQUEST_FAILED',
+      });
+    }
+  }
+  async findAllExcludeDeleted(
+    page: number = 1,
+    limit: number = 10,
+    filter: any = {},
+  ): Promise<{
+    data: ParticipationRequest[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    try {
+      if (page < 1 || limit < 1) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
+          errorCode: 'INVALID_PAGINATION',
+        });
+      }
+
+      const updatedFilter = {
+        ...filter,
+        status: { $ne: RequestStatus.DELETED },
+      };
+
+      const skip = (page - 1) * limit;
+      const [data, total] = await Promise.all([
+        this.participationRequestModel
+          .find(updatedFilter)
+          .skip(skip)
+          .limit(limit)
+          .populate('booking user approvedBy')
+          .lean()
+          .exec(),
+        this.participationRequestModel.countDocuments(updatedFilter).exec(),
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException({
+        success: false,
+        message: 'Không thể lấy danh sách yêu cầu tham gia không bị xóa',
+        errorCode: 'FETCH_REQUESTS_EXCLUDE_DELETED_FAILED',
+      });
+    }
+  }
+
 }
