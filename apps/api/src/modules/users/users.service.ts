@@ -6,6 +6,7 @@ import { User, UserDocument } from './schema/user.schema';
 import { Model } from 'mongoose';
 
 import { hashPassword } from '@api/utils/brcrypt.password';
+import { UpdateMeDto } from './dto/update-user-me.dto';
 
 @Injectable()
 export class UsersService {
@@ -78,5 +79,26 @@ export class UsersService {
   }
   async activateUser(email: string) {
     return this.userDocumentModel.updateOne({ email }, { isActive: true });
+  }
+  async findById(id: string) {
+    try {
+      return this.userDocumentModel.findById(id).select('-password');
+    } catch (error) {
+      console.log(error);
+      throw new BadRequestException('lỗi không tim thấy người dùng');
+    }
+  }
+
+  async updateMe(id: string, dto: UpdateMeDto) {
+    try {
+      return this.userDocumentModel
+        .findByIdAndUpdate(id, dto, {
+          new: true,
+          runValidators: true,
+        })
+        .select('-password');
+    } catch (error) {
+      throw new BadRequestException('lỗi không cập nhật được người dùng');
+    }
   }
 }
