@@ -7,6 +7,7 @@ import ChatMessages from '@web/components/chat/ChatMessages';
 import ChatInput from '@web/components/chat/ChatInput';
 import { useChatMessages } from '@web/lib/services';
 import { useUnreadCount } from '@web/lib/services';
+import { useChatRooms } from '@web/lib/services/useChatRooms';
 
 const { Content } = Layout;
 
@@ -31,17 +32,29 @@ export default function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     error: unreadError
   } = useUnreadCount(roomId || '');
 
+  const { setCurrentRoomId } = useChatRooms();
+
+  // Set current room ID khi component mount và cleanup khi unmount
+  useEffect(() => {
+    if (roomId) {
+      setCurrentRoomId(roomId);
+    }
+    
+    return () => {
+      setCurrentRoomId(null);
+    };
+  }, [roomId, setCurrentRoomId]);
+
   // Đánh dấu đọc room khi component mount và messages đã load
   useEffect(() => {
-    if (roomId && !messagesLoading && messages.length > 0) {
-      // Delay một chút để đảm bảo room đã được load hoàn toàn
+    if (roomId && !messagesLoading) {
+      // Log khi đánh dấu đã đọc room
       const timer = setTimeout(() => {
         markRoomAsRead();
-      }, 500);
-      
+      }, 100);
       return () => clearTimeout(timer);
     }
-  }, [roomId, messagesLoading, messages.length, markRoomAsRead]);
+  }, [roomId, messagesLoading, markRoomAsRead]);
 
   // Hiển thị lỗi
   useEffect(() => {

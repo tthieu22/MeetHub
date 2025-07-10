@@ -188,17 +188,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit(WebSocketEventName.MESSAGE_CREATED, response);
     if (response.success) {
       this.server.to(`room:${data.roomId}`).emit(WebSocketEventName.NEW_MESSAGE, response);
-      this.logger.log(`Emit new_message: roomId=${data.roomId}`);
-      const roomMembers: { userId: { toString(): string } }[] = await this.chatService.getRoomMembers(data.roomId, userId);
-      const otherMembers = roomMembers.filter((member) => member.userId.toString() !== userId);
+      this.logger.log(`[DEBUG] Emit NEW_MESSAGE to room: ${data.roomId}`);
+      const roomMembers: { userId: { _id: any } }[] = await this.chatService.getRoomMembers(data.roomId, userId);
+      this.logger.log(`[DEBUG] roomMembers: ${roomMembers.map((m) => String(m.userId && m.userId._id)).join(', ')}`);
+      const otherMembers = roomMembers.filter((member) => member.userId && member.userId._id && String(member.userId._id) !== userId);
+      this.logger.log(`[DEBUG] otherMembers: ${otherMembers.map((m) => String(m.userId && m.userId._id)).join(', ')}`);
       await Promise.all(
         otherMembers.map(async (member) => {
-          const memberId = member.userId.toString();
+          const memberId: string = String(member.userId._id);
           const unreadCount = await this.chatService.getUnreadCount(data.roomId, memberId);
           const unreadResponse: WsResponse = {
             success: true,
             data: { roomId: data.roomId, unreadCount },
           };
+          this.logger.log(`[DEBUG] Emit UNREAD_COUNT_UPDATED to user: ${memberId}, unreadCount: ${unreadCount}`);
           this.server.to(`user:${memberId}`).emit(WebSocketEventName.UNREAD_COUNT_UPDATED, unreadResponse);
         }),
       );

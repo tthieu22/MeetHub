@@ -16,7 +16,8 @@ type RoomsAction =
   | {
       type: "UPDATE_LAST_MESSAGE";
       payload: { roomId: string; lastMessage: LastMessageInfo };
-    };
+    }
+  | { type: "INCREMENT_UNREAD"; payload: { roomId: string } };
 
 function roomsReducer(state: ChatRoom[], action: RoomsAction): ChatRoom[] {
   switch (action.type) {
@@ -53,6 +54,12 @@ function roomsReducer(state: ChatRoom[], action: RoomsAction): ChatRoom[] {
           ? { ...room, lastMessage: action.payload.lastMessage }
           : room
       );
+    case "INCREMENT_UNREAD":
+      return state.map((room) =>
+        room.roomId === action.payload.roomId
+          ? { ...room, unreadCount: room.unreadCount + 1 }
+          : room
+      );
     default:
       return state;
   }
@@ -63,12 +70,23 @@ export function useChatRooms() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const currentRoomIdRef = useRef<string | null>(null);
 
   // Tách callback ra ngoài useEffect để off/on đúng function
   const handleRooms = useCallback((response: WsResponse<ChatRoom[]>) => {
-    console.log("[Socket] Received rooms:", response);
     if (response.success && response.data) {
       dispatchRooms({ type: "SET", payload: response.data });
+      // Không cần log join room ở đây
+      const socket = socketRef.current;
+      if (socket) {
+        response.data.forEach((room) => {
+          socket.emit("join_room", { roomId: room.roomId });
+        });
+        const userId = localStorage.getItem("user_id");
+        if (userId) {
+          socket.emit("join_room", { roomId: userId });
+        }
+      }
     } else {
       setError(response.message || "Lỗi khi lấy danh sách rooms");
     }
@@ -76,18 +94,16 @@ export function useChatRooms() {
   }, []);
 
   const handleError = useCallback((response: WsResponse) => {
-    console.log("[Socket] Error:", response);
     setError(response.message || "Lỗi không xác định");
     setLoading(false);
   }, []);
 
   const handleNewMessage = useCallback((response: WsResponse<Message>) => {
-    console.log("[Socket] New message:", response);
+    // Log khi nhận new_message
     if (response.success && response.data) {
       const message = response.data;
       const roomId = message.conversationId;
-
-      // Tạo lastMessage object từ message data
+      // Cập nhật lastMessage cho room
       const lastMessage: LastMessageInfo = {
         messageId: message._id,
         conversationId: message.conversationId,
@@ -98,7 +114,6 @@ export function useChatRooms() {
         text: message.text,
         createdAt: message.createdAt,
       };
-
       dispatchRooms({
         type: "UPDATE_LAST_MESSAGE",
         payload: {
@@ -111,7 +126,7 @@ export function useChatRooms() {
 
   const handleUnreadCountUpdated = useCallback(
     (response: WsResponse<{ roomId: string; unreadCount: number }>) => {
-      console.log("[Socket] Unread count updated:", response);
+      // Log khi nhận unread_count_updated
       if (response.success && response.data) {
         dispatchRooms({
           type: "UPDATE_UNREAD",
@@ -129,8 +144,10 @@ export function useChatRooms() {
     (
       response: WsResponse<{ roomId: string; userId: string; markedAt: string }>
     ) => {
-      console.log("[Socket] Room marked read:", response);
+      // Log khi nhận room_marked_read
       if (response.success && response.data) {
+        const currentUserId = localStorage.getItem("user_id");
+        if (response.data.userId !== currentUserId) return; // Chỉ xử lý nếu là user hiện tại
         dispatchRooms({
           type: "MARK_READ",
           payload: { roomId: response.data.roomId },
@@ -142,7 +159,6 @@ export function useChatRooms() {
 
   const handleUserOnline = useCallback(
     (response: WsResponse<{ userId: string; roomId: string }>) => {
-      console.log("[Socket] User online:", response);
       if (response.success && response.data) {
         dispatchRooms({
           type: "UPDATE_ONLINE",
@@ -156,9 +172,24 @@ export function useChatRooms() {
     []
   );
 
+  // Function để set current room ID
+  const setCurrentRoomId = useCallback((roomId: string | null) => {
+    currentRoomIdRef.current = roomId;
+  }, []);
+
+  // Function để mark room as read optimistically
+  const markRoomAsReadOptimistically = useCallback((roomId: string) => {
+    dispatchRooms({
+      type: "MARK_READ",
+      payload: { roomId },
+    });
+  }, []);
+
+  useEffect(() => {}, [rooms]);
+
   useEffect(() => {
     const socket = getSocket();
-    socketRef.current = socket;
+    socket.connect();
     setLoading(true);
     setError(null);
 
@@ -181,7 +212,6 @@ export function useChatRooms() {
     socket.off("user_online", handleUserOnline);
     socket.on("user_online", handleUserOnline);
 
-    socket.connect();
     socket.emit("get_rooms");
 
     return () => {
@@ -202,5 +232,11 @@ export function useChatRooms() {
     handleUserOnline,
   ]);
 
-  return { rooms, loading, error };
+  return {
+    rooms,
+    loading,
+    error,
+    setCurrentRoomId,
+    markRoomAsReadOptimistically,
+  };
 }

@@ -44,21 +44,17 @@ export function useUnreadCount(roomId: string) {
 
   useEffect(() => {
     const socket = getSocket();
-    socketRef.current = socket;
+    socket.connect();
 
     socket.on("connect", () => {
-      console.log("[UnreadCount] Connected:", socket.id);
       getUnreadCount();
     });
 
-    socket.on("disconnect", (reason) => {
-      console.log("[UnreadCount] Disconnected:", reason);
-    });
+    socket.on("disconnect", () => {});
 
     socket.on(
       "unread_count",
       (response: WsResponse<{ roomId: string; unreadCount: number }>) => {
-        console.log("[UnreadCount] Received unread count:", response);
         if (response.success && response.data) {
           const unread = response.data?.unreadCount ?? 0;
           setUnreadCount((prev) => (prev !== unread ? unread : prev));
@@ -72,7 +68,6 @@ export function useUnreadCount(roomId: string) {
     socket.on(
       "unread_count_updated",
       (response: WsResponse<{ roomId: string; unreadCount: number }>) => {
-        console.log("[UnreadCount] Unread count updated:", response);
         if (
           response.success &&
           response.data &&
@@ -93,24 +88,22 @@ export function useUnreadCount(roomId: string) {
           markedAt: string;
         }>
       ) => {
-        console.log("[UnreadCount] Room marked read:", response);
         if (
           response.success &&
           response.data &&
           response.data.roomId === roomId
         ) {
+          const currentUserId = localStorage.getItem("user_id");
+          if (response.data.userId !== currentUserId) return;
           setUnreadCount((prev) => (prev !== 0 ? 0 : prev));
         }
       }
     );
 
     socket.on("error", (response: WsResponse) => {
-      console.log("[UnreadCount] Error:", response);
       setError(response.message || "Lỗi không xác định");
       setLoading(false);
     });
-
-    socket.connect();
 
     return () => {
       socket.off("connect");

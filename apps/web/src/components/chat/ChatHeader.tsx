@@ -39,7 +39,6 @@ export default function ChatHeader({ roomName = 'Phòng chat mẫu', roomId }: C
   const currentMemberIds = mockMembers.map(m => m.id);
 
   const handleAddMembers = (userIds: string[]) => {
-    console.log('Added members:', userIds);
     // TODO: Implement actual member addition
     setIsAddMemberModalVisible(false);
   };
@@ -54,13 +53,11 @@ export default function ChatHeader({ roomName = 'Phòng chat mẫu', roomId }: C
         setIsRoomInfoModalVisible(true);
         break;
       case 'settings':
-        console.log('Cài đặt phòng');
         break;
       case 'add-member':
         setIsAddMemberModalVisible(true);
         break;
       case 'remove-member':
-        console.log('Xóa thành viên');
         break;
     }
   };
@@ -237,7 +234,7 @@ export default function ChatHeader({ roomName = 'Phòng chat mẫu', roomId }: C
                   type="text" 
                   size="small" 
                   icon={<UserDeleteOutlined />}
-                  onClick={() => console.log('Xóa thành viên:', member.id)}
+                  onClick={() => {}}
                   disabled={member.role === 'admin'}
                 />
               ].filter(Boolean)}

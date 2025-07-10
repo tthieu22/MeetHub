@@ -36,6 +36,15 @@ export function useChatMessages(roomId: string) {
   const [hasMore, setHasMore] = useState(false);
   const [before, setBefore] = useState<string | undefined>(undefined);
   const socketRef = useRef<Socket | null>(null);
+  const isCurrentRoomRef = useRef<boolean>(false);
+
+  // Cập nhật trạng thái room hiện tại
+  useEffect(() => {
+    isCurrentRoomRef.current = true;
+    return () => {
+      isCurrentRoomRef.current = false;
+    };
+  }, [roomId]);
 
   const loadMessages = useCallback(
     (beforeTimestamp?: string, limit: number = 20) => {
@@ -53,10 +62,14 @@ export function useChatMessages(roomId: string) {
     [roomId]
   );
 
+  const markRoomAsRead = useCallback(() => {
+    if (!socketRef.current) return;
+    socketRef.current.emit("mark_room_read", { roomId });
+  }, [roomId]);
+
   const sendMessage = useCallback(
     (text: string) => {
       if (!socketRef.current) return;
-
       socketRef.current.emit("create_message", {
         text,
         roomId,
@@ -64,14 +77,6 @@ export function useChatMessages(roomId: string) {
     },
     [roomId]
   );
-
-  const markRoomAsRead = useCallback(() => {
-    if (!socketRef.current) return;
-
-    socketRef.current.emit("mark_room_read", {
-      roomId,
-    });
-  }, [roomId]);
 
   const getUnreadCount = useCallback(() => {
     if (!socketRef.current) return;
@@ -94,23 +99,18 @@ export function useChatMessages(roomId: string) {
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      console.log("[ChatMessages] Connected:", socket.id);
       joinRoom();
       loadMessages();
     });
 
-    socket.on("reconnect", (attemptNumber: number) => {
-      console.log("[ChatMessages] Reconnected, attempt:", attemptNumber);
+    socket.on("reconnect", () => {
       joinRoom();
       loadMessages();
     });
 
-    socket.on("disconnect", (reason) => {
-      console.log("[ChatMessages] Disconnected:", reason);
-    });
+    socket.on("disconnect", () => {});
 
     socket.on("messages", (response: WsResponse<MessagesResponse>) => {
-      console.log("[ChatMessages] Received messages:", response);
       if (response.success && response.data) {
         const newMessages = response.data.data;
         if (response.data!.before) {
@@ -127,28 +127,29 @@ export function useChatMessages(roomId: string) {
     });
 
     socket.on("new_message", (response: WsResponse<Message>) => {
-      console.log("[ChatMessages] New message:", response);
+      // Log khi nhận new_message
       if (response.success && response.data) {
-        // Chỉ xử lý tin nhắn thuộc về room hiện tại
         if (response.data.conversationId === roomId) {
           dispatchMessages({ type: "ADD", payload: response.data });
+          // Chỉ auto mark read nếu đang ở room này
+          if (isCurrentRoomRef.current) {
+            markRoomAsRead();
+          }
         }
       }
     });
 
     socket.on("message_created", (response: WsResponse<Message>) => {
-      console.log("[ChatMessages] Message created:", response);
       if (response.success && response.data) {
         dispatchMessages({ type: "UPDATE", payload: response.data });
       }
     });
 
     socket.on("room_marked_read", (response: WsResponse) => {
-      console.log("[ChatMessages] Room marked read:", response);
+      console.log("[DEBUG] Nhận room_marked_read:", response);
     });
 
     socket.on("error", (response: WsResponse) => {
-      console.log("[ChatMessages] Error:", response);
       setError(response.message || "Lỗi không xác định");
       setLoading(false);
     });
@@ -166,7 +167,7 @@ export function useChatMessages(roomId: string) {
       socket.off("error");
       socket.disconnect();
     };
-  }, [roomId, joinRoom, loadMessages]);
+  }, [roomId, joinRoom, loadMessages, markRoomAsRead]);
 
   return {
     messages,

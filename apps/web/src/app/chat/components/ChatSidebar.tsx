@@ -24,12 +24,13 @@ export default function ChatSidebar({
   const router = useRouter();
   const pathname = usePathname();
   const { handleRoomSelect } = useRoomSelection();
+  // Xóa: const { markRoomAsReadOptimistically } = useChatRooms();
   
   // Lấy roomId từ URL path
   const selectedRoomId = pathname.split('/').pop() || '';
 
-  const handleRoomSelectWithMarkRead = (roomId: string) => {
-    // Force mark room as read trước khi navigate
+  // Sửa hàm chọn phòng: chỉ chọn phòng và chuyển trang, không mark-as-read local
+  const handleRoomSelectOnly = (roomId: string) => {
     handleRoomSelect(roomId, (selectedRoomId) => {
       router.push(`/chat/${selectedRoomId}`);
     });
@@ -84,7 +85,7 @@ export default function ChatSidebar({
         <div style={{ flex: 1, overflow: 'auto' }}>
           <ChatList
             selectedRoomId={selectedRoomId}
-            onRoomSelect={handleRoomSelectWithMarkRead}
+            onRoomSelect={handleRoomSelectOnly}
           />
         </div>
         

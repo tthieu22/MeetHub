@@ -68,7 +68,6 @@ export default function AddMemberModal({
     setLoading(true);
     try {
       // TODO: Implement API call to add members
-      console.log('Adding members:', selectedUsers);
       await new Promise(resolve => setTimeout(resolve, 1000)); // Mock API delay
       onAddMembers(selectedUsers);
       setSelectedUsers([]);
