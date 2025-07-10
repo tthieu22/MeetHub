@@ -44,6 +44,8 @@ export class MessageService {
 
   // Helper: check if user is member of conversation
   private async isMemberOfConversation(userId: string, conversationId: string): Promise<boolean> {
+    if (!userId || !Types.ObjectId.isValid(userId)) return false;
+    if (!conversationId || !Types.ObjectId.isValid(conversationId)) return false;
     const member = await this.conversationMemberModel
       .findOne({
         userId: new Types.ObjectId(userId),
@@ -61,7 +63,69 @@ export class MessageService {
       conversationId: new Types.ObjectId(roomId),
       createdAt: new Date(),
     });
-    return await message.save();
+    const savedMessage = await message.save();
+    try {
+      const msgObj =
+        typeof savedMessage.toObject === 'function'
+          ? (savedMessage.toObject() as unknown as { text: string; createdAt: Date; senderId: Types.ObjectId })
+          : (savedMessage as unknown as { text: string; createdAt: Date; senderId: Types.ObjectId });
+      await this.conversationModel.findByIdAndUpdate(
+        roomId,
+        {
+          $set: {
+            lastMessage: {
+              content: msgObj.text,
+              createdAt: msgObj.createdAt,
+              senderId: msgObj.senderId,
+            },
+          },
+        },
+        { new: true },
+      );
+    } catch (err) {
+      let errorMsg = 'Không thể cập nhật lastMessage cho room';
+      if (err instanceof Error) {
+        errorMsg += ': ' + err.message;
+      }
+      console.error('[MessageService] Lỗi cập nhật lastMessage:', err);
+      throw new Error(errorMsg);
+    }
+
+    // Tạo bản ghi unread cho các thành viên khác
+    try {
+      const members = await this.conversationMemberModel
+        .find({
+          conversationId: new Types.ObjectId(roomId),
+        })
+        .exec();
+      const unreadPromises = members
+        .filter((m) => m.userId.toString() !== userId)
+        .map((m) =>
+          this.messageStatusModel.updateOne(
+            {
+              messageId: savedMessage._id,
+              userId: m.userId,
+            },
+            {
+              isRead: false,
+              readAt: null,
+            },
+            { upsert: true },
+          ),
+        );
+      if (unreadPromises.length > 0) {
+        await Promise.all(unreadPromises);
+      }
+    } catch (err) {
+      let errorMsg = 'Không thể tạo unread cho thành viên khác';
+      if (err instanceof Error) {
+        errorMsg += ': ' + err.message;
+      }
+      console.error('[MessageService] Lỗi tạo unread:', err);
+      throw new Error(errorMsg);
+    }
+
+    return savedMessage;
   }
 
   // 2. Lấy danh sách tin nhắn trong phòng

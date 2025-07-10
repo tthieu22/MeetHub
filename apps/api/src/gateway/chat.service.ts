@@ -24,7 +24,7 @@ export class ChatService {
 
   // Message methods
   async createMessage(createMessageDto: CreateMessageDto, conversationId: string, userId: string) {
-    return await this.messageService.createMessage(createMessageDto, conversationId, userId);
+    return await this.messageService.createMessage(createMessageDto, userId, conversationId);
   }
 
   async getMessages(conversationId: string, page: number = 1, limit: number = 50, before?: Date) {
