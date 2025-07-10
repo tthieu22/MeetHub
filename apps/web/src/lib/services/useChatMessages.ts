@@ -1,44 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useReducer } from "react";
 import { getSocket } from "@web/lib/services/socket.service";
 import { Socket } from "socket.io-client";
-
-export interface Message {
-  _id: string;
-  conversationId: string;
-  senderId: {
-    _id: string;
-    email: string;
-    username?: string;
-    avatar?: string;
-  };
-  text: string;
-  fileUrl?: string;
-  replyTo?: unknown;
-  mentions: string[];
-  isPinned: boolean;
-  isDeleted: boolean;
-  deletedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface MessagesResponse {
-  data: Message[];
-  total: number;
-  page: number;
-  limit: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-  hasMore?: boolean;
-  before?: string;
-}
-
-export interface WsResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  message?: string;
-  code?: string;
-}
+import { WsResponse, Message, MessagesResponse } from "@web/types/chat";
 
 type MessagesAction =
   | { type: "SET"; payload: Message[] }
@@ -166,7 +129,10 @@ export function useChatMessages(roomId: string) {
     socket.on("new_message", (response: WsResponse<Message>) => {
       console.log("[ChatMessages] New message:", response);
       if (response.success && response.data) {
-        dispatchMessages({ type: "ADD", payload: response.data });
+        // Chỉ xử lý tin nhắn thuộc về room hiện tại
+        if (response.data.conversationId === roomId) {
+          dispatchMessages({ type: "ADD", payload: response.data });
+        }
       }
     });
 

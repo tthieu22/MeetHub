@@ -1,44 +1,22 @@
 import { useEffect, useState, useRef, useReducer, useCallback } from "react";
 import { getSocket } from "@web/lib/services/socket.service";
 import { Socket } from "socket.io-client";
-
-export interface RoomMemberInfo {
-  userId: string;
-  name: string;
-  avatarURL?: string;
-}
-
-export interface LastMessageInfo {
-  messageId: string;
-  conversationId: string;
-  senderId: string;
-  text: string;
-  createdAt: string;
-}
-
-export interface ChatRoom {
-  roomId: string;
-  name: string;
-  isGroup: boolean;
-  members: RoomMemberInfo[];
-  lastMessage: LastMessageInfo | null;
-  unreadCount: number;
-  onlineMemberIds: string[];
-}
-
-// WebSocket Response interface
-export interface WsResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  message?: string;
-  code?: string;
-}
+import {
+  WsResponse,
+  Message,
+  LastMessageInfo,
+  ChatRoom,
+} from "@web/types/chat";
 
 type RoomsAction =
   | { type: "SET"; payload: ChatRoom[] }
   | { type: "UPDATE_UNREAD"; payload: { roomId: string; unreadCount: number } }
   | { type: "MARK_READ"; payload: { roomId: string } }
-  | { type: "UPDATE_ONLINE"; payload: { roomId: string; userId: string } };
+  | { type: "UPDATE_ONLINE"; payload: { roomId: string; userId: string } }
+  | {
+      type: "UPDATE_LAST_MESSAGE";
+      payload: { roomId: string; lastMessage: LastMessageInfo };
+    };
 
 function roomsReducer(state: ChatRoom[], action: RoomsAction): ChatRoom[] {
   switch (action.type) {
@@ -69,6 +47,12 @@ function roomsReducer(state: ChatRoom[], action: RoomsAction): ChatRoom[] {
             }
           : room
       );
+    case "UPDATE_LAST_MESSAGE":
+      return state.map((room) =>
+        room.roomId === action.payload.roomId
+          ? { ...room, lastMessage: action.payload.lastMessage }
+          : room
+      );
     default:
       return state;
   }
@@ -97,8 +81,32 @@ export function useChatRooms() {
     setLoading(false);
   }, []);
 
-  const handleNewMessage = useCallback((response: WsResponse) => {
+  const handleNewMessage = useCallback((response: WsResponse<Message>) => {
     console.log("[Socket] New message:", response);
+    if (response.success && response.data) {
+      const message = response.data;
+      const roomId = message.conversationId;
+
+      // Tạo lastMessage object từ message data
+      const lastMessage: LastMessageInfo = {
+        messageId: message._id,
+        conversationId: message.conversationId,
+        senderId:
+          typeof message.senderId === "string"
+            ? message.senderId
+            : message.senderId._id,
+        text: message.text,
+        createdAt: message.createdAt,
+      };
+
+      dispatchRooms({
+        type: "UPDATE_LAST_MESSAGE",
+        payload: {
+          roomId,
+          lastMessage,
+        },
+      });
+    }
   }, []);
 
   const handleUnreadCountUpdated = useCallback(

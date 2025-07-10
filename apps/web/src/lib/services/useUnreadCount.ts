@@ -1,13 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { getSocket } from "@web/lib/services/socket.service";
 import { Socket } from "socket.io-client";
-
-export interface WsResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  message?: string;
-  code?: string;
-}
+import { WsResponse } from "@web/types/chat";
 
 function debounce<T extends (...args: unknown[]) => void>(
   fn: T,

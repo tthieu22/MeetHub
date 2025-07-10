@@ -83,24 +83,28 @@ export default function ChatMessages({
   const convertMessage = (message: Message) => ({
     id: message._id,
     text: message.text,
-    sender: { 
-      id: message.senderId._id, 
-      name: message.senderId.username || message.senderId.email, 
-      avatar: message.senderId.avatar 
+    sender: {
+      id: typeof message.senderId === "string" ? message.senderId : message.senderId._id,
+      name: typeof message.senderId === "string"
+        ? message.senderId
+        : message.senderId.username || message.senderId.email,
+      avatar: typeof message.senderId === "string" ? undefined : message.senderId.avatar,
     },
     createdAt: new Date(message.createdAt),
     replyTo: convertReplyTo(message.replyTo),
-    files: message.fileUrl ? [
-      {
-        id: message._id,
-        name: message.fileUrl.split('/').pop() || 'file',
-        url: message.fileUrl,
-        type: 'file' as const,
-        size: 0
-      }
-    ] : undefined,
+    files: message.fileUrl
+      ? [
+          {
+            id: message._id,
+            name: message.fileUrl.split("/").pop() || "file",
+            url: message.fileUrl,
+            type: "file" as const,
+            size: 0,
+          },
+        ]
+      : undefined,
     isLiked: false, // TODO: Implement from message data
-    likesCount: 0 // TODO: Implement from message data
+    likesCount: 0, // TODO: Implement from message data
   });
 
   if (loading && messages.length === 0) {
@@ -157,7 +161,11 @@ export default function ChatMessages({
             <ChatMessage
               key={message._id}
               message={convertMessage(message)}
-              isOwn={message.senderId._id === currentUserId}
+              isOwn={
+                typeof message.senderId === "string"
+                  ? message.senderId === currentUserId
+                  : message.senderId._id === currentUserId
+              }
               onReply={handleReply}
               onLike={handleLike}
               onDelete={handleDelete}
