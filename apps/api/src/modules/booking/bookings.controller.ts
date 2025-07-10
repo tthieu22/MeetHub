@@ -104,4 +104,25 @@ export class BookingsController {
         const result = await this.bookingService.searchBookingsDetailed(dto);
         return result;
     }
+
+    @Put(':id/delete')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
+    async setBookingStatusToDeleted(@Param('id') id: string) {
+        const updatedBooking = await this.bookingService.setBookingStatusToDeleted(id);
+        return {
+            success: true,
+            data: updatedBooking,
+        };
+    }
+
+    @Get("exclude-deleted")
+    @UseGuards(AuthGuard)
+    async findAllExcludeDeleted(
+        @Query('page') page: number = 1,
+        @Query('limit') limit: number = 10
+    ) {
+        const result = await this.bookingService.findAllExcludeDeleted(page, limit);
+        return result;
+    }
 }

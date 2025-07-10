@@ -8,6 +8,7 @@ export enum BookingStatus {
   CONFIRMED = 'confirmed',
   CANCELLED = 'cancelled',
   COMPLETED = 'completed',
+  DELETED = 'deleted'
 }
 
 @Schema({ timestamps: true })

@@ -692,4 +692,54 @@ async searchBookings(dto: SearchBookingsDto): Promise<any> {
       data,
     };
   }
+
+ async setBookingStatusToDeleted(id: string): Promise<IBooking> {
+    const booking = await this.bookingModel.findById(id).exec();
+    if (!booking) {
+      throw new NotFoundException({
+        success: false,
+        message: `Không tìm thấy đặt phòng với ID ${id}`,
+        errorCode: 'BOOKING_NOT_FOUND',
+      });
+    }
+    booking.status = BookingStatus.DELETED;
+    const updatedBooking = await booking.save();
+    return updatedBooking.toObject() as IBooking;
+  }
+
+  async findAllExcludeDeleted(page = 1, limit = 10): Promise<any> {
+  if (page < 1 || limit < 1) {
+    throw new BadRequestException({
+      success: false,
+      message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
+      errorCode: 'INVALID_PAGINATION',
+    });
+  }
+
+  const skip = (page - 1) * limit;
+  const filter = { status: { $ne: BookingStatus.DELETED } };
+
+  const [data, total] = await Promise.all([
+    this.bookingModel
+      .find(filter)
+      .skip(skip)
+      .limit(limit)
+      .populate('room user participants')
+      .lean()
+      .exec(),
+    this.bookingModel.countDocuments(filter),
+  ]);
+
+  const totalPages = Math.ceil(total / limit);
+  return {
+    success: true,
+    message: `Lấy danh sách ${data.length} đặt phòng (không bao gồm trạng thái DELETED) thành công (trang ${page}/${totalPages})`,
+    total,
+    page,
+    limit,
+    totalPages,
+    data,
+  };
+}
+
 }
