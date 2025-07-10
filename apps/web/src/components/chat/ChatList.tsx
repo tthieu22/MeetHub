@@ -14,7 +14,7 @@ interface ChatListProps {
 
 export default function ChatList({ selectedRoomId, onRoomSelect }: ChatListProps) {
   const { rooms, loading, error } = useChatRooms();
-
+  console.log("[DEBUG] ChatList: rooms", rooms);
   if (loading) {
     return (
       <div style={{ 

@@ -191,10 +191,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.log(`[DEBUG] Emit NEW_MESSAGE to room: ${data.roomId}`);
       const roomMembers: { userId: { _id: any } }[] = await this.chatService.getRoomMembers(data.roomId, userId);
       this.logger.log(`[DEBUG] roomMembers: ${roomMembers.map((m) => String(m.userId && m.userId._id)).join(', ')}`);
-      const otherMembers = roomMembers.filter((member) => member.userId && member.userId._id && String(member.userId._id) !== userId);
-      this.logger.log(`[DEBUG] otherMembers: ${otherMembers.map((m) => String(m.userId && m.userId._id)).join(', ')}`);
+      // Sửa: emit UNREAD_COUNT_UPDATED cho tất cả thành viên
       await Promise.all(
-        otherMembers.map(async (member) => {
+        roomMembers.map(async (member) => {
           const memberId: string = String(member.userId._id);
           const unreadCount = await this.chatService.getUnreadCount(data.roomId, memberId);
           const unreadResponse: WsResponse = {

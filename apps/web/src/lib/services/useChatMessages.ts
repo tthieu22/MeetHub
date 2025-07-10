@@ -108,7 +108,9 @@ export function useChatMessages(roomId: string) {
       loadMessages();
     });
 
-    socket.on("disconnect", () => {});
+    socket.on("disconnect", () => {
+      console.log("[DEBUG] Socket disconnected");
+    });
 
     socket.on("messages", (response: WsResponse<MessagesResponse>) => {
       if (response.success && response.data) {
