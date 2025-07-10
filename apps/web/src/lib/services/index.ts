@@ -1,5 +1,5 @@
 // Socket service
-export { createSocket } from "@web/lib/services/socket.service";
+export { getSocket } from "@web/lib/services/socket.service";
 
 // Chat hooks
 export {

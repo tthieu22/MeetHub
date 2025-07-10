@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { createSocket } from "@web/lib/services/socket.service";
+import { useEffect, useState, useRef, useCallback, useReducer } from "react";
+import { getSocket } from "@web/lib/services/socket.service";
 import { Socket } from "socket.io-client";
 
 export interface Message {
@@ -40,8 +40,34 @@ export interface WsResponse<T = unknown> {
   code?: string;
 }
 
+type MessagesAction =
+  | { type: "SET"; payload: Message[] }
+  | { type: "PREPEND"; payload: Message[] }
+  | { type: "ADD"; payload: Message }
+  | { type: "UPDATE"; payload: Message }
+  | { type: "DELETE"; payload: string };
+
+function messagesReducer(state: Message[], action: MessagesAction): Message[] {
+  switch (action.type) {
+    case "SET":
+      return action.payload;
+    case "PREPEND":
+      return [...action.payload, ...state];
+    case "ADD":
+      return [...state, action.payload];
+    case "UPDATE":
+      return state.map((msg) =>
+        msg._id === action.payload._id ? action.payload : msg
+      );
+    case "DELETE":
+      return state.filter((msg) => msg._id !== action.payload);
+    default:
+      return state;
+  }
+}
+
 export function useChatMessages(roomId: string) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, dispatchMessages] = useReducer(messagesReducer, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -101,11 +127,17 @@ export function useChatMessages(roomId: string) {
   }, [roomId]);
 
   useEffect(() => {
-    const socket = createSocket();
+    const socket = getSocket();
     socketRef.current = socket;
 
     socket.on("connect", () => {
       console.log("[ChatMessages] Connected:", socket.id);
+      joinRoom();
+      loadMessages();
+    });
+
+    socket.on("reconnect", (attemptNumber: number) => {
+      console.log("[ChatMessages] Reconnected, attempt:", attemptNumber);
       joinRoom();
       loadMessages();
     });
@@ -118,12 +150,11 @@ export function useChatMessages(roomId: string) {
       console.log("[ChatMessages] Received messages:", response);
       if (response.success && response.data) {
         const newMessages = response.data.data;
-        setMessages((prevMessages) => {
-          if (response.data!.before) {
-            return [...newMessages, ...prevMessages];
-          }
-          return newMessages;
-        });
+        if (response.data!.before) {
+          dispatchMessages({ type: "PREPEND", payload: newMessages });
+        } else {
+          dispatchMessages({ type: "SET", payload: newMessages });
+        }
         setHasMore(response.data.hasMore || false);
         setBefore(response.data.before);
       } else {
@@ -135,12 +166,15 @@ export function useChatMessages(roomId: string) {
     socket.on("new_message", (response: WsResponse<Message>) => {
       console.log("[ChatMessages] New message:", response);
       if (response.success && response.data) {
-        setMessages((prevMessages) => [...prevMessages, response.data!]);
+        dispatchMessages({ type: "ADD", payload: response.data });
       }
     });
 
     socket.on("message_created", (response: WsResponse<Message>) => {
       console.log("[ChatMessages] Message created:", response);
+      if (response.success && response.data) {
+        dispatchMessages({ type: "UPDATE", payload: response.data });
+      }
     });
 
     socket.on("room_marked_read", (response: WsResponse) => {
@@ -156,6 +190,14 @@ export function useChatMessages(roomId: string) {
     socket.connect();
 
     return () => {
+      socket.off("connect");
+      socket.off("reconnect");
+      socket.off("disconnect");
+      socket.off("messages");
+      socket.off("new_message");
+      socket.off("message_created");
+      socket.off("room_marked_read");
+      socket.off("error");
       socket.disconnect();
     };
   }, [roomId, joinRoom, loadMessages]);

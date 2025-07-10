@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { createSocket } from "@web/lib/services/socket.service";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { getSocket } from "@web/lib/services/socket.service";
 import { Socket } from "socket.io-client";
 
 export interface WsResponse<T = unknown> {
@@ -9,33 +9,47 @@ export interface WsResponse<T = unknown> {
   code?: string;
 }
 
+function debounce<T extends (...args: unknown[]) => void>(
+  fn: T,
+  delay: number
+): T {
+  let timer: ReturnType<typeof setTimeout>;
+  return ((...args: Parameters<T>) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  }) as T;
+}
+
 export function useUnreadCount(roomId: string) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
-  const getUnreadCount = useCallback(() => {
+  const getUnreadCountRaw = useCallback(() => {
     if (!socketRef.current) return;
-
     setLoading(true);
     setError(null);
-
-    socketRef.current.emit("get_unread_count", {
-      roomId,
-    });
+    socketRef.current.emit("get_unread_count", { roomId });
   }, [roomId]);
 
-  const markRoomAsRead = useCallback(() => {
+  const getUnreadCount = useMemo(
+    () => debounce(getUnreadCountRaw, 300),
+    [getUnreadCountRaw]
+  );
+
+  const markRoomAsReadRaw = useCallback(() => {
     if (!socketRef.current) return;
-
-    socketRef.current.emit("mark_room_read", {
-      roomId,
-    });
+    socketRef.current.emit("mark_room_read", { roomId });
   }, [roomId]);
+
+  const markRoomAsRead = useMemo(
+    () => debounce(markRoomAsReadRaw, 300),
+    [markRoomAsReadRaw]
+  );
 
   useEffect(() => {
-    const socket = createSocket();
+    const socket = getSocket();
     socketRef.current = socket;
 
     socket.on("connect", () => {
@@ -52,7 +66,8 @@ export function useUnreadCount(roomId: string) {
       (response: WsResponse<{ roomId: string; unreadCount: number }>) => {
         console.log("[UnreadCount] Received unread count:", response);
         if (response.success && response.data) {
-          setUnreadCount(response.data.unreadCount);
+          const unread = response.data?.unreadCount ?? 0;
+          setUnreadCount((prev) => (prev !== unread ? unread : prev));
         } else {
           setError(response.message || "Lỗi khi lấy unread count");
         }
@@ -69,7 +84,8 @@ export function useUnreadCount(roomId: string) {
           response.data &&
           response.data.roomId === roomId
         ) {
-          setUnreadCount(response.data.unreadCount);
+          const unread = response.data?.unreadCount ?? 0;
+          setUnreadCount((prev) => (prev !== unread ? unread : prev));
         }
       }
     );
@@ -89,7 +105,7 @@ export function useUnreadCount(roomId: string) {
           response.data &&
           response.data.roomId === roomId
         ) {
-          setUnreadCount(0);
+          setUnreadCount((prev) => (prev !== 0 ? 0 : prev));
         }
       }
     );
@@ -103,6 +119,12 @@ export function useUnreadCount(roomId: string) {
     socket.connect();
 
     return () => {
+      socket.off("connect");
+      socket.off("disconnect");
+      socket.off("unread_count");
+      socket.off("unread_count_updated");
+      socket.off("room_marked_read");
+      socket.off("error");
       socket.disconnect();
     };
   }, [roomId, getUnreadCount]);
