@@ -21,8 +21,8 @@ export class AuthService {
     const isMatch = await comparePassword(pass, user.password);
     if (!isMatch) throw new UnauthorizedException('Mật khẩu sai');
 
-    const payload = { sub: String(user._id), name: user.name, role: user.role };
-    const access_token = await this.jwtService.signAsync(payload, { expiresIn: '5m' });
+    const payload = { _id: String(user._id), name: user.name, role: user.role };
+    const access_token = await this.jwtService.signAsync(payload, { expiresIn: '1h' });
     const refresh_token = await this.jwtService.signAsync(payload, { expiresIn: '7d' });
 
     res.cookie('refresh_token', refresh_token, {
@@ -70,7 +70,7 @@ export class AuthService {
     }
     await this.usersService.activateUser(user.email);
     const payload = {
-      sub: user.email,
+      _id: String(user._id),
       name: user.name,
       role: user.role || 'user', // mặc định hoặc lấy từ DB
     };
