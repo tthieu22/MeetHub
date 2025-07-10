@@ -20,6 +20,7 @@ export class BookingsService implements IBookingService {
     @InjectModel('User') private userModel: Model<User>,
     @Inject(forwardRef(() => ROOM_SERVICE_TOKEN))
     private roomService: IRoomService,
+    private notificationService: NotificationService,
   ) {}
 
   async create(createBookingDto: CreateBookingDto): Promise<IBooking> {
@@ -67,18 +68,6 @@ export class BookingsService implements IBookingService {
             }),
           )
         : [];
-      // const participants = await Promise.all(
-      //   createBookingDto.participants.map(async (id) => {
-      //     const participant = await this.userModel.findById(id);
-      //     if (!participant) {
-      //       throw new NotFoundException({
-      //         success: false,
-      //         message: `Không tìm thấy người tham gia với ID ${id}`,
-      //       });
-      //     }
-      //     return participant;
-      //   }),
-      // );
 
       // VALIDATION: Kiểm tra sức chứa
       const totalParticipants = participants.length + 1; // +1 cho người đặt
@@ -132,14 +121,17 @@ export class BookingsService implements IBookingService {
       });
       const savedBooking = await createdBooking.save();
       for (const participant of participants) {
+        const userObj = user as any;
+        const roomObj = room as any;
+        const participantObj = participant as any;
         try {
           await this.notificationService.notify(
-            participant._id.toString(),
-            `Bạn đã được thêm vào lịch họp "${room.name}" lúc ${createdBooking.startTime.toLocaleString()} do ${user.name} tạo `,
+            participantObj._id.toString(),
+            `Bạn đã được thêm vào lịch họp "${roomObj.name}" lúc ${createdBooking.startTime.toLocaleString()} do ${userObj.name} tạo `,
             'booking',
           );
         } catch (err) {
-          console.error(`Không thể gửi noti cho ${participant._id}:`, err.message);
+          console.error(`Không thể gửi noti cho ${participantObj._id}:`, err.message);
         }
       }
       return savedBooking.toObject() as IBooking;
