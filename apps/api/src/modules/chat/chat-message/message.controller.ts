@@ -23,7 +23,8 @@ export class MessageController {
   // 2. Lấy danh sách tin nhắn trong phòng
   @Get()
   async getMessages(@Query() getMessagesDto: GetMessagesDto) {
-    return this.messageService.getMessages(getMessagesDto.roomId, getMessagesDto.page, getMessagesDto.limit);
+    const before = getMessagesDto.before ? new Date(getMessagesDto.before) : undefined;
+    return this.messageService.getMessages(getMessagesDto.roomId, getMessagesDto.page, getMessagesDto.limit, before);
   }
 
   // 3. Thu hồi / xóa mềm tin nhắn

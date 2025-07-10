@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { createSocket } from "./socket.service";
+import { createSocket } from "@web/lib/services/socket.service";
 import { Socket } from "socket.io-client";
 
 export interface RoomMemberInfo {
@@ -26,6 +26,14 @@ export interface ChatRoom {
   onlineMemberIds: string[];
 }
 
+// WebSocket Response interface
+export interface WsResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  code?: string;
+}
+
 export function useChatRooms() {
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,16 +56,86 @@ export function useChatRooms() {
     socket.connect();
     socket.emit("get_rooms");
 
-    socket.on("rooms", (data: ChatRoom[]) => {
-      console.log("[Socket] Received rooms:", data);
-      setRooms(data);
+    // Cập nhật để xử lý response format mới
+    socket.on("rooms", (response: WsResponse<ChatRoom[]>) => {
+      console.log("[Socket] Received rooms:", response);
+      if (response.success && response.data) {
+        setRooms(response.data);
+      } else {
+        setError(response.message || "Lỗi khi lấy danh sách rooms");
+      }
       setLoading(false);
     });
-    socket.on("error", (err: { message?: string }) => {
-      console.log("[Socket] Error:", err);
-      setError(err?.message || "Lỗi không xác định");
+
+    socket.on("error", (response: WsResponse) => {
+      console.log("[Socket] Error:", response);
+      setError(response.message || "Lỗi không xác định");
       setLoading(false);
     });
+
+    socket.on("new_message", (response: WsResponse) => {
+      console.log("[Socket] New message:", response);
+    });
+
+    socket.on(
+      "unread_count_updated",
+      (response: WsResponse<{ roomId: string; unreadCount: number }>) => {
+        console.log("[Socket] Unread count updated:", response);
+        if (response.success && response.data) {
+          setRooms((prevRooms) =>
+            prevRooms.map((room) =>
+              room.roomId === response.data!.roomId
+                ? { ...room, unreadCount: response.data!.unreadCount }
+                : room
+            )
+          );
+        }
+      }
+    );
+
+    socket.on(
+      "room_marked_read",
+      (
+        response: WsResponse<{
+          roomId: string;
+          userId: string;
+          markedAt: string;
+        }>
+      ) => {
+        console.log("[Socket] Room marked read:", response);
+        if (response.success && response.data) {
+          setRooms((prevRooms) =>
+            prevRooms.map((room) =>
+              room.roomId === response.data!.roomId
+                ? { ...room, unreadCount: 0 }
+                : room
+            )
+          );
+        }
+      }
+    );
+
+    socket.on(
+      "user_online",
+      (response: WsResponse<{ userId: string; roomId: string }>) => {
+        console.log("[Socket] User online:", response);
+        if (response.success && response.data) {
+          setRooms((prevRooms) =>
+            prevRooms.map((room) =>
+              room.roomId === response.data!.roomId
+                ? {
+                    ...room,
+                    onlineMemberIds: [
+                      ...room.onlineMemberIds,
+                      response.data!.userId,
+                    ],
+                  }
+                : room
+            )
+          );
+        }
+      }
+    );
 
     return () => {
       socket.disconnect();

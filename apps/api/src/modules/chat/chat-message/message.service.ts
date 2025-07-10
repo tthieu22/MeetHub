@@ -65,7 +65,47 @@ export class MessageService {
   }
 
   // 2. Lấy danh sách tin nhắn trong phòng
-  async getMessages(roomId: string, page: number = 1, limit: number = 50): Promise<MessagesResponse> {
+  async getMessages(roomId: string, page: number = 1, limit: number = 50, before?: Date): Promise<MessagesResponse> {
+    // Nếu có before timestamp, sử dụng cursor-based pagination
+    if (before) {
+      const query = {
+        conversationId: new Types.ObjectId(roomId),
+        isDeleted: false,
+        createdAt: { $lt: before },
+      };
+
+      // Lấy limit + 1 để kiểm tra có tin nhắn tiếp theo không
+      const messages = await this.messageModel
+        .find(query)
+        .populate('senderId', 'username email avatar')
+        .populate('replyTo')
+        .sort({ createdAt: -1 })
+        .limit(limit + 1)
+        .exec();
+
+      // Kiểm tra có tin nhắn tiếp theo không
+      const hasMore = messages.length > limit;
+
+      // Nếu có thừa 1 tin nhắn, bỏ đi tin nhắn cuối cùng
+      const resultMessages = hasMore ? messages.slice(0, -1) : messages;
+
+      // Lấy timestamp của tin nhắn cuối cùng để làm cursor cho lần query tiếp theo
+      const lastMessage = resultMessages[resultMessages.length - 1];
+      const beforeCursor = lastMessage ? (lastMessage.toObject() as unknown as { createdAt: Date }).createdAt : undefined;
+
+      return {
+        data: resultMessages.reverse(),
+        total: resultMessages.length,
+        page: 1, // Không áp dụng cho cursor-based
+        limit,
+        hasNext: hasMore,
+        hasPrev: false, // Không áp dụng cho cursor-based
+        hasMore,
+        before: beforeCursor,
+      };
+    }
+
+    // Sử dụng page-based pagination (mặc định)
     const skip = (page - 1) * limit;
 
     const messages = await this.messageModel

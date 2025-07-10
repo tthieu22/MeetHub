@@ -2,97 +2,53 @@
 
 import React, { useRef, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import ChatMessage from './ChatMessage';
+import { Spin, Button, Typography } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
+import ChatMessage from '@web/components/chat/ChatMessage';
+import { type Message } from '@web/lib/services';
 
-// Mock data cho tin nhắn với đầy đủ tính năng
-const mockMessages = [
-  {
-    id: '1',
-    text: 'Chào mọi người! 👋',
-    sender: { id: 'user1', name: 'Nguyễn Văn A', avatar: undefined },
-    createdAt: new Date(Date.now() - 1000 * 60 * 30), // 30 phút trước
-    isLiked: false,
-    likesCount: 2
-  },
-  {
-    id: '2',
-    text: 'Chào bạn! Có ai muốn tham gia cuộc họp tối nay không?',
-    sender: { id: 'user2', name: 'Trần Thị B', avatar: undefined },
-    createdAt: new Date(Date.now() - 1000 * 60 * 25), // 25 phút trước
-    replyTo: {
-      id: '1',
-      text: 'Chào mọi người! 👋',
-      sender: { name: 'Nguyễn Văn A' }
-    },
-    isLiked: true,
-    likesCount: 1
-  },
-  {
-    id: '3',
-    text: 'Tôi có thể tham gia! Mấy giờ bắt đầu?',
-    sender: { id: 'user3', name: 'Lê Văn C', avatar: undefined },
-    createdAt: new Date(Date.now() - 1000 * 60 * 20), // 20 phút trước
-    isLiked: false,
-    likesCount: 0
-  },
-  {
-    id: '4',
-    text: 'Đây là file tài liệu cho cuộc họp',
-    sender: { id: 'user1', name: 'Nguyễn Văn A', avatar: undefined },
-    createdAt: new Date(Date.now() - 1000 * 60 * 15), // 15 phút trước
-    files: [
-      {
-        id: 'file1',
-        name: 'tai-lieu-hop.pdf',
-        url: '#',
-        type: 'file' as const,
-        size: 2048576 // 2MB
-      }
-    ],
-    isLiked: false,
-    likesCount: 0
-  },
-  {
-    id: '5',
-    text: 'Cảm ơn bạn đã chia sẻ!',
-    sender: { id: 'user2', name: 'Trần Thị B', avatar: undefined },
-    createdAt: new Date(Date.now() - 1000 * 60 * 10), // 10 phút trước
-    isLiked: false,
-    likesCount: 0
-  },
-  {
-    id: '6',
-    text: 'Đây là ảnh từ cuộc họp tuần trước',
-    sender: { id: 'user3', name: 'Lê Văn C', avatar: undefined },
-    createdAt: new Date(Date.now() - 1000 * 60 * 5), // 5 phút trước
-    files: [
-      {
-        id: 'file2',
-        name: 'anh-hop.jpg',
-        url: '#',
-        type: 'image' as const,
-        size: 1048576 // 1MB
-      }
-    ],
-    isLiked: false,
-    likesCount: 0
-  },
-  {
-    id: '7',
-    text: 'Tôi sẽ gửi lịch trình chi tiết qua email',
-    sender: { id: 'user1', name: 'Nguyễn Văn A', avatar: undefined },
-    createdAt: new Date(Date.now() - 1000 * 60 * 2), // 2 phút trước
-    isLiked: false,
-    likesCount: 0
+const { Text } = Typography;
+
+interface ReplyMessage {
+  id: string;
+  text: string;
+  sender: { name: string };
+}
+
+interface ChatMessagesProps {
+  messages?: Message[];
+  loading?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+}
+
+// Helper function to convert unknown to ReplyMessage
+const convertReplyTo = (replyTo: unknown): ReplyMessage | undefined => {
+  if (!replyTo || typeof replyTo !== 'object') return undefined;
+  
+  const reply = replyTo as Record<string, unknown>;
+  if (typeof reply.id === 'string' && typeof reply.text === 'string' && reply.sender) {
+    const sender = reply.sender as Record<string, unknown>;
+    return {
+      id: reply.id,
+      text: reply.text,
+      sender: { name: String(sender?.name || 'Unknown') }
+    };
   }
-];
+  return undefined;
+};
 
-export default function ChatMessages() {
+export default function ChatMessages({ 
+  messages = [], 
+  loading = false, 
+  hasMore = false, 
+  onLoadMore 
+}: ChatMessagesProps) {
   const pathname = usePathname();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const roomId = pathname.split('/').pop() || '';
 
-  // Mock current user ID
+  // Mock current user ID - TODO: Lấy từ context/auth
   const currentUserId = 'user1';
 
   const scrollToBottom = () => {
@@ -101,7 +57,7 @@ export default function ChatMessages() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [roomId]);
+  }, [roomId, messages.length]);
 
   const handleReply = (messageId: string) => {
     console.log('Reply to message:', messageId);
@@ -123,26 +79,101 @@ export default function ChatMessages() {
     // TODO: Implement edit functionality
   };
 
+  // Convert Message to ChatMessage format
+  const convertMessage = (message: Message) => ({
+    id: message._id,
+    text: message.text,
+    sender: { 
+      id: message.senderId._id, 
+      name: message.senderId.username || message.senderId.email, 
+      avatar: message.senderId.avatar 
+    },
+    createdAt: new Date(message.createdAt),
+    replyTo: convertReplyTo(message.replyTo),
+    files: message.fileUrl ? [
+      {
+        id: message._id,
+        name: message.fileUrl.split('/').pop() || 'file',
+        url: message.fileUrl,
+        type: 'file' as const,
+        size: 0
+      }
+    ] : undefined,
+    isLiked: false, // TODO: Implement from message data
+    likesCount: 0 // TODO: Implement from message data
+  });
+
+  if (loading && messages.length === 0) {
+    return (
+      <div style={{
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#fafafa'
+      }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
   return (
     <div style={{
       height: '100%',
       overflowY: 'auto',
       padding: '16px',
-      backgroundColor: '#fafafa'
+      backgroundColor: '#fafafa',
+      display: 'flex',
+      flexDirection: 'column'
     }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {mockMessages.map((message) => (
-          <ChatMessage
-            key={message.id}
-            message={message}
-            isOwn={message.sender.id === currentUserId}
-            onReply={handleReply}
-            onLike={handleLike}
-            onDelete={handleDelete}
-            onEdit={handleEdit}
-          />
-        ))}
+      {/* Load More Button */}
+      {hasMore && (
+        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+          <Button 
+            type="dashed" 
+            icon={<ReloadOutlined />}
+            onClick={onLoadMore}
+            loading={loading}
+          >
+            Tải thêm tin nhắn cũ
+          </Button>
+        </div>
+      )}
+
+      {/* Messages */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+        {messages.length === 0 ? (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            color: '#8c8c8c'
+          }}>
+            <Text type="secondary">Chưa có tin nhắn nào. Hãy bắt đầu cuộc trò chuyện!</Text>
+          </div>
+        ) : (
+          messages.map((message) => (
+            <ChatMessage
+              key={message._id}
+              message={convertMessage(message)}
+              isOwn={message.senderId._id === currentUserId}
+              onReply={handleReply}
+              onLike={handleLike}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+            />
+          ))
+        )}
       </div>
+      
+      {/* Loading indicator for new messages */}
+      {loading && messages.length > 0 && (
+        <div style={{ textAlign: 'center', padding: '8px' }}>
+          <Spin size="small" />
+        </div>
+      )}
+      
       <div ref={messagesEndRef} />
     </div>
   );

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min, Max, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class GetMessagesDto {
@@ -17,4 +17,8 @@ export class GetMessagesDto {
   @Min(1)
   @Max(100)
   limit?: number = 50;
+
+  @IsOptional()
+  @IsDateString()
+  before?: string;
 }

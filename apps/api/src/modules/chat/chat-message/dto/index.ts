@@ -7,3 +7,5 @@ export * from '@api/modules/chat/chat-message/dto/upload-file.dto';
 export * from '@api/modules/chat/chat-message/dto/get-messages.dto';
 export * from '@api/modules/chat/chat-message/dto/delete-message.dto';
 export * from '@api/modules/chat/chat-message/dto/mark-read.dto';
+export * from '@api/modules/chat/chat-message/dto/mark-room-read.dto';
+export * from '@api/modules/chat/chat-message/dto/get-unread-count.dto';

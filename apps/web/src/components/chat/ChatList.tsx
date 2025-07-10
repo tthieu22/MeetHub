@@ -1,30 +1,64 @@
 'use client';
 
 import React from 'react';
-import { List, Avatar, Typography, Badge, Space } from 'antd';
+import { List, Avatar, Typography, Badge, Space, Spin } from 'antd';
 import { UserOutlined } from '@ant-design/icons';
-import { ChatRoom } from '../../lib/services/useChatRooms';
+import { useChatRooms } from '../../lib/services/useChatRooms';
 
 const { Text } = Typography;
 
 interface ChatListProps {
   selectedRoomId?: string;
   onRoomSelect?: (roomId: string) => void;
-  rooms: ChatRoom[];
-  loading?: boolean;
-  error?: string | null;
 }
 
-export default function ChatList({ selectedRoomId, onRoomSelect, rooms, loading, error }: ChatListProps) {
+export default function ChatList({ selectedRoomId, onRoomSelect }: ChatListProps) {
+  const { rooms, loading, error } = useChatRooms();
+
   if (loading) {
-    return <div style={{ padding: 16, textAlign: 'center' }}>Đang tải danh sách phòng chat...</div>;
+    return (
+      <div style={{ 
+        padding: 16, 
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '8px'
+      }}>
+        <Spin size="small" />
+        <Text type="secondary">Đang tải danh sách phòng chat...</Text>
+      </div>
+    );
   }
+
   if (error) {
-    return <div style={{ padding: 16, color: 'red', textAlign: 'center' }}>{error}</div>;
+    return (
+      <div style={{ 
+        padding: 16, 
+        color: 'red', 
+        textAlign: 'center',
+        backgroundColor: '#fff2f0',
+        border: '1px solid #ffccc7',
+        borderRadius: '6px',
+        margin: '8px'
+      }}>
+        <Text type="danger">{error}</Text>
+      </div>
+    );
   }
+
   if (!rooms || rooms.length === 0) {
-    return <div style={{ padding: 16, textAlign: 'center' }}>Không có phòng chat nào.</div>;
+    return (
+      <div style={{ 
+        padding: 16, 
+        textAlign: 'center',
+        color: '#8c8c8c'
+      }}>
+        <Text type="secondary">Không có phòng chat nào.</Text>
+      </div>
+    );
   }
+
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <List
@@ -57,6 +91,19 @@ export default function ChatList({ selectedRoomId, onRoomSelect, rooms, loading,
                         border: '2px solid #bfbfbf'
                       }}
                     />
+                    {/* Online indicator */}
+                    {room.onlineMemberIds && room.onlineMemberIds.length > 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '2px',
+                        right: '2px',
+                        width: '12px',
+                        height: '12px',
+                        backgroundColor: '#52c41a',
+                        border: '2px solid white',
+                        borderRadius: '50%'
+                      }} />
+                    )}
                   </div>
                 }
                 title={

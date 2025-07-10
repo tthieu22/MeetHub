@@ -1,21 +1,23 @@
 'use client';
 
 import React from 'react';
-import { Layout, Result } from 'antd';
+import { Layout, Result, Spin } from 'antd';
 import { usePathname, useRouter } from 'next/navigation';
 import ChatRoom from '@web/components/chat/ChatRoom';
+import { useChatRooms } from '@web/lib/services/useChatRooms';
 
 const { Content } = Layout;
 
-// Danh sách roomId hợp lệ
-const validRoomIds = ['1', '2', '3'];
-
 // Component riêng cho button để tránh lỗi React 19
-const GoToFirstRoomButton = () => {
+const GoToFirstRoomButton = ({ firstRoomId }: { firstRoomId?: string }) => {
   const router = useRouter();
   
   const handleClick = () => {
-    router.push('/chat/1');
+    if (firstRoomId) {
+      router.push(`/chat/${firstRoomId}`);
+    } else {
+      router.push('/chat');
+    }
   };
 
   return (
@@ -39,7 +41,7 @@ const GoToFirstRoomButton = () => {
         e.currentTarget.style.backgroundColor = '#1890ff';
       }}
     >
-      Về phòng chat đầu tiên
+      {firstRoomId ? 'Về phòng chat đầu tiên' : 'Về trang chủ'}
     </button>
   );
 };
@@ -47,9 +49,65 @@ const GoToFirstRoomButton = () => {
 export default function ChatContent() {
   const pathname = usePathname();
   const roomId = pathname.split('/').pop() || '';
+  const { rooms, loading, error } = useChatRooms();
+
+  // Lấy danh sách room IDs hợp lệ từ WebSocket
+  const validRoomIds = rooms.map(room => room.roomId);
+  const firstRoomId = rooms.length > 0 ? rooms[0].roomId : undefined;
+
+  // Tìm room name từ roomId
+  const currentRoom = rooms.find(room => room.roomId === roomId);
+  const roomName = currentRoom?.name || `Phòng chat ${roomId}`;
+
+  // Loading state
+  if (loading) {
+    return (
+      <Content style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        height: '100vh',
+        overflow: 'hidden'
+      }}>
+        <div style={{ 
+          flex: 1, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center' 
+        }}>
+          <Spin size="large" />
+        </div>
+      </Content>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Content style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        height: '100vh',
+        overflow: 'hidden'
+      }}>
+        <div style={{ 
+          flex: 1, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center' 
+        }}>
+          <Result
+            status="error"
+            title="Lỗi kết nối"
+            subTitle={error}
+            extra={<GoToFirstRoomButton />}
+          />
+        </div>
+      </Content>
+    );
+  }
 
   // Kiểm tra roomId có hợp lệ không
-  const isValidRoom = validRoomIds.includes(roomId);
+  const isValidRoom = roomId && validRoomIds.includes(roomId);
 
   if (roomId && !isValidRoom) {
     return (
@@ -69,7 +127,7 @@ export default function ChatContent() {
             status="404"
             title="Không tìm thấy phòng chat"
             subTitle={`Phòng chat "${roomId}" không tồn tại.`}
-            extra={<GoToFirstRoomButton />}
+            extra={<GoToFirstRoomButton firstRoomId={firstRoomId} />}
           />
         </div>
       </Content>
@@ -83,10 +141,10 @@ export default function ChatContent() {
       height: '100vh',
       overflow: 'hidden'
     }}>
-      {roomId ? (
+      {roomId && isValidRoom ? (
         <ChatRoom 
           roomId={roomId} 
-          roomName={`Phòng chat ${roomId}`} 
+          roomName={roomName} 
         />
       ) : (
         <div style={{ 
@@ -94,9 +152,18 @@ export default function ChatContent() {
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center', 
-          color: '#888' 
+          color: '#888',
+          flexDirection: 'column',
+          gap: '16px'
         }}>
-          Chọn một cuộc trò chuyện để bắt đầu
+          <div style={{ fontSize: '18px', fontWeight: '500' }}>
+            Chọn một cuộc trò chuyện để bắt đầu
+          </div>
+          {rooms.length === 0 && (
+            <div style={{ fontSize: '14px', color: '#666' }}>
+              Chưa có cuộc trò chuyện nào
+            </div>
+          )}
         </div>
       )}
     </Content>

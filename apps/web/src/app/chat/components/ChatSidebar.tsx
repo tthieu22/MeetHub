@@ -7,7 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import ChatList from '@web/components/chat/ChatList';
 import ChatDebugInfo from '@web/components/chat/ChatDebugInfo';
 import RelatedOnlineUsers from '@web/components/chat/RelatedOnlineUsers';
-import { useChatRooms } from '@web/lib/services/useChatRooms';
+import { useRoomSelection } from '@web/lib/services/useRoomSelection';
 
 const { Sider } = Layout;
 const { Title } = Typography;
@@ -23,13 +23,16 @@ export default function ChatSidebar({
 }: ChatSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { rooms, loading, error } = useChatRooms();
+  const { handleRoomSelect } = useRoomSelection();
   
   // Lấy roomId từ URL path
   const selectedRoomId = pathname.split('/').pop() || '';
 
-  const handleRoomSelect = (roomId: string) => {
-    router.push(`/chat/${roomId}`);
+  const handleRoomSelectWithMarkRead = (roomId: string) => {
+    // Force mark room as read trước khi navigate
+    handleRoomSelect(roomId, (selectedRoomId) => {
+      router.push(`/chat/${selectedRoomId}`);
+    });
   };
 
   return (
@@ -81,10 +84,7 @@ export default function ChatSidebar({
         <div style={{ flex: 1, overflow: 'auto' }}>
           <ChatList
             selectedRoomId={selectedRoomId}
-            onRoomSelect={handleRoomSelect}
-            rooms={rooms}
-            loading={loading}
-            error={error}
+            onRoomSelect={handleRoomSelectWithMarkRead}
           />
         </div>
         

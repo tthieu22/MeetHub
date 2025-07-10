@@ -7,6 +7,9 @@ export interface MessagesResponse {
   limit: number;
   hasNext: boolean;
   hasPrev: boolean;
+  // Cursor-based pagination fields
+  hasMore?: boolean;
+  before?: Date;
 }
 
 export interface SuccessResponse {

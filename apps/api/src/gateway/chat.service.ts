@@ -27,8 +27,8 @@ export class ChatService {
     return await this.messageService.createMessage(createMessageDto, conversationId, userId);
   }
 
-  async getMessages(conversationId: string, page: number = 1, limit: number = 50) {
-    return await this.messageService.getMessages(conversationId, page, limit);
+  async getMessages(conversationId: string, page: number = 1, limit: number = 50, before?: Date) {
+    return await this.messageService.getMessages(conversationId, page, limit, before);
   }
 
   async deleteMessage(messageId: string, userId: string) {
@@ -120,5 +120,14 @@ export class ChatService {
 
   async getUsers() {
     return await this.usersService.findAll();
+  }
+
+  async validateRoomMembership(userId: string, roomId: string): Promise<boolean> {
+    try {
+      const room = await this.roomService.getRoom(roomId, userId);
+      return !!room;
+    } catch {
+      return false;
+    }
   }
 }
