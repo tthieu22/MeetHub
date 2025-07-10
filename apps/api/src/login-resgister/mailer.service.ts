@@ -16,9 +16,9 @@ export class MailerService {
 
   async sendCode(email: string, code: string) {
     await this.transporter.sendMail({
-      from: `"Xác thực tài khoản" <${process.env.MAIL_USER}>`,
+      from: `"Mã code từ" <${process.env.MAIL_USER}>`,
       to: email,
-      subject: 'Mã xác thực đăng ký',
+      subject: 'Mã code xác thực',
       html: `<p>Mã xác nhận của bạn là: <b>${code}</b>. Có hiệu lực trong 5 phút.</p>`,
     });
   }

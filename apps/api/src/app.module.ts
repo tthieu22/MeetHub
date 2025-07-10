@@ -12,6 +12,8 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { LoginResgisterModule } from './login-resgister/login-resgister.module';
 import { UploadImageModule } from './modules/upload/upload.module';
+import { PasswordResetModule } from './modules/password-reset/password-reset.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -26,18 +28,15 @@ import { UploadImageModule } from './modules/upload/upload.module';
     }),
     AuthModule,
     RoomsModule,
-    AuthModule,
-    RoomsModule,
     UsersModule,
     BookingsModule,
     ParticipationRequestsModule,
-    BookingsModule,
-    ParticipationRequestsModule,
-    UploadImageModule,
     LoginResgisterModule,
+    UploadImageModule,
+    PasswordResetModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway, MessageModule],
   exports: [ChatGateway],
 })
-export class AppModule {}
+export class AppModule { }

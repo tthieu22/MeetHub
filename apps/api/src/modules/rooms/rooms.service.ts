@@ -361,4 +361,128 @@ export class RoomsService implements IRoomService {
         return days[date.getDay()];
     }
 
+    async searchByName(name: string, page: number = 1, limit: number = 10): Promise<{
+        success: boolean;
+        message: string;
+        data: IRoom[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+    }> {
+        // Validate input
+        if (!name || name.trim().length < 2) {
+            throw new BadRequestException({
+                success: false,
+                message: 'Tên phòng phải có ít nhất 2 ký tự',
+                errorCode: 'INVALID_SEARCH_TERM'
+            });
+        }
+
+        if (page < 1 || limit < 1) {
+            throw new BadRequestException({
+                success: false,
+                message: 'Số trang và giới hạn phải lớn hơn 0',
+                errorCode: 'INVALID_PAGINATION'
+            });
+        }
+
+        const regex = new RegExp(name, 'i'); // Case-insensitive search
+        const query = {
+            name: { $regex: regex },
+            status: { $ne: 'deleted' } // Exclude deleted rooms
+        };
+
+        const [rooms, total] = await Promise.all([
+            this.roomModel.find(query)
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .lean()
+                .exec(),
+            this.roomModel.countDocuments(query)
+        ]);
+
+        return {
+            success: true,
+            message: `Tìm thấy ${rooms.length} phòng phù hợp`,
+            data: rooms as IRoom[],
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
+    }
+
+
+    async getAllActiveRooms(page: number = 1, limit: number = 10): Promise<{
+        success: boolean;
+        message: string;
+        data: IRoom[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+    }> {
+        if (page < 1 || limit < 1) {
+            throw new BadRequestException({
+                success: false,
+                message: 'Số trang và giới hạn phải lớn hơn 0',
+                errorCode: 'INVALID_PAGINATION'
+            });
+        }
+
+        const query = {
+            status: { $ne: 'deleted' },
+            isActive: true
+        };
+
+        const [rooms, total] = await Promise.all([
+            this.roomModel.find(query)
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .sort({ name: 1 })
+                .lean()
+                .exec(),
+            this.roomModel.countDocuments(query)
+        ]);
+
+        return {
+            success: true,
+            message: `Lấy danh sách ${rooms.length} phòng đang hoạt động`,
+            data: rooms as IRoom[],
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
+    }
+
+    async statusChangeDeleteRoom(id: string): Promise<void> {
+        // Thay vì xóa, cập nhật trạng thái thành 'deleted'
+        const updatedRoom = await this.roomModel.findByIdAndUpdate(
+            id,
+            {
+                status: 'deleted',
+                isActive: false
+            },
+            { new: true }
+        ).exec();
+
+        if (!updatedRoom) {
+            throw new NotFoundException({
+                success: false,
+                message: `Phòng với mã ${id} không tìm thấy`,
+            });
+        }
+    }
+
+
 }

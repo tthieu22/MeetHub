@@ -86,7 +86,6 @@ export class CreateRoomDto {
 
   @IsString()
   @IsIn(['phòng 1901 - tầng 19 - 19 Tố Hữu', 'phòng 1902 - tầng 19 - 19 Tố Hữu', 'tầng 1704 - tầng 17 - 19 Tố Hữu'])
-  @IsOptional()
   location: string;
 
   @IsString()
@@ -105,8 +104,8 @@ export class CreateRoomDto {
   features?: string[];
 
   @IsString()
-  @IsIn(['available', 'occupied', 'maintenance', 'cleaning', "Deleted"])
-  @IsNotEmpty({ message: 'trạng thái hoạt động chưa được định nghĩa' })
+  @IsIn(['available', 'occupied', 'maintenance', 'cleaning', 'deleted'])
+  @IsOptional()
   status?: string;
 
   @IsObject()
