@@ -13,6 +13,7 @@ import { AuthModule } from './auth/auth.module';
 import { LoginResgisterModule } from './login-resgister/login-resgister.module';
 import { UploadImageModule } from './modules/upload/upload.module';
 import { PasswordResetModule } from './modules/password-reset/password-reset.module';
+import { NotificationModule } from './modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -34,9 +35,10 @@ import { PasswordResetModule } from './modules/password-reset/password-reset.mod
     LoginResgisterModule,
     UploadImageModule,
     PasswordResetModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway, MessageModule],
   exports: [ChatGateway],
 })
-export class AppModule { }
+export class AppModule {}

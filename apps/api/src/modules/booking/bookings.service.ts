@@ -1,12 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-  forwardRef,
-  Inject,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, forwardRef, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Document , PipelineStage } from 'mongoose';
+import { Model, Document, PipelineStage } from 'mongoose';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import { Booking, BookingStatus } from './booking.schema';
@@ -17,6 +11,7 @@ import { IRoomService } from '../rooms/interface/room.service.interface';
 import { User } from '../users/schema/user.schema';
 import { SearchBookingsDto } from './dto/search-bookings.dto';
 import { SearchBookingsDetailedDto } from './dto/search-bookings-detailed.dto';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class BookingsService implements IBookingService {
@@ -25,12 +20,12 @@ export class BookingsService implements IBookingService {
     @InjectModel('User') private userModel: Model<User>,
     @Inject(forwardRef(() => ROOM_SERVICE_TOKEN))
     private roomService: IRoomService,
-  ) { }
+  ) {}
 
   async create(createBookingDto: CreateBookingDto): Promise<IBooking> {
     try {
       // VALIDATION: Kiểm tra phòng tồn tại và trạng thái
-      const room = await this.roomService.getRoomById(createBookingDto.room) as Document & { _id: string; capacity: number; status: string };
+      const room = (await this.roomService.getRoomById(createBookingDto.room)) as Document & { _id: string; capacity: number; status: string };
       if (!room) {
         throw new NotFoundException({
           success: false,
@@ -59,19 +54,31 @@ export class BookingsService implements IBookingService {
       // VALIDATION: Kiểm tra participants
       const participants: (User & Document)[] = createBookingDto.participants?.length
         ? await Promise.all(
-          createBookingDto.participants.map(async (id) => {
-            const participant = await this.userModel.findById(id);
-            if (!participant) {
-              throw new NotFoundException({
-                success: false,
-                message: `Không tìm thấy người tham gia với ID ${id}`,
-                errorCode: 'PARTICIPANT_NOT_FOUND',
-              });
-            }
-            return participant;
-          }),
-        )
+            createBookingDto.participants.map(async (id) => {
+              const participant = await this.userModel.findById(id);
+              if (!participant) {
+                throw new NotFoundException({
+                  success: false,
+                  message: `Không tìm thấy người tham gia với ID ${id}`,
+                  errorCode: 'PARTICIPANT_NOT_FOUND',
+                });
+              }
+              return participant;
+            }),
+          )
         : [];
+      // const participants = await Promise.all(
+      //   createBookingDto.participants.map(async (id) => {
+      //     const participant = await this.userModel.findById(id);
+      //     if (!participant) {
+      //       throw new NotFoundException({
+      //         success: false,
+      //         message: `Không tìm thấy người tham gia với ID ${id}`,
+      //       });
+      //     }
+      //     return participant;
+      //   }),
+      // );
 
       // VALIDATION: Kiểm tra sức chứa
       const totalParticipants = participants.length + 1; // +1 cho người đặt
@@ -124,7 +131,17 @@ export class BookingsService implements IBookingService {
         participants,
       });
       const savedBooking = await createdBooking.save();
-
+      for (const participant of participants) {
+        try {
+          await this.notificationService.notify(
+            participant._id.toString(),
+            `Bạn đã được thêm vào lịch họp "${room.name}" lúc ${createdBooking.startTime.toLocaleString()} do ${user.name} tạo `,
+            'booking',
+          );
+        } catch (err) {
+          console.error(`Không thể gửi noti cho ${participant._id}:`, err.message);
+        }
+      }
       return savedBooking.toObject() as IBooking;
     } catch (error) {
       if (error.name === 'ValidationError') {
@@ -150,96 +167,84 @@ export class BookingsService implements IBookingService {
     }
   }
 
- async findAll(page = 1, limit = 10, filter: any = {}): Promise<any> {
-  if (page < 1 || limit < 1) {
-    throw new BadRequestException({
-      success: false,
-      message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
-      errorCode: 'INVALID_PAGINATION',
-    });
-  }
-
-  const skip = (page - 1) * limit;
-
-  // Tính toán time filter dựa trên mode
-  const timeFilter: any = {};
-  const mode = filter.mode;     // 'day' | 'week' | 'month' | 'range'
-  const dateStr = filter.date;  // YYYY-MM-DD
-
-  if (mode && dateStr) {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    const baseDate = new Date(year, month - 1, day);
-
-    if (mode === 'day') {
-      const startOfDay = new Date(baseDate.setHours(0, 0, 0, 0));
-      const endOfDay = new Date(baseDate.setHours(23, 59, 59, 999));
-      timeFilter.startTime = { $gte: startOfDay, $lte: endOfDay };
-
-    } else if (mode === 'week') {
-      const dayOfWeek = baseDate.getDay(); // 0 = CN, 1 = T2, ...
-      const diffToMonday = (dayOfWeek + 6) % 7;
-      const startOfWeek = new Date(baseDate);
-      startOfWeek.setDate(baseDate.getDate() - diffToMonday);
-      startOfWeek.setHours(0, 0, 0, 0);
-
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(endOfWeek.getDate() + 7);
-      endOfWeek.setMilliseconds(-1);
-
-      timeFilter.startTime = { $gte: startOfWeek, $lte: endOfWeek };
-
-    } else if (mode === 'month') {
-      const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);
-      const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
-      timeFilter.startTime = { $gte: startOfMonth, $lte: endOfMonth };
+  async findAll(page = 1, limit = 10, filter: any = {}): Promise<any> {
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
+        errorCode: 'INVALID_PAGINATION',
+      });
     }
+
+    const skip = (page - 1) * limit;
+
+    // Tính toán time filter dựa trên mode
+    const timeFilter: any = {};
+    const mode = filter.mode; // 'day' | 'week' | 'month' | 'range'
+    const dateStr = filter.date; // YYYY-MM-DD
+
+    if (mode && dateStr) {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const baseDate = new Date(year, month - 1, day);
+
+      if (mode === 'day') {
+        const startOfDay = new Date(baseDate.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(baseDate.setHours(23, 59, 59, 999));
+        timeFilter.startTime = { $gte: startOfDay, $lte: endOfDay };
+      } else if (mode === 'week') {
+        const dayOfWeek = baseDate.getDay(); // 0 = CN, 1 = T2, ...
+        const diffToMonday = (dayOfWeek + 6) % 7;
+        const startOfWeek = new Date(baseDate);
+        startOfWeek.setDate(baseDate.getDate() - diffToMonday);
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(endOfWeek.getDate() + 7);
+        endOfWeek.setMilliseconds(-1);
+
+        timeFilter.startTime = { $gte: startOfWeek, $lte: endOfWeek };
+      } else if (mode === 'month') {
+        const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);
+        const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+        timeFilter.startTime = { $gte: startOfMonth, $lte: endOfMonth };
+      }
+    }
+
+    // Nếu mode là 'range', dùng startTimeFrom, startTimeTo (chuỗi ISO)
+    if (mode === 'range') {
+      const { startTimeFrom, startTimeTo } = filter;
+      timeFilter.startTime = {};
+      if (startTimeFrom) timeFilter.startTime.$gte = new Date(startTimeFrom);
+      if (startTimeTo) timeFilter.startTime.$lte = new Date(startTimeTo);
+    }
+
+    // Xóa các field không cần khỏi filter gốc
+    delete filter.mode;
+    delete filter.date;
+    delete filter.startTimeFrom;
+    delete filter.startTimeTo;
+
+    const finalFilter = { ...filter, ...timeFilter };
+
+    const [data, total] = await Promise.all([
+      this.bookingModel.find(finalFilter).skip(skip).limit(limit).populate('room user participants').lean().exec(),
+      this.bookingModel.countDocuments(finalFilter),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    return {
+      success: true,
+      message: `Lấy danh sách ${data.length} đặt phòng thành công (trang ${page}/${totalPages})`,
+      total,
+      page,
+      limit,
+      totalPages,
+      data,
+    };
   }
-
-  // Nếu mode là 'range', dùng startTimeFrom, startTimeTo (chuỗi ISO)
-  if (mode === 'range') {
-    const { startTimeFrom, startTimeTo } = filter;
-    timeFilter.startTime = {};
-    if (startTimeFrom) timeFilter.startTime.$gte = new Date(startTimeFrom);
-    if (startTimeTo) timeFilter.startTime.$lte = new Date(startTimeTo);
-  }
-
-  // Xóa các field không cần khỏi filter gốc
-  delete filter.mode;
-  delete filter.date;
-  delete filter.startTimeFrom;
-  delete filter.startTimeTo;
-
-  const finalFilter = { ...filter, ...timeFilter };
-
-  const [data, total] = await Promise.all([
-    this.bookingModel
-      .find(finalFilter)
-      .skip(skip)
-      .limit(limit)
-      .populate('room user participants')
-      .lean()
-      .exec(),
-    this.bookingModel.countDocuments(finalFilter),
-  ]);
-
-  const totalPages = Math.ceil(total / limit);
-  return {
-    success: true,
-    message: `Lấy danh sách ${data.length} đặt phòng thành công (trang ${page}/${totalPages})`,
-    total,
-    page,
-    limit,
-    totalPages,
-    data,
-  };
-}
 
   async findOne(id: string): Promise<IBooking> {
-    const booking = await this.bookingModel
-      .findById(id)
-      .populate('room user participants')
-      .lean()
-      .exec();
+    const booking = await this.bookingModel.findById(id).populate('room user participants').lean().exec();
 
     if (!booking) {
       throw new NotFoundException({
@@ -254,9 +259,9 @@ export class BookingsService implements IBookingService {
   async update(id: string, updateBookingDto: UpdateBookingDto): Promise<IBooking> {
     try {
       // VALIDATION: Kiểm tra phòng nếu được cập nhật
-      let room: Document & { _id: string; capacity: number; status: string } | null = null;
+      let room: (Document & { _id: string; capacity: number; status: string }) | null = null;
       if (updateBookingDto.room) {
-        room = await this.roomService.getRoomById(updateBookingDto.room) as Document & { _id: string; capacity: number; status: string };
+        room = (await this.roomService.getRoomById(updateBookingDto.room)) as Document & { _id: string; capacity: number; status: string };
         if (!room) {
           throw new NotFoundException({
             success: false,
@@ -313,7 +318,7 @@ export class BookingsService implements IBookingService {
             errorCode: 'BOOKING_NOT_FOUND',
           });
         }
-        room = room || (await this.roomService.getRoomById(booking.room.toString()) as Document & { _id: string; capacity: number; status: string });
+        room = room || ((await this.roomService.getRoomById(booking.room.toString())) as Document & { _id: string; capacity: number; status: string });
         const totalParticipants = (updateBookingDto.participants?.length || booking.participants.length) + 1;
         if (totalParticipants > room.capacity) {
           throw new BadRequestException({
@@ -334,12 +339,8 @@ export class BookingsService implements IBookingService {
             errorCode: 'BOOKING_NOT_FOUND',
           });
         }
-        const startTime = updateBookingDto.startTime
-          ? new Date(updateBookingDto.startTime)
-          : new Date(booking.startTime);
-        const endTime = updateBookingDto.endTime
-          ? new Date(updateBookingDto.endTime)
-          : new Date(booking.endTime);
+        const startTime = updateBookingDto.startTime ? new Date(updateBookingDto.startTime) : new Date(booking.startTime);
+        const endTime = updateBookingDto.endTime ? new Date(updateBookingDto.endTime) : new Date(booking.endTime);
         if (startTime >= endTime) {
           throw new BadRequestException({
             success: false,
@@ -407,15 +408,11 @@ export class BookingsService implements IBookingService {
         errorCode: 'BOOKING_NOT_FOUND',
       });
     }
-    const updatedBooking = await this.bookingModel
-      .findByIdAndUpdate(id, { status: BookingStatus.CANCELLED }, { new: true })
-      .populate('room user participants')
-      .lean()
-      .exec();
+    const updatedBooking = await this.bookingModel.findByIdAndUpdate(id, { status: BookingStatus.CANCELLED }, { new: true }).populate('room user participants').lean().exec();
     return updatedBooking as IBooking;
   }
 
-async searchBookings(dto: SearchBookingsDto): Promise<any> {
+  async searchBookings(dto: SearchBookingsDto): Promise<any> {
     const { page = 1, limit = 10, roomName, userName, date } = dto;
 
     if (page < 1 || limit < 1) {
@@ -461,12 +458,7 @@ async searchBookings(dto: SearchBookingsDto): Promise<any> {
       }
       const [year, month, day] = date.split('-').map(Number);
       const parsedDate = new Date(year, month - 1, day);
-      if (
-        isNaN(parsedDate.getTime()) ||
-        parsedDate.getFullYear() !== year ||
-        parsedDate.getMonth() + 1 !== month ||
-        parsedDate.getDate() !== day
-      ) {
+      if (isNaN(parsedDate.getTime()) || parsedDate.getFullYear() !== year || parsedDate.getMonth() + 1 !== month || parsedDate.getDate() !== day) {
         throw new BadRequestException({
           success: false,
           message: 'Ngày không hợp lệ',
@@ -492,16 +484,7 @@ async searchBookings(dto: SearchBookingsDto): Promise<any> {
     }
 
     const skip = (page - 1) * limit;
-    const [data, total] = await Promise.all([
-      this.bookingModel
-        .find(filter)
-        .skip(skip)
-        .limit(limit)
-        .populate('room user participants')
-        .lean()
-        .exec(),
-      this.bookingModel.countDocuments(filter),
-    ]);
+    const [data, total] = await Promise.all([this.bookingModel.find(filter).skip(skip).limit(limit).populate('room user participants').lean().exec(), this.bookingModel.countDocuments(filter)]);
 
     const totalPages = Math.ceil(total / limit);
     const message = `Tìm thấy ${data.length} đặt phòng khớp với tiêu chí (trang ${page}/${totalPages})`;
@@ -562,12 +545,7 @@ async searchBookings(dto: SearchBookingsDto): Promise<any> {
       }
       const [year, month, day] = date.split('-').map(Number);
       const parsedDate = new Date(year, month - 1, day);
-      if (
-        isNaN(parsedDate.getTime()) ||
-        parsedDate.getFullYear() !== year ||
-        parsedDate.getMonth() + 1 !== month ||
-        parsedDate.getDate() !== day
-      ) {
+      if (isNaN(parsedDate.getTime()) || parsedDate.getFullYear() !== year || parsedDate.getMonth() + 1 !== month || parsedDate.getDate() !== day) {
         throw new BadRequestException({
           success: false,
           message: 'Ngày không hợp lệ',
@@ -653,10 +631,7 @@ async searchBookings(dto: SearchBookingsDto): Promise<any> {
                     {
                       $cond: [
                         {
-                          $and: [
-                            { $gte: ['$startTime', filter.startTime.$gte] },
-                            { $lte: ['$startTime', filter.startTime.$lte] },
-                          ],
+                          $and: [{ $gte: ['$startTime', filter.startTime.$gte] }, { $lte: ['$startTime', filter.startTime.$lte] }],
                         },
                         1,
                         0,
@@ -675,10 +650,7 @@ async searchBookings(dto: SearchBookingsDto): Promise<any> {
       { $limit: limit },
     ];
 
-    const [data, total] = await Promise.all([
-      this.bookingModel.aggregate(pipeline).exec(),
-      this.bookingModel.countDocuments(filter),
-    ]);
+    const [data, total] = await Promise.all([this.bookingModel.aggregate(pipeline).exec(), this.bookingModel.countDocuments(filter)]);
 
     const totalPages = Math.ceil(total / limit);
     const message = `Tìm thấy ${data.length} đặt phòng khớp với tiêu chí (trang ${page}/${totalPages})`;
@@ -693,7 +665,7 @@ async searchBookings(dto: SearchBookingsDto): Promise<any> {
     };
   }
 
- async setBookingStatusToDeleted(id: string): Promise<IBooking> {
+  async setBookingStatusToDeleted(id: string): Promise<IBooking> {
     const booking = await this.bookingModel.findById(id).exec();
     if (!booking) {
       throw new NotFoundException({
@@ -708,38 +680,28 @@ async searchBookings(dto: SearchBookingsDto): Promise<any> {
   }
 
   async findAllExcludeDeleted(page = 1, limit = 10): Promise<any> {
-  if (page < 1 || limit < 1) {
-    throw new BadRequestException({
-      success: false,
-      message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
-      errorCode: 'INVALID_PAGINATION',
-    });
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
+        errorCode: 'INVALID_PAGINATION',
+      });
+    }
+
+    const skip = (page - 1) * limit;
+    const filter = { status: { $ne: BookingStatus.DELETED } };
+
+    const [data, total] = await Promise.all([this.bookingModel.find(filter).skip(skip).limit(limit).populate('room user participants').lean().exec(), this.bookingModel.countDocuments(filter)]);
+
+    const totalPages = Math.ceil(total / limit);
+    return {
+      success: true,
+      message: `Lấy danh sách ${data.length} đặt phòng (không bao gồm trạng thái DELETED) thành công (trang ${page}/${totalPages})`,
+      total,
+      page,
+      limit,
+      totalPages,
+      data,
+    };
   }
-
-  const skip = (page - 1) * limit;
-  const filter = { status: { $ne: BookingStatus.DELETED } };
-
-  const [data, total] = await Promise.all([
-    this.bookingModel
-      .find(filter)
-      .skip(skip)
-      .limit(limit)
-      .populate('room user participants')
-      .lean()
-      .exec(),
-    this.bookingModel.countDocuments(filter),
-  ]);
-
-  const totalPages = Math.ceil(total / limit);
-  return {
-    success: true,
-    message: `Lấy danh sách ${data.length} đặt phòng (không bao gồm trạng thái DELETED) thành công (trang ${page}/${totalPages})`,
-    total,
-    page,
-    limit,
-    totalPages,
-    data,
-  };
-}
-
 }
