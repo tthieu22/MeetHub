@@ -9,10 +9,11 @@ import { ReactionModule } from '@api/modules/chat/chat-reactions/reaction.module
 import { UsersModule } from '@api/modules/users/users.module';
 import { WsAuthGuard } from '@api/common/guards/ws-auth.guard';
 import { WsAuthService } from '@api/common/services/ws-auth.service';
+import { ChatEventsHandler } from './chat-events.handler';
 
 @Module({
   imports: [MessageModule, UserChatModule, RoomModule, NotificationModule, ReactionModule, UsersModule],
-  providers: [ChatGateway, ChatService, WsAuthGuard, WsAuthService],
+  providers: [ChatGateway, ChatService, WsAuthGuard, WsAuthService, ChatEventsHandler],
   exports: [ChatGateway],
 })
 export class GatewayModule {}
