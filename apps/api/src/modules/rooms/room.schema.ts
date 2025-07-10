@@ -30,11 +30,7 @@ export class Room extends Document {
 
   @Prop({ 
     type: String, 
-<<<<<<< HEAD
-    enum: ['available', 'occupied', 'maintenance', 'cleaning','delete'], // Thêm trạng thái dọn dẹp
-=======
     enum: ['available', 'occupied', 'maintenance', 'cleaning', 'deleted'], // Thêm trạng thái dọn dẹp
->>>>>>> 77f940f08f87c560b49dc9117fc17a88bdeb4144
     default: 'available'
   })
   status: string;
