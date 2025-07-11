@@ -3,7 +3,5 @@ export { default as ChatInput } from "./ChatInput";
 export { default as ChatList } from "./ChatList";
 export { default as ChatMessage } from "./ChatMessage";
 export { default as ChatMessages } from "./ChatMessages";
-export { default as ChatRoom } from "./ChatRoom";
-export { default as RelatedOnlineUsers } from "./RelatedOnlineUsers";
-export { default as ChatDebugInfo } from "./ChatDebugInfo";
 export { default as AddMemberModal } from "./AddMemberModal";
+export { default as OnlineUsers } from "./OnlineUsers";

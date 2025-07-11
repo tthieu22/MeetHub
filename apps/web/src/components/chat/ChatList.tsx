@@ -1,20 +1,28 @@
 'use client';
 
 import React from 'react';
-import { List, Avatar, Typography, Badge, Space, Spin } from 'antd';
-import { UserOutlined } from '@ant-design/icons';
-import { useChatRooms } from '../../lib/services/useChatRooms';
+import { List, Avatar, Typography } from 'antd';
+import { UserOutlined } from '@ant-design/icons'; 
+import { ChatRoom } from '@web/types/chat';
 
 const { Text } = Typography;
 
 interface ChatListProps {
+  rooms: ChatRoom[];
   selectedRoomId?: string;
   onRoomSelect?: (roomId: string) => void;
 }
 
-export default function ChatList({ selectedRoomId, onRoomSelect }: ChatListProps) {
-  const { rooms, loading, error } = useChatRooms();
-  console.log("[DEBUG] ChatList: rooms", rooms);
+export default function ChatList({ rooms, selectedRoomId, onRoomSelect }: ChatListProps) {
+  console.log('[ChatList] rooms:', rooms);
+  console.log('[ChatList] rooms with onlineMemberIds:', rooms.map(room => ({
+    name: room.name,
+    onlineMemberIds: room.onlineMemberIds,
+    memberCount: room.members?.length
+  }))); 
+  const loading = false;
+  const error = null;
+
   if (loading) {
     return (
       <div style={{ 
@@ -25,8 +33,7 @@ export default function ChatList({ selectedRoomId, onRoomSelect }: ChatListProps
         alignItems: 'center',
         gap: '8px'
       }}>
-        <Spin size="small" />
-        <Text type="secondary">Đang tải danh sách phòng chat...</Text>
+        <span>Đang tải danh sách phòng chat...</span>
       </div>
     );
   }
@@ -74,59 +81,57 @@ export default function ChatList({ selectedRoomId, onRoomSelect }: ChatListProps
               style={{
                 cursor: 'pointer',
                 padding: '12px 16px',
-                backgroundColor: selectedRoomId === room.roomId ? '#f0f8ff' : 'transparent',
+                backgroundColor: selectedRoomId === room.roomId ? '#e6f7ff' : 'transparent',
                 borderLeft: selectedRoomId === room.roomId ? '3px solid #1890ff' : 'none',
                 borderBottom: '1px solid #f0f0f0',
                 margin: 0,
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (selectedRoomId !== room.roomId) {
+                  e.currentTarget.style.backgroundColor = '#f5f5f5';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (selectedRoomId !== room.roomId) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
               }}
             >
               <List.Item.Meta
                 avatar={
                   <div style={{ position: 'relative', display: 'inline-block', flexShrink: 0 }}>
                     <Avatar 
-                      src={avatarUrl} 
+                      src={avatarUrl || null} 
                       icon={<UserOutlined />}
-                      size="large"
+                      size="default"
                       style={{
                         border: '2px solid #bfbfbf'
                       }}
                     />
-                    {/* Online indicator */}
-                    {room.onlineMemberIds && room.onlineMemberIds.length > 0 && (
-                      <div style={{
-                        position: 'absolute',
-                        bottom: '2px',
-                        right: '2px',
-                        width: '12px',
-                        height: '12px',
-                        backgroundColor: '#52c41a',
-                        border: '2px solid white',
-                        borderRadius: '50%'
-                      }} />
-                    )}
                   </div>
                 }
                 title={
-                  <Space>
-                    <Text strong style={{ fontSize: '14px' }}>{room.name}</Text>
-                    {room.unreadCount && room.unreadCount > 0 && (
-                      <Badge count={room.unreadCount} size="small" />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text strong style={{ fontSize: '14px', color: selectedRoomId === room.roomId ? '#1890ff' : '#262626' }}>
+                      {room.name}
+                    </Text>
+                    {room.onlineMemberIds && room.onlineMemberIds.length > 0 && (
+                      <div style={{
+                        fontSize: '12px',
+                        color: '#52c41a',
+                        fontWeight: 500
+                      }}>
+                        {room.onlineMemberIds.length} online
+                      </div>
                     )}
-                  </Space>
+                  </div>
                 }
                 description={
                   <div style={{ marginTop: '4px' }}>
-                    <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>
+                    <Text type="secondary" style={{ fontSize: '12px', display: 'block', lineHeight: '1.4' }}>
                       {room.lastMessage?.text || 'Chưa có tin nhắn'}
                     </Text>
-                    {room.lastMessage?.createdAt && (
-                      <Text type="secondary" style={{ fontSize: '11px' }}>
-                        {new Date(room.lastMessage.createdAt).toLocaleTimeString('vi-VN', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </Text>
-                    )}
                   </div>
                 }
               />

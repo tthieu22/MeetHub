@@ -64,9 +64,6 @@ export class RoomService {
   // 10. Tạo phòng mới (1-1 hoặc group)
   async createRoom(createRoomDto: CreateRoomDto, userId: string) {
     const { name, type, members = [] } = createRoomDto;
-
-    console.log('Tạo phòng - userId:', userId, typeof userId);
-    console.log('Tạo phòng - members:', members);
     members.forEach((m, idx) => console.log(`Tạo phòng - member[${idx}]:`, m, typeof m));
 
     const conversation = new this.conversationModel({
@@ -355,17 +352,14 @@ export class RoomService {
   }
 
   async getOnlineMemberIds(roomId: string): Promise<string[]> {
-    const members = await this.conversationMemberModel.find({ conversationId: roomId }).select('userId').lean();
+    // Đảm bảo roomId là ObjectId khi truy vấn
+    const members = await this.conversationMemberModel
+      .find({ conversationId: new Types.ObjectId(roomId) })
+      .select('userId')
+      .lean();
     const userIds = members.map((m) => String(m.userId));
     const onlineChecks = await Promise.all(userIds.map((uid) => this.redisClient.get(`user:online:${uid}`)));
-    return userIds.filter((uid, idx) => onlineChecks[idx] === '1');
-  }
-
-  listAllRooms(): RoomInfo[] {
-    return [
-      { roomId: '1', name: 'Phòng 1', type: 'group' },
-      { roomId: '2', name: 'Phòng 2', type: 'private' },
-    ];
+    return [...new Set(userIds.filter((uid, idx) => onlineChecks[idx] === '1'))];
   }
 
   async getRoomSidebarInfo(userId: string): Promise<RoomSidebarInfo[]> {

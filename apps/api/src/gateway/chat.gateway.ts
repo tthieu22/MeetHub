@@ -65,7 +65,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const payload = await this.wsAuthService.validateToken(client);
       client.user = payload;
-      this.logger.log(`Client connected: userId=${payload?.sub}`);
     } catch (err) {
       const response: WsResponse = {
         success: false,
@@ -74,7 +73,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       };
       client.emit(WebSocketEventName.AUTH_ERROR, response);
       client.disconnect();
-      this.logger.warn(`Auth error on connect: ${err}`);
       return;
     }
 
@@ -126,7 +124,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       };
       this.server.to(`room:${roomId}`).emit(WebSocketEventName.USER_OFFLINE, response);
     });
-    this.logger.log(`Client disconnected: userId=${userId}`);
   }
 
   emitUserOnline(userId: string, roomIds: string[]): void {
@@ -136,7 +133,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data: { userId, roomId },
       };
       this.server.to(`room:${roomId}`).emit(WebSocketEventName.USER_ONLINE, response);
-      this.logger.log(`Emit user_online: userId=${userId}, roomId=${roomId}`);
     });
   }
   @SubscribeMessage('get_rooms')
@@ -152,7 +148,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleGetMessages(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: GetMessagesDto) {
     const userId = validateClient(client);
     if (!userId) return;
-    this.logger.log(`get_messages: userId=${userId}, roomId=${data.roomId}`);
+
     const response = await this.chatEventsHandler.handleGetMessages(userId, data);
     client.emit(WebSocketEventName.MESSAGES, response);
   }
@@ -164,6 +160,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!userId) return;
     const response = await this.chatEventsHandler.handleMarkRoomRead(userId, data);
     client.emit(WebSocketEventName.MARK_ROOM_READ_SUCCESS, response);
+
     if (response.success) {
       this.server.to(`room:${data.roomId}`).emit(WebSocketEventName.ROOM_MARKED_READ, response);
     }
@@ -174,6 +171,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleGetUnreadCount(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: GetUnreadCountDto) {
     const userId = validateClient(client);
     if (!userId) return;
+
     const response = await this.chatEventsHandler.handleGetUnreadCount(userId, data);
     client.emit(WebSocketEventName.UNREAD_COUNT, response);
   }
@@ -183,15 +181,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleCreateMessage(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: CreateMessageDto & { roomId: string }) {
     const userId = validateClient(client);
     if (!userId) return;
-    this.logger.log(`create_message: userId=${userId}, roomId=${data.roomId}`);
+
     const response = await this.chatEventsHandler.handleCreateMessage(userId, data);
     client.emit(WebSocketEventName.MESSAGE_CREATED, response);
+
     if (response.success) {
       this.server.to(`room:${data.roomId}`).emit(WebSocketEventName.NEW_MESSAGE, response);
-      this.logger.log(`[DEBUG] Emit NEW_MESSAGE to room: ${data.roomId}`);
       const roomMembers: { userId: { _id: any } }[] = await this.chatService.getRoomMembers(data.roomId, userId);
-      this.logger.log(`[DEBUG] roomMembers: ${roomMembers.map((m) => String(m.userId && m.userId._id)).join(', ')}`);
-      // Sửa: emit UNREAD_COUNT_UPDATED cho tất cả thành viên
       await Promise.all(
         roomMembers.map(async (member) => {
           const memberId: string = String(member.userId._id);
@@ -200,7 +196,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             success: true,
             data: { roomId: data.roomId, unreadCount },
           };
-          this.logger.log(`[DEBUG] Emit UNREAD_COUNT_UPDATED to user: ${memberId}, unreadCount: ${unreadCount}`);
           this.server.to(`user:${memberId}`).emit(WebSocketEventName.UNREAD_COUNT_UPDATED, unreadResponse);
         }),
       );

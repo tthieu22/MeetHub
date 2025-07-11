@@ -31,6 +31,7 @@ export interface Message {
 export interface RoomMemberInfo {
   userId: string;
   name: string;
+  email: string;
   avatarURL?: string;
 }
 

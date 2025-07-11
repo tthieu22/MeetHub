@@ -22,7 +22,7 @@ export class ChatEventsHandler {
     }
     const before = dto.before ? new Date(dto.before) : undefined;
     const messages = await this.chatService.getMessages(dto.roomId, 1, dto.limit || 20, before);
-    return { success: true, data: messages };
+    return { success: true, data: { roomId: dto.roomId, ...messages } };
   }
 
   async handleMarkRoomRead(userId: string, dto: MarkRoomReadDto): Promise<WsResponse> {
