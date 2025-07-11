@@ -20,8 +20,6 @@ function ChatRoomItem({
   unreadCount,
   onSelect,
 }: ChatRoomItemProps) {
-  console.log("Render: ChatRoomItem", room.roomId, selected, unreadCount);
-
   const firstMember =
     Array.isArray(room.members) && room.members.length > 0
       ? room.members[0]

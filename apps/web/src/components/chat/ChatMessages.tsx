@@ -23,8 +23,6 @@ function ChatMessages({
   onLoadMore = () => {},
   onlineMemberIds = [],
 }: ChatMessagesProps) {
-  console.log("Render: ChatMessages", messages.length, loading, hasMore);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const prevHeightRef = useRef<number>(0);

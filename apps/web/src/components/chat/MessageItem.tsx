@@ -10,8 +10,6 @@ interface MessageItemProps {
 }
 
 function MessageItem({ message, isSenderOnline }: MessageItemProps) {
-  console.log("Render: MessageItem", message._id, isSenderOnline);
-
   // Chuẩn hóa sender object cho ChatMessage
   const sender = React.useMemo(() => {
     if (typeof message.senderId === "object" && message.senderId !== null) {

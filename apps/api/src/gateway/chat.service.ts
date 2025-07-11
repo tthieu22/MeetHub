@@ -113,8 +113,42 @@ export class ChatService {
    * @returns { success: boolean; userId: string; }
    */
   async setUserOnline(userId: string): Promise<{ success: boolean; userId: string }> {
-    await this.redisClient.set(`user:online:${userId}`, '1');
+    // Set với TTL 5 phút để tránh expire quá sớm
+    await this.redisClient.setex(`user:online:${userId}`, 300, '1');
+
+    // Verify the user was set online
+    await this.redisClient.get(`user:online:${userId}`);
+
     return { success: true, userId };
+  }
+
+  /**
+   * Refresh TTL cho user online
+   * @param userId string
+   */
+  async refreshUserOnline(userId: string): Promise<void> {
+    const isOnline = await this.redisClient.get(`user:online:${userId}`);
+    if (isOnline === '1') {
+      await this.redisClient.expire(`user:online:${userId}`, 300);
+    }
+  }
+
+  /**
+   * Debug: Lấy tất cả users online trong Redis
+   */
+  async debugAllOnlineUsers(): Promise<string[]> {
+    const keys = await this.redisClient.keys('user:online:*');
+    const onlineUsers: string[] = [];
+
+    for (const key of keys) {
+      const value = await this.redisClient.get(key);
+      if (value === '1') {
+        const userId = key.replace('user:online:', '');
+        onlineUsers.push(userId);
+      }
+    }
+
+    return onlineUsers;
   }
 
   // User info methods

@@ -14,7 +14,6 @@ function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  console.log("Render: RootLayout");
   return (
     <html lang="en" translate="no">
       <head>

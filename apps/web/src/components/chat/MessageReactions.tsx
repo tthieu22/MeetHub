@@ -47,6 +47,10 @@ function MessageReactions({
     setShowEmojiPicker(open);
   }, []);
 
+  if (!reactions || reactions.length === 0) {
+    return null;
+  }
+
   const emojiPicker = (
     <div
       style={{ display: "flex", flexWrap: "wrap", gap: "4px", padding: "8px" }}

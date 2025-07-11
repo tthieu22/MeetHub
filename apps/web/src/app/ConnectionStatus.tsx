@@ -1,10 +1,12 @@
 "use client";
 
 import React from "react";
-import { useWebSocket } from "@web/hooks/useWebSocket";
+import { useWebSocketStore } from "@web/store/websocket.store";
+import { useUserStore } from "@web/store/user.store";
 
 function ConnectionStatus() {
-  const { isConnected, isConnecting, error } = useWebSocket();
+  const { isConnected, isConnecting, error } = useWebSocketStore();
+  const { isAuthenticated } = useUserStore();
 
   const statusText = React.useMemo(() => {
     if (isConnecting) return "Đang kết nối chat...";
@@ -19,6 +21,11 @@ function ConnectionStatus() {
     if (isConnected) return "green";
     return "#aaa";
   }, [isConnected, isConnecting, error]);
+
+  // Chỉ hiển thị khi user đã đăng nhập
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return <div style={{ color: statusColor, padding: 8 }}>{statusText}</div>;
 }

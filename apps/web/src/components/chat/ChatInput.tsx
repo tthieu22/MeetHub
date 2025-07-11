@@ -19,8 +19,6 @@ function ChatInput({
   disabled = false,
   onSendMessage = () => {},
 }: ChatInputProps) {
-  console.log("Render: ChatInput", disabled);
-
   const [message, setMessage] = useState("");
 
   const handleSend = useCallback(() => {

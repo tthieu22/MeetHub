@@ -7,6 +7,7 @@ export const WS_EVENTS = {
   MARK_ROOM_READ: "mark_room_read",
   GET_UNREAD_COUNT: "get_unread_count",
   JOIN_ROOM: "join_room",
+  USER_OFFLINE: "user_offline",
 } as const;
 
 // Server to Client events - match với backend WebSocketEventName

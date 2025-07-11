@@ -95,13 +95,6 @@ export class WebSocketEventHandlers {
         const currentUnread = unreadCounts[roomId] || 0;
         updateUnreadCount(roomId, currentUnread + 1);
         this.showMessageNotification(data.data);
-        console.log(
-          `[WebSocket] New message in room ${roomId}, incrementing unread count to ${currentUnread + 1}`
-        );
-      } else if (currentRoomId === roomId) {
-        console.log(
-          `[WebSocket] New message in current room ${roomId}, auto marking as read`
-        );
       }
     }
   }
@@ -116,13 +109,6 @@ export class WebSocketEventHandlers {
 
       // Cập nhật unread count
       updateUnreadCount(roomId, unreadCount);
-
-      // Log để debug (chỉ log khi có thay đổi)
-      if (unreadCount > 0) {
-        console.log(
-          `[WebSocket] Unread count updated for room ${roomId}: ${unreadCount}`
-        );
-      }
     }
   }
 
@@ -188,7 +174,6 @@ export class WebSocketEventHandlers {
         }
       }
     }
-    console.log(`Tin nhắn mới từ ${senderName}: ${message.text}`);
 
     // Có thể sử dụng toast notification hoặc browser notification
     if ("Notification" in window && Notification.permission === "granted") {
@@ -203,12 +188,14 @@ export class WebSocketEventHandlers {
   static handleRoomOnlineMembers(
     data: WsResponse<{ roomId: string; onlineMemberIds: string[] }>
   ) {
+    console.log("[WebSocket] Received room_online_members event:", data);
     if (data.success && data.data) {
-      const { setRoomOnlineMembers, updateRoom } = useChatStore.getState();
+      const { setRoomOnlineMembers } = useChatStore.getState();
       setRoomOnlineMembers(data.data.roomId, data.data.onlineMemberIds);
-      updateRoom(data.data.roomId, {
-        onlineMemberIds: data.data.onlineMemberIds,
-      });
+      console.log(
+        `[WebSocket] Updated online members for room ${data.data.roomId}:`,
+        data.data.onlineMemberIds
+      );
     }
   }
 
@@ -217,9 +204,6 @@ export class WebSocketEventHandlers {
     if (data.success && data.data) {
       const { updateUnreadCount } = useChatStore.getState();
       updateUnreadCount(data.data.roomId, 0);
-      console.log(
-        `[WebSocket] Room ${data.data.roomId} marked as read, unread count reset to 0`
-      );
     }
   }
 
@@ -291,13 +275,11 @@ export class WebSocketEventHandlers {
     );
 
     socket.on("room_marked_read", (data: WsResponse<{ roomId: string }>) => {
-      console.log("[WebSocket] Received room_marked_read event:", data);
       this.handleRoomMarkedRead(data);
     });
     socket.on(
       "mark_room_read_success",
       (data: WsResponse<{ roomId: string }>) => {
-        console.log("[WebSocket] Received mark_room_read_success event:", data);
         this.handleRoomMarkedRead(data);
       }
     );

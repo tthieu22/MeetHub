@@ -1,259 +1,97 @@
 "use client";
-
-import React from "react";
-import {
-  Layout,
-  Button,
-  Avatar,
-  Typography,
-  Space,
-  Badge,
-  Popover,
-} from "antd";
-import {
-  MessageOutlined,
-  HomeOutlined,
-  UserOutlined,
-  LogoutOutlined,
-} from "@ant-design/icons";
-import { useRouter } from "next/navigation";
-import { useChatStore } from "@web/store/chat.store";
+import React, { memo, useCallback } from "react";
+import { Avatar, Popover, Space, Typography, Button } from "antd";
+import { UserOutlined, LogoutOutlined } from "@ant-design/icons";
 import { useUserStore } from "@web/store/user.store";
+import { useWebSocketStore } from "@web/store/websocket.store";
 import ConnectionStatus from "@web/app/ConnectionStatus";
-import CustomButton from "@web/components/CustomButton";
 
-const { Header: AntHeader } = Layout;
-const { Title } = Typography;
+const { Text } = Typography;
 
-// Memoized ConnectionStatus component
-const MemoizedConnectionStatus = React.memo(ConnectionStatus);
+const UserAvatar = memo(() => {
+  const { currentUser, logout } = useUserStore();
+  const { disconnect } = useWebSocketStore();
 
-// Memoized user avatar component
-const UserAvatar = React.memo(
-  ({
-    currentUser,
-    onLogout,
-  }: {
-    currentUser: {
-      _id: string;
-      email: string;
-      username?: string;
-      avatar?: string;
-    } | null;
-    onLogout: () => void;
-  }) => {
-    const router = useRouter();
-
-    const userMenuContent = React.useMemo(
-      () => (
-        <div style={{ padding: "8px 0" }}>
-          <Button
-            type="text"
-            icon={<LogoutOutlined />}
-            onClick={onLogout}
-            style={{
-              width: "100%",
-              textAlign: "left",
-              height: "auto",
-              padding: "8px 12px",
-            }}
-          >
-            Đăng xuất
-          </Button>
-        </div>
-      ),
-      [onLogout]
-    );
-
-    if (!currentUser) {
-      return (
-        <CustomButton
-          type="primary"
-          onClick={() => router.push("/login")}
-          icon={<UserOutlined />}
-        >
-          Đăng nhập
-        </CustomButton>
-      );
-    }
-
-    return (
-      <Popover
-        content={userMenuContent}
-        placement="bottomRight"
-        trigger="click"
-        overlayStyle={{ minWidth: "120px" }}
-      >
-        <Space style={{ cursor: "pointer" }}>
-          <Avatar
-            src={currentUser?.avatar || null}
-            icon={<UserOutlined />}
-            size="large"
-          />
-          <span style={{ color: "#666" }}>
-            {currentUser?.username || currentUser?.email || "User"}
-          </span>
-        </Space>
-      </Popover>
-    );
-  }
-);
-
-UserAvatar.displayName = "UserAvatar";
-
-// Memoized navigation buttons component
-const NavigationButtons = React.memo(
-  ({
-    totalUnreadCount,
-    onMenuClick,
-    isAuthenticated,
-  }: {
-    totalUnreadCount: number;
-    onMenuClick: (key: string) => void;
-    isAuthenticated: boolean;
-  }) => {
-    return (
-      <Space size="large">
-        <Button
-          type="text"
-          onClick={() => onMenuClick("home")}
-          style={{
-            fontSize: "16px",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          <HomeOutlined />
-          Trang chủ
-        </Button>
-        {isAuthenticated && (
-          <Badge count={totalUnreadCount} offset={[-5, 5]}>
-            <Button
-              type="text"
-              onClick={() => onMenuClick("chat")}
-              style={{
-                fontSize: "16px",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-              }}
-            >
-              <MessageOutlined />
-              Chat
-            </Button>
-          </Badge>
-        )}
-      </Space>
-    );
-  }
-);
-
-NavigationButtons.displayName = "NavigationButtons";
-
-function Header() {
-  console.log("Render: Header");
-
-  const router = useRouter();
-
-  // Optimized selectors - only select what we need
-  const unreadCounts = useChatStore((state) => state.unreadCounts);
-  const currentUser = useUserStore((state) => state.currentUser);
-  const logout = useUserStore((state) => state.logout);
-  const isLoading = useUserStore((state) => state.isLoading);
-
-  // Memoized total unread count calculation
-  const totalUnreadCount = React.useMemo(() => {
-    if (!unreadCounts || Object.keys(unreadCounts).length === 0) {
-      return 0;
-    }
-    return Object.values(unreadCounts).reduce(
-      (sum, count) => sum + (count || 0),
-      0
-    );
-  }, [unreadCounts]);
-
-  // Memoized handlers
-  const handleLogout = React.useCallback(() => {
+  const handleLogout = useCallback(() => {
+    // Disconnect WebSocket trước khi logout
+    disconnect();
+    // Logout user
     logout();
-    router.push("/");
-  }, [logout, router]);
+  }, [logout]);
 
-  const handleMenuClick = React.useCallback(
-    (key: string) => {
-      if (key === "home") {
-        router.push("/");
-      } else if (key === "chat") {
-        router.push("/chat");
-      }
-    },
-    [router]
-  );
-
-  const handleLogoClick = React.useCallback(() => {
-    router.push("/");
-  }, [router]);
-
-  // Don't render header while loading
-  if (isLoading) {
+  if (!currentUser) {
     return null;
   }
 
+  const userMenu = (
+    <div style={{ padding: "8px 0" }}>
+      <div style={{ padding: "8px 16px", borderBottom: "1px solid #f0f0f0" }}>
+        <Text strong>{currentUser.username || currentUser.email}</Text>
+        <br />
+        <Text type="secondary" style={{ fontSize: "12px" }}>
+          {currentUser.email}
+        </Text>
+      </div>
+      <div style={{ padding: "8px 0" }}>
+        <Button
+          type="text"
+          icon={<LogoutOutlined />}
+          onClick={handleLogout}
+          style={{ width: "100%", textAlign: "left" }}
+        >
+          Đăng xuất
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
-    <AntHeader
+    <Popover
+      content={userMenu}
+      trigger="click"
+      placement="bottomRight"
+      overlayStyle={{ width: 200 }}
+    >
+      <Avatar
+        size={32}
+        src={currentUser.avatar || null}
+        icon={<UserOutlined />}
+        style={{ cursor: "pointer" }}
+      />
+    </Popover>
+  );
+});
+
+UserAvatar.displayName = "UserAvatar";
+
+const Header = memo(() => {
+  const { currentUser } = useUserStore();
+
+  return (
+    <header
       style={{
+        background: "#fff",
+        borderBottom: "1px solid #f0f0f0",
+        padding: "0 24px",
+        height: 64,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        background: "#fff",
-        padding: "0 24px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
       }}
     >
-      {/* Logo MeetHub */}
       <div style={{ display: "flex", alignItems: "center" }}>
-        <Title
-          level={3}
-          style={{
-            margin: 0,
-            color: "#1890ff",
-            fontWeight: "bold",
-            cursor: "pointer",
-          }}
-          onClick={handleLogoClick}
-        >
+        <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 600 }}>
           MeetHub
-        </Title>
+        </h1>
       </div>
-
-      {/* Navigation Menu */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          justifyContent: "center",
-        }}
-      >
-        <NavigationButtons
-          totalUnreadCount={totalUnreadCount}
-          onMenuClick={handleMenuClick}
-          isAuthenticated={!!currentUser}
-        />
-      </div>
-
-      {/* Connection Status - Only show when authenticated */}
-      {currentUser && (
-        <div style={{ display: "flex", alignItems: "center", marginRight: 16 }}>
-          <MemoizedConnectionStatus />
-        </div>
-      )}
-
-      {/* User Avatar or Login Button */}
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <UserAvatar currentUser={currentUser} onLogout={handleLogout} />
-      </div>
-    </AntHeader>
+      <Space>
+        {currentUser && <ConnectionStatus />}
+        {currentUser && <UserAvatar />}
+      </Space>
+    </header>
   );
-}
+});
 
-export default React.memo(Header);
+Header.displayName = "Header";
+
+export default Header;

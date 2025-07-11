@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useWebSocketStore } from "@web/store/websocket.store";
 import { useUserStore } from "@web/store/user.store";
 import { WebSocketEventHandlers } from "@web/services/websocket/websocket.events";
@@ -9,11 +9,24 @@ export const useWebSocket = () => {
   const { isConnected, isConnecting, error, socket, connect, disconnect } =
     useWebSocketStore();
 
-  const { currentUser } = useUserStore();
+  const { currentUser, isAuthenticated } = useUserStore();
+  const hasConnectedRef = useRef(false);
+  const offlineTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Connect to WebSocket
   const connectWebSocket = useCallback(() => {
+    // Chỉ connect khi user đã đăng nhập và chưa connect
+    if (
+      !isAuthenticated ||
+      !currentUser ||
+      hasConnectedRef.current ||
+      isConnecting
+    ) {
+      return;
+    }
+
     try {
+      hasConnectedRef.current = true;
       const newSocket = connect();
       if (newSocket) {
         // Setup event handlers
@@ -21,14 +34,22 @@ export const useWebSocket = () => {
       }
     } catch (error) {
       console.error("Failed to connect WebSocket:", error);
+      hasConnectedRef.current = false;
     }
-  }, [connect]);
+  }, [connect, isAuthenticated, currentUser, isConnecting]);
 
   // Disconnect from WebSocket
   const disconnectWebSocket = useCallback(() => {
+    hasConnectedRef.current = false;
+
+    // Emit user_offline ngay lập tức khi logout
+    if (socket && socket.connected) {
+      socket.emit(WS_EVENTS.USER_OFFLINE);
+    }
+
     disconnect();
     WebSocketEventHandlers.removeEventHandlers();
-  }, [disconnect]);
+  }, [disconnect, socket]);
 
   // Send message
   const sendMessage = useCallback(
@@ -67,9 +88,6 @@ export const useWebSocket = () => {
   const markRoomRead = useCallback(
     (roomId: string) => {
       if (isConnected && socket) {
-        console.log(
-          `[useWebSocket] Emitting mark_room_read for room ${roomId}`
-        );
         socket.emit(WS_EVENTS.MARK_ROOM_READ, { roomId });
       } else {
         console.warn("WebSocket not connected");
@@ -104,15 +122,22 @@ export const useWebSocket = () => {
     [isConnected, socket]
   );
 
-  // Auto connect when user is authenticated (chỉ connect lần đầu)
+  // Auto connect when user is authenticated
   useEffect(() => {
-    if (currentUser && !isConnected && !isConnecting) {
+    if (
+      isAuthenticated &&
+      currentUser &&
+      !isConnected &&
+      !isConnecting &&
+      !hasConnectedRef.current
+    ) {
       connectWebSocket();
-    } else if (!currentUser && isConnected) {
+    } else if (!isAuthenticated && isConnected) {
       // Disconnect khi user logout
       disconnectWebSocket();
     }
   }, [
+    isAuthenticated,
     currentUser,
     isConnected,
     isConnecting,
@@ -120,33 +145,65 @@ export const useWebSocket = () => {
     disconnectWebSocket,
   ]);
 
-  // Tắt tự động reconnect khi quay lại tab
-  // useEffect(() => {
-  //   const handleVisibilityChange = () => {
-  //     if (
-  //       document.visibilityState === "visible" &&
-  //       currentUser &&
-  //       !isConnected &&
-  //       !isConnecting
-  //     ) {
-  //       connectWebSocket();
-  //     }
-  //   };
+  // Handle page visibility change - delay offline notification
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && isConnected && socket) {
+        // Clear any existing timeout
+        if (offlineTimeoutRef.current) {
+          console.log("[useWebSocket] Clearing existing offline timeout");
+          clearTimeout(offlineTimeoutRef.current);
+        }
+        // Schedule offline notification after 30 seconds
+        offlineTimeoutRef.current = setTimeout(() => {
+          socket.emit(WS_EVENTS.USER_OFFLINE);
+        }, 30000); // 30 seconds delay
+      } else if (document.visibilityState === "visible") {
+        // Clear offline timeout when page becomes visible
+        if (offlineTimeoutRef.current) {
+          clearTimeout(offlineTimeoutRef.current);
+          offlineTimeoutRef.current = null;
+        }
 
-  //   const handleFocus = () => {
-  //     if (currentUser && !isConnected && !isConnecting) {
-  //       connectWebSocket();
-  //     }
-  //   };
+        // Reconnect if needed
+        if (
+          isAuthenticated &&
+          currentUser &&
+          !isConnected &&
+          !isConnecting &&
+          !hasConnectedRef.current
+        ) {
+          connectWebSocket();
+        }
+      }
+    };
 
-  //   document.addEventListener("visibilitychange", handleVisibilityChange);
-  //   window.addEventListener("focus", handleFocus);
+    const handlePageHide = (event: PageTransitionEvent) => {
+      // Chỉ emit user_offline khi thực sự đóng tab (không phải chuyển tab)
+      if (!event.persisted && isConnected && socket) {
+        socket.emit(WS_EVENTS.USER_OFFLINE);
+      }
+    };
 
-  //   return () => {
-  //     document.removeEventListener("visibilitychange", handleVisibilityChange);
-  //     window.removeEventListener("focus", handleFocus);
-  //   };
-  // }, [currentUser, isConnected, isConnecting, connectWebSocket]);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+      // Clear timeout on cleanup
+      if (offlineTimeoutRef.current) {
+        clearTimeout(offlineTimeoutRef.current);
+      }
+    };
+  }, [
+    isConnected,
+    socket,
+    isAuthenticated,
+    currentUser,
+    isConnecting,
+    connectWebSocket,
+  ]);
 
   return {
     // State

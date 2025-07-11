@@ -20,8 +20,6 @@ function ChatList({
   onRoomSelect,
   unreadCounts = {},
 }: ChatListProps) {
-  console.log("Render: ChatList", rooms.length, selectedRoomId);
-
   const loading = false;
   const error = null;
 

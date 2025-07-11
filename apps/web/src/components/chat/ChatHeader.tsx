@@ -35,9 +35,21 @@ interface ChatHeaderProps {
   };
 }
 
-function ChatHeader({ room }: ChatHeaderProps) {
-  console.log("Render: ChatHeader", room?.roomId, room?.name);
+// Memoized menu component
+const ChatMenu = React.memo(
+  ({ onMenuClick }: { onMenuClick: (key: string) => void }) => (
+    <div>
+      <Button type="text" block onClick={() => onMenuClick("members")}>
+        Thành viên
+      </Button>
+      {/* Thêm các tuỳ chọn khác nếu cần */}
+    </div>
+  )
+);
 
+ChatMenu.displayName = "ChatMenu";
+
+function ChatHeader({ room }: ChatHeaderProps) {
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -56,20 +68,20 @@ function ChatHeader({ room }: ChatHeaderProps) {
     setPopoverOpen(open);
   }, []);
 
-  const menu = useMemo(
-    () => (
-      <div>
-        <Button type="text" block onClick={() => handleMenuClick("members")}>
-          Thành viên
-        </Button>
-        {/* Thêm các tuỳ chọn khác nếu cần */}
-      </div>
-    ),
-    [handleMenuClick]
+  // Memoized values
+  const memberCount = useMemo(
+    () => room?.members?.length || 0,
+    [room?.members?.length]
   );
-
-  const memberCount = room?.members?.length || 0;
-  const onlineCount = room?.onlineMemberIds?.length || 0;
+  const onlineCount = useMemo(
+    () => room?.onlineMemberIds?.length || 0,
+    [room?.onlineMemberIds?.length]
+  );
+  const firstMemberAvatarURL = room?.members?.[0]?.avatarURL;
+  const avatarSrc = useMemo(
+    () => firstMemberAvatarURL || null,
+    [firstMemberAvatarURL]
+  );
 
   return (
     <div
@@ -92,7 +104,7 @@ function ChatHeader({ room }: ChatHeaderProps) {
           }}
         >
           <Avatar
-            src={room?.members?.[0]?.avatarURL || null}
+            src={avatarSrc}
             icon={<UserOutlined />}
             size="large"
             style={{
@@ -122,19 +134,34 @@ function ChatHeader({ room }: ChatHeaderProps) {
       </Space>
       <Space style={{ flexShrink: 0 }}>
         <Tooltip title="Gọi thoại">
-          <Button type="text" icon={<PhoneOutlined />} size="large" />
+          <Button
+            type="text"
+            icon={<PhoneOutlined />}
+            size="large"
+            disabled={!room}
+          />
         </Tooltip>
         <Tooltip title="Gọi video">
-          <Button type="text" icon={<VideoCameraOutlined />} size="large" />
+          <Button
+            type="text"
+            icon={<VideoCameraOutlined />}
+            size="large"
+            disabled={!room}
+          />
         </Tooltip>
         <Popover
-          content={menu}
+          content={room ? <ChatMenu onMenuClick={handleMenuClick} /> : null}
           trigger="click"
           open={popoverOpen}
           onOpenChange={handlePopoverChange}
           placement="bottomRight"
         >
-          <Button type="text" icon={<MoreOutlined />} size="large" />
+          <Button
+            type="text"
+            icon={<MoreOutlined />}
+            size="large"
+            disabled={!room}
+          />
         </Popover>
       </Space>
       <Modal

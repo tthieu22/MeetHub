@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Conversation, ConversationDocument } from '@api/modules/chat/chat-room/schema/chat-room.schema';
@@ -66,31 +66,59 @@ export class RoomService {
     const { name, type, members = [] } = createRoomDto;
     members.forEach((m, idx) => console.log(`Tạo phòng - member[${idx}]:`, m, typeof m));
 
+    // Validate members
+    if (!members || members.length === 0) {
+      throw new BadRequestException('Members are required');
+    }
+
+    // Add creator to members if not already included
+    const allMembers = members.includes(userId) ? members : [...members, userId];
+
+    // Validate all members exist
+    const existingUsers = await this.userModel
+      .find({
+        _id: { $in: allMembers },
+      })
+      .exec();
+
+    if (existingUsers.length !== allMembers.length) {
+      throw new BadRequestException('Some members do not exist');
+    }
+
+    // Create room
     const conversation = new this.conversationModel({
       name,
       type,
-      creatorId: new Types.ObjectId(userId),
-      isDeleted: false,
+      members: members.map((memberId) => ({ userId: memberId })),
+      createdBy: userId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     const savedConversation = await conversation.save();
 
     // Thêm creator làm admin
-    await this.conversationMemberModel.create({
-      userId: new Types.ObjectId(userId),
+    const adminMember = new this.conversationMemberModel({
       conversationId: savedConversation._id,
+      userId: userId,
       role: 'admin',
+      joinedAt: new Date(),
     });
+    await adminMember.save();
 
-    // Thêm các thành viên khác
-    if (members.length > 0) {
-      const memberDocs = members.map((memberId) => ({
-        userId: new Types.ObjectId(memberId),
-        conversationId: savedConversation._id,
-        role: 'member',
-      }));
-      await this.conversationMemberModel.insertMany(memberDocs);
-    }
+    // Thêm các member khác
+    const memberPromises = members
+      .filter((memberId) => memberId !== userId)
+      .map((memberId) =>
+        new this.conversationMemberModel({
+          conversationId: savedConversation._id,
+          userId: memberId,
+          role: 'member',
+          joinedAt: new Date(),
+        }).save(),
+      );
+
+    await Promise.all(memberPromises);
 
     return savedConversation;
   }
@@ -244,11 +272,19 @@ export class RoomService {
       throw new ForbiddenException('User is already a member of this conversation');
     }
 
-    await this.conversationMemberModel.create({
-      userId: new Types.ObjectId(newUserId),
-      conversationId: new Types.ObjectId(conversationId),
-      role: 'member',
-    });
+    try {
+      await this.conversationMemberModel.create({
+        userId: new Types.ObjectId(newUserId),
+        conversationId: new Types.ObjectId(conversationId),
+        role: 'member',
+      });
+    } catch (error) {
+      // Handle duplicate key error gracefully
+      if (error.code === 11000) {
+        throw new ForbiddenException('User is already a member of this conversation');
+      }
+      throw error;
+    }
 
     return { success: true };
   }
@@ -357,9 +393,32 @@ export class RoomService {
       .find({ conversationId: new Types.ObjectId(roomId) })
       .select('userId')
       .lean();
-    const userIds = members.map((m) => String(m.userId));
+
+    // Deduplicate members using Map (same logic as getRoomSidebarInfo)
+    const uniqueMembersMap = new Map<string, string>();
+    members.forEach((m) => {
+      const userId = String(m.userId);
+      if (!uniqueMembersMap.has(userId)) {
+        uniqueMembersMap.set(userId, userId);
+      }
+    });
+
+    const userIds = Array.from(uniqueMembersMap.values());
+
+    console.log(`[RoomService] Room ${roomId} has members:`, userIds);
+
     const onlineChecks = await Promise.all(userIds.map((uid) => this.redisClient.get(`user:online:${uid}`)));
-    return [...new Set(userIds.filter((uid, idx) => onlineChecks[idx] === '1'))];
+
+    console.log(
+      `[RoomService] Online checks for room ${roomId}:`,
+      userIds.map((uid, idx) => ({ userId: uid, online: onlineChecks[idx] })),
+    );
+
+    const onlineMembers = userIds.filter((uid, idx) => onlineChecks[idx] === '1');
+
+    console.log(`[RoomService] Online members for room ${roomId}:`, onlineMembers);
+
+    return onlineMembers;
   }
 
   async getRoomSidebarInfo(userId: string): Promise<RoomSidebarInfo[]> {
@@ -398,5 +457,30 @@ export class RoomService {
       });
     }
     return result;
+  }
+
+  // Utility method to clean up duplicate conversation members
+  async cleanupDuplicateMembers(conversationId: string): Promise<{ removed: number }> {
+    const members = await this.conversationMemberModel.find({ conversationId: new Types.ObjectId(conversationId) }).lean();
+
+    const seen = new Set<string>();
+    const toRemove: string[] = [];
+
+    members.forEach((member) => {
+      const userId = String(member.userId);
+      if (seen.has(userId)) {
+        toRemove.push((member._id as Types.ObjectId).toString());
+      } else {
+        seen.add(userId);
+      }
+    });
+
+    if (toRemove.length > 0) {
+      await this.conversationMemberModel.deleteMany({
+        _id: { $in: toRemove.map((id) => new Types.ObjectId(id)) },
+      });
+    }
+
+    return { removed: toRemove.length };
   }
 }

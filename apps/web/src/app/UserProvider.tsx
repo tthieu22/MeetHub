@@ -5,7 +5,8 @@ import { useUserStore } from "@web/store/user.store";
 
 export function UserProvider() {
   useEffect(() => {
-    const setLoading = useUserStore.getState().setLoading;
+    const { setLoading, setCurrentUser, setAuthenticated } =
+      useUserStore.getState();
 
     // Set loading true khi bắt đầu
     setLoading(true);
@@ -20,21 +21,24 @@ export function UserProvider() {
           const payload = JSON.parse(atob(token.split(".")[1]));
 
           // Set user từ token
-          useUserStore.getState().setCurrentUser({
+          const user = {
             _id: payload._id,
             email: payload.email || payload.name || "user@example.com",
             username: payload.name || payload.email || "user",
             avatar: "",
-          });
+          };
 
-          console.log("[UserProvider] User loaded from token:", payload);
-        } catch (error) {
-          console.error("[UserProvider] Error decoding token:", error);
+          setCurrentUser(user);
+          setAuthenticated(true);
+        } catch {
           // Nếu token không hợp lệ, xóa nó
           localStorage.removeItem("access_token");
+          setCurrentUser(null);
+          setAuthenticated(false);
         }
       } else {
-        console.log("[UserProvider] No token found in localStorage");
+        setCurrentUser(null);
+        setAuthenticated(false);
       }
     }
 

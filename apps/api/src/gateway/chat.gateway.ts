@@ -88,8 +88,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
     const userId = user._id;
+
     const rooms = await this.chatService.getRooms(userId);
     const roomIds = rooms.map((r) => r.roomId);
+
     await Promise.all(roomIds.map((roomId) => client.join(`room:${roomId}`)));
     const onlineResult = await this.chatService.setUserOnline(userId);
     if (!onlineResult.success) {
@@ -101,6 +103,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit(WebSocketEventName.ERROR, response);
       return;
     }
+
     await this.emitUserOnline(userId, roomIds);
     const response: WsResponse = {
       success: true,
@@ -112,23 +115,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleDisconnect(client: AuthenticatedSocket): Promise<void> {
     const userId = client.user?._id as string | undefined;
     if (!userId) return;
+
+    // Chỉ xóa Redis, không emit USER_OFFLINE ngay lập tức
+    // Frontend sẽ emit user_offline event nếu cần
     if (this.chatService['redisClient']) {
       await this.chatService['redisClient'].del(`user:online:${userId}`);
     }
-    const rooms: { roomId: string }[] = await this.chatService.getRooms(userId);
-    const roomIds = rooms.map((r) => r.roomId);
-    roomIds.forEach((roomId) => {
-      const response: WsResponse = {
-        success: true,
-        data: { userId, roomId },
-      };
-      this.server.to(`room:${roomId}`).emit(WebSocketEventName.USER_OFFLINE, response);
-    });
+
+    // Không emit USER_OFFLINE ở đây nữa
+    // Để frontend xử lý logic delay 30 giây
   }
 
   // Emit realtime online cho tất cả client trong phòng khi có user online
   async emitRoomOnlineMembers(roomId: string) {
     const onlineMemberIds = await this.chatService.getOnlineMemberIds(roomId);
+    this.logger.log(`Room ${roomId} online members:`, onlineMemberIds);
+
     const response: WsResponse = {
       success: true,
       data: { roomId, onlineMemberIds },
@@ -137,6 +139,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async emitUserOnline(userId: string, roomIds: string[]): Promise<void> {
+    this.logger.log(`Emitting user online for user ${userId} in rooms:`, roomIds);
     for (const roomId of roomIds) {
       const response: WsResponse = {
         success: true,
@@ -251,5 +254,34 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     } catch (err) {
       emitError(client, 'GET_ONLINE_MEMBERS_ERROR', (err as Error).message, 'room_online_members');
     }
+  }
+
+  @SubscribeMessage('user_offline')
+  async handleUserOffline(@ConnectedSocket() client: AuthenticatedSocket) {
+    const userId = validateClient(client);
+    if (!userId) return;
+
+    // Xóa user khỏi Redis online status
+    if (this.chatService['redisClient']) {
+      await this.chatService['redisClient'].del(`user:online:${userId}`);
+    }
+
+    // Lấy danh sách phòng của user
+    const rooms: { roomId: string }[] = await this.chatService.getRooms(userId);
+    const roomIds = rooms.map((r) => r.roomId);
+
+    // Emit user_offline cho tất cả phòng
+    await Promise.all(
+      roomIds.map(async (roomId) => {
+        const response: WsResponse = {
+          success: true,
+          data: { userId, roomId },
+        };
+        this.server.to(`room:${roomId}`).emit(WebSocketEventName.USER_OFFLINE, response);
+
+        // Cập nhật online members cho phòng này
+        await this.emitRoomOnlineMembers(roomId);
+      }),
+    );
   }
 }

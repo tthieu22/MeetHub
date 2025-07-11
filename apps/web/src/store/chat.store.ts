@@ -150,7 +150,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     userId: string,
     isOnline: boolean
   ) => {
-    const { rooms } = get();
+    const { rooms, roomOnlineMembers } = get();
     const roomIndex = rooms.findIndex((room) => room.roomId === roomId);
 
     if (roomIndex === -1) {
@@ -181,22 +181,42 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return room;
       });
 
-      set({ rooms: updatedRooms });
+      set({
+        rooms: updatedRooms,
+        roomOnlineMembers: {
+          ...roomOnlineMembers,
+          [roomId]: newOnlineIds,
+        },
+      });
     }
   },
 
   setRoomOnlineMembers: (roomId: string, onlineMemberIds: string[]) => {
-    const { roomOnlineMembers } = get();
+    const { roomOnlineMembers, rooms } = get();
     const currentMembers = roomOnlineMembers[roomId] || [];
 
     // Only update if the members actually changed
     if (JSON.stringify(currentMembers) !== JSON.stringify(onlineMemberIds)) {
+      // Update roomOnlineMembers
       set((state) => ({
         roomOnlineMembers: {
           ...state.roomOnlineMembers,
           [roomId]: onlineMemberIds,
         },
       }));
+
+      // Also update the room's onlineMemberIds
+      const updatedRooms = rooms.map((room) => {
+        if (room.roomId === roomId) {
+          return {
+            ...room,
+            onlineMemberIds: onlineMemberIds,
+          };
+        }
+        return room;
+      });
+
+      set({ rooms: updatedRooms });
     }
   },
 

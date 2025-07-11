@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
@@ -7,6 +7,17 @@ import { Model } from 'mongoose';
 
 import { hashPassword } from '@api/utils/brcrypt.password';
 import { UpdateMeDto } from './dto/update-user-me.dto';
+
+function isMongoDuplicateEmailError(error: unknown): error is { code: number; keyPattern: { email?: unknown } } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 11000 &&
+    'keyPattern' in error &&
+    Boolean((error as { keyPattern?: { email?: unknown } }).keyPattern?.email)
+  );
+}
 
 @Injectable()
 export class UsersService {
@@ -22,7 +33,7 @@ export class UsersService {
 
       return await user.save();
     } catch (error) {
-      if (error.code === 11000 && error.keyPattern?.email) {
+      if (isMongoDuplicateEmailError(error)) {
         throw new BadRequestException('Email đã được sử dụng');
       }
       throw error;
@@ -61,8 +72,7 @@ export class UsersService {
         data: data,
       };
     } catch (error) {
-      console.error('❌ Update error:', error);
-      throw new InternalServerErrorException('Lỗi khi cập nhật người dùng');
+      throw error;
     }
   }
 
@@ -84,8 +94,7 @@ export class UsersService {
     try {
       return this.userDocumentModel.findById(id).select('-password');
     } catch (error) {
-      console.log(error);
-      throw new BadRequestException('lỗi không tim thấy người dùng');
+      throw error;
     }
   }
 
@@ -98,7 +107,7 @@ export class UsersService {
         })
         .select('-password');
     } catch (error) {
-      throw new BadRequestException('lỗi không cập nhật được người dùng');
+      throw error;
     }
   }
 }

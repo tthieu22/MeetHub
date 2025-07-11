@@ -37,10 +37,26 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       return;
     }
 
+    // Nếu có token nhưng chưa có user (có thể do token hết hạn hoặc không hợp lệ)
     if (!currentUser && token) {
-      // localStorage.removeItem("access_token");
-      router.push("/login");
-      return;
+      try {
+        // Kiểm tra token có hợp lệ không
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+
+        if (payload.exp && payload.exp < currentTime) {
+          localStorage.removeItem("access_token");
+          router.push("/login");
+          return;
+        }
+
+        // Token còn hạn nhưng chưa có user, có thể do UserProvider chưa load xong
+        return;
+      } catch {
+        localStorage.removeItem("access_token");
+        router.push("/login");
+        return;
+      }
     }
   }, [currentUser, isLoading, router, pathname]);
 

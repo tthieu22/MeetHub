@@ -24,7 +24,13 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   socket: null,
 
   connect: () => {
-    const { socket } = get();
+    const { socket, isConnecting } = get();
+
+    // Prevent multiple simultaneous connection attempts
+    if (isConnecting) {
+      return socket;
+    }
+
     if (socket?.connected) {
       return socket;
     }
@@ -69,9 +75,9 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     });
 
     newSocket.on("connect_error", () => {
-      const { error } = get();
+      const { error: currentError } = get();
       const newError = "Kết nối WebSocket thất bại";
-      if (error !== newError) {
+      if (currentError !== newError) {
         set({
           isConnected: false,
           isConnecting: false,
