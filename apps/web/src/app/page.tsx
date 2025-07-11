@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Typography, Card, Row, Col, Button, Space } from "antd";
+import { Typography, Card, Row, Col, Space } from "antd";
 import {
   MessageOutlined,
   TeamOutlined,
@@ -10,6 +10,7 @@ import {
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
+import CustomButton from "@web/components/CustomButton";
 
 const { Title, Paragraph } = Typography;
 
@@ -96,17 +97,17 @@ export default function Home() {
 
       <div style={{ textAlign: "center" }}>
         {currentUser ? (
-          <Button
+          <CustomButton
             type="primary"
             size="large"
             onClick={handleStartChat}
             style={{ fontSize: "16px", fontWeight: 500 }}
           >
             Bắt đầu chat
-          </Button>
+          </CustomButton>
         ) : (
           <Space>
-            <Button
+            <CustomButton
               type="primary"
               size="large"
               icon={<LoginOutlined />}
@@ -114,14 +115,14 @@ export default function Home() {
               style={{ fontSize: "16px", fontWeight: 500 }}
             >
               Đăng nhập
-            </Button>
-            <Button
+            </CustomButton>
+            <CustomButton
               size="large"
               onClick={handleStartChat}
               style={{ fontSize: "16px", fontWeight: 500 }}
             >
               Xem demo
-            </Button>
+            </CustomButton>
           </Space>
         )}
       </div>

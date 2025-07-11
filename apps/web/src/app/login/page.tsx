@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { Form, Input, Button, Card, Typography, message } from "antd";
+import { Form, Input, Card, Typography, message } from "antd";
 import { UserOutlined, LockOutlined, LoginOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
+import CustomButton from "@web/components/CustomButton";
 
 const { Title, Text } = Typography;
 
@@ -21,6 +22,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const setCurrentUser = useUserStore((state) => state.setCurrentUser);
+  const [form] = Form.useForm();
 
   const onFinish = async (values: LoginForm) => {
     setLoading(true);
@@ -65,6 +67,10 @@ export default function LoginPage() {
     }
   };
 
+  const handleSubmit = () => {
+    form.submit();
+  };
+
   return (
     <div
       style={{
@@ -92,6 +98,7 @@ export default function LoginPage() {
         </div>
 
         <Form
+          form={form}
           name="login"
           onFinish={onFinish}
           autoComplete="off"
@@ -127,11 +134,11 @@ export default function LoginPage() {
           </Form.Item>
 
           <Form.Item>
-            <Button
+            <CustomButton
               type="primary"
-              htmlType="submit"
-              loading={loading}
-              icon={<LoginOutlined />}
+              onClick={handleSubmit}
+              disabled={loading}
+              icon={loading ? undefined : <LoginOutlined />}
               style={{
                 width: "100%",
                 height: "48px",
@@ -140,8 +147,8 @@ export default function LoginPage() {
                 fontWeight: "600",
               }}
             >
-              Đăng nhập
-            </Button>
+              {loading ? "Đang đăng nhập..." : "Đăng nhập"}
+            </CustomButton>
           </Form.Item>
         </Form>
 

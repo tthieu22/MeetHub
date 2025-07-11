@@ -8,8 +8,7 @@ import {
   Typography,
   Space,
   Badge,
-  Dropdown,
-  type MenuProps,
+  Popover,
 } from "antd";
 import {
   MessageOutlined,
@@ -21,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { useChatStore } from "@web/store/chat.store";
 import { useUserStore } from "@web/store/user.store";
 import ConnectionStatus from "@web/app/ConnectionStatus";
+import CustomButton from "@web/components/CustomButton";
 
 const { Header: AntHeader } = Layout;
 const { Title } = Typography;
@@ -44,32 +44,46 @@ const UserAvatar = React.memo(
   }) => {
     const router = useRouter();
 
-    const userMenuItems: MenuProps["items"] = React.useMemo(
-      () => [
-        {
-          key: "logout",
-          icon: <LogoutOutlined />,
-          label: "Đăng xuất",
-          onClick: onLogout,
-        },
-      ],
+    const userMenuContent = React.useMemo(
+      () => (
+        <div style={{ padding: "8px 0" }}>
+          <Button
+            type="text"
+            icon={<LogoutOutlined />}
+            onClick={onLogout}
+            style={{
+              width: "100%",
+              textAlign: "left",
+              height: "auto",
+              padding: "8px 12px",
+            }}
+          >
+            Đăng xuất
+          </Button>
+        </div>
+      ),
       [onLogout]
     );
 
     if (!currentUser) {
       return (
-        <Button
+        <CustomButton
           type="primary"
           onClick={() => router.push("/login")}
           icon={<UserOutlined />}
         >
           Đăng nhập
-        </Button>
+        </CustomButton>
       );
     }
 
     return (
-      <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+      <Popover
+        content={userMenuContent}
+        placement="bottomRight"
+        trigger="click"
+        overlayStyle={{ minWidth: "120px" }}
+      >
         <Space style={{ cursor: "pointer" }}>
           <Avatar
             src={currentUser?.avatar || null}
@@ -80,7 +94,7 @@ const UserAvatar = React.memo(
             {currentUser?.username || currentUser?.email || "User"}
           </span>
         </Space>
-      </Dropdown>
+      </Popover>
     );
   }
 );
