@@ -38,7 +38,7 @@ function emitError(client: AuthenticatedSocket, code: string, message: string, e
 }
 
 function validateClient(client: AuthenticatedSocket, event: string = 'error'): string | undefined {
-  const userId = client.user?.sub;
+  const userId = client.user?._id as string | undefined;
   if (!userId) {
     emitError(client, 'USER_INVALID', 'User không xác thực', event);
     return undefined;
@@ -77,7 +77,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     const { user } = client;
-    if (!user?.sub) {
+    if (!user?._id) {
       const response: WsResponse = {
         success: false,
         message: 'User không xác thực',
@@ -87,7 +87,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.disconnect();
       return;
     }
-    const userId = user.sub;
+    const userId = user._id;
     const rooms = await this.chatService.getRooms(userId);
     const roomIds = rooms.map((r) => r.roomId);
     await Promise.all(roomIds.map((roomId) => client.join(`room:${roomId}`)));
@@ -110,7 +110,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async handleDisconnect(client: AuthenticatedSocket): Promise<void> {
-    const userId = client.user?.sub;
+    const userId = client.user?._id as string | undefined;
     if (!userId) return;
     if (this.chatService['redisClient']) {
       await this.chatService['redisClient'].del(`user:online:${userId}`);
@@ -171,10 +171,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleMarkRoomRead(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: MarkRoomReadDto) {
     const userId = validateClient(client);
     if (!userId) return;
+
+    this.logger.log(`Marking room ${data.roomId} as read for user ${userId}`);
     const response = await this.chatEventsHandler.handleMarkRoomRead(userId, data);
     client.emit(WebSocketEventName.MARK_ROOM_READ_SUCCESS, response);
 
     if (response.success) {
+      this.logger.log(`Emitting ROOM_MARKED_READ to room ${data.roomId}`);
       this.server.to(`room:${data.roomId}`).emit(WebSocketEventName.ROOM_MARKED_READ, response);
     }
   }

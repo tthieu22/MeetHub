@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { Socket } from "socket.io-client";
 import { io } from "socket.io-client";
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_WS_URL;
+const SOCKET_URL = process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8000";
 
 interface WebSocketState {
   isConnected: boolean;
@@ -47,6 +47,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     const newSocket = io(SOCKET_URL, {
       transports: ["websocket"],
       autoConnect: false,
+      reconnection: false, // Tắt tự động reconnect
       auth: {
         token: access_token,
       },

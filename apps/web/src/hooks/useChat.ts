@@ -84,6 +84,7 @@ export const useChat = () => {
   // Mark current room as read
   const markCurrentRoomAsRead = useCallback(() => {
     if (currentRoomId && isConnected) {
+      console.log(`[useChat] Marking current room ${currentRoomId} as read`);
       wsMarkRoomRead(currentRoomId);
     }
   }, [currentRoomId, isConnected, wsMarkRoomRead]);
@@ -108,11 +109,11 @@ export const useChat = () => {
         // Load messages for the room
         loadMessages(roomId);
 
-        // Mark room as read
-        wsMarkRoomRead(roomId);
+        // Load unread count for the room
+        loadUnreadCount(roomId);
       }
     },
-    [isConnected, wsJoinRoom, setCurrentRoom, loadMessages, wsMarkRoomRead]
+    [isConnected, wsJoinRoom, setCurrentRoom, loadMessages, loadUnreadCount]
   );
 
   // Leave current room
@@ -141,9 +142,20 @@ export const useChat = () => {
     }
   }, [isConnected, rooms.length, loadRooms]);
 
-  // Auto mark room as read when entering
+  // Auto mark room as read when entering and load unread counts
   useEffect(() => {
     if (currentRoomId) {
+      // Load unread count for current room
+      loadUnreadCount(currentRoomId);
+    }
+  }, [currentRoomId, loadUnreadCount]);
+
+  // Mark room as read when entering a room
+  useEffect(() => {
+    if (currentRoomId) {
+      console.log(
+        `[useChat] Marking room ${currentRoomId} as read when entering`
+      );
       markCurrentRoomAsRead();
     }
   }, [currentRoomId, markCurrentRoomAsRead]);

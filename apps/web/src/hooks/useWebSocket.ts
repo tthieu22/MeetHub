@@ -67,6 +67,9 @@ export const useWebSocket = () => {
   const markRoomRead = useCallback(
     (roomId: string) => {
       if (isConnected && socket) {
+        console.log(
+          `[useWebSocket] Emitting mark_room_read for room ${roomId}`
+        );
         socket.emit(WS_EVENTS.MARK_ROOM_READ, { roomId });
       } else {
         console.warn("WebSocket not connected");
@@ -93,6 +96,7 @@ export const useWebSocket = () => {
       if (isConnected && socket) {
         socket.emit(WS_EVENTS.JOIN_ROOM, { roomId });
         socket.emit("get_room_online_members", { roomId });
+        socket.emit(WS_EVENTS.GET_UNREAD_COUNT, { roomId });
       } else {
         console.warn("WebSocket not connected");
       }
@@ -100,7 +104,7 @@ export const useWebSocket = () => {
     [isConnected, socket]
   );
 
-  // Auto connect when user is authenticated
+  // Auto connect when user is authenticated (chỉ connect lần đầu)
   useEffect(() => {
     if (currentUser && !isConnected && !isConnecting) {
       connectWebSocket();
@@ -116,33 +120,33 @@ export const useWebSocket = () => {
     disconnectWebSocket,
   ]);
 
-  // Tự động reconnect khi quay lại tab và WebSocket bị mất kết nối
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (
-        document.visibilityState === "visible" &&
-        currentUser &&
-        !isConnected &&
-        !isConnecting
-      ) {
-        connectWebSocket();
-      }
-    };
+  // Tắt tự động reconnect khi quay lại tab
+  // useEffect(() => {
+  //   const handleVisibilityChange = () => {
+  //     if (
+  //       document.visibilityState === "visible" &&
+  //       currentUser &&
+  //       !isConnected &&
+  //       !isConnecting
+  //     ) {
+  //       connectWebSocket();
+  //     }
+  //   };
 
-    const handleFocus = () => {
-      if (currentUser && !isConnected && !isConnecting) {
-        connectWebSocket();
-      }
-    };
+  //   const handleFocus = () => {
+  //     if (currentUser && !isConnected && !isConnecting) {
+  //       connectWebSocket();
+  //     }
+  //   };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleFocus);
+  //   document.addEventListener("visibilitychange", handleVisibilityChange);
+  //   window.addEventListener("focus", handleFocus);
 
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, [currentUser, isConnected, isConnecting, connectWebSocket]);
+  //   return () => {
+  //     document.removeEventListener("visibilitychange", handleVisibilityChange);
+  //     window.removeEventListener("focus", handleFocus);
+  //   };
+  // }, [currentUser, isConnected, isConnecting, connectWebSocket]);
 
   return {
     // State

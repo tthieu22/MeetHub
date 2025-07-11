@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Socket } from 'socket.io';
 
 export interface WsUserPayload {
-  sub: string;
+  _id: string;
   name: string;
   role: string;
 }
@@ -19,7 +19,6 @@ export class WsAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const client: AuthenticatedSocket = context.switchToWs().getClient<AuthenticatedSocket>();
     const token = this.extractTokenFromSocket(client);
-
     if (!token) {
       client.emit('auth_error', {
         success: false,
@@ -35,10 +34,10 @@ export class WsAuthGuard implements CanActivate {
       });
       client.user = payload;
       return true;
-    } catch {
+    } catch (err) {
       client.emit('auth_error', {
         success: false,
-        message: 'Token không hợp lệ',
+        message: 'Token không hợp lệ' + err,
         code: 'TOKEN_INVALID',
       });
       return false;
