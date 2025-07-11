@@ -397,7 +397,6 @@ export class RoomService {
         onlineMemberIds,
       });
     }
-    console.log(result);
     return result;
   }
 }
