@@ -370,15 +370,19 @@ export class RoomService {
         .find({ conversationId: new Types.ObjectId(room.roomId) })
         .populate('userId', 'name avatarURL')
         .lean();
-
-      const members: RoomMemberInfo[] = membersRaw.map((m) => {
+      const uniqueMembersMap = new Map<string, PopulatedUser>();
+      membersRaw.forEach((m) => {
+        if (!m.userId) return;
         const u = m.userId as PopulatedUser;
-        return {
-          userId: u._id.toString(),
-          name: u.name || '',
-          avatarURL: u.avatarURL,
-        };
+        if (!uniqueMembersMap.has(u._id.toString()) || m.role === 'admin') {
+          uniqueMembersMap.set(u._id.toString(), u);
+        }
       });
+      const members: RoomMemberInfo[] = Array.from(uniqueMembersMap.values()).map((u) => ({
+        userId: u._id.toString(),
+        name: u.name || '',
+        avatarURL: u.avatarURL || '',
+      }));
 
       const lastMessage = await this.getLastMessage(room.roomId);
       const unreadCount = await this.getUnreadCount(room.roomId, userId);
@@ -393,6 +397,7 @@ export class RoomService {
         onlineMemberIds,
       });
     }
+    console.log(result);
     return result;
   }
 }

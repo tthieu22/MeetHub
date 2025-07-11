@@ -101,7 +101,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit(WebSocketEventName.ERROR, response);
       return;
     }
-    this.emitUserOnline(userId, roomIds);
+    await this.emitUserOnline(userId, roomIds);
     const response: WsResponse = {
       success: true,
       data: { userId, rooms: roomIds },
@@ -126,15 +126,28 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  emitUserOnline(userId: string, roomIds: string[]): void {
-    roomIds.forEach((roomId) => {
+  // Emit realtime online cho tất cả client trong phòng khi có user online
+  async emitRoomOnlineMembers(roomId: string) {
+    const onlineMemberIds = await this.chatService.getOnlineMemberIds(roomId);
+    const response: WsResponse = {
+      success: true,
+      data: { roomId, onlineMemberIds },
+    };
+    this.server.to(`room:${roomId}`).emit('room_online_members', response);
+  }
+
+  async emitUserOnline(userId: string, roomIds: string[]): Promise<void> {
+    for (const roomId of roomIds) {
       const response: WsResponse = {
         success: true,
         data: { userId, roomId },
       };
       this.server.to(`room:${roomId}`).emit(WebSocketEventName.USER_ONLINE, response);
-    });
+      // Emit realtime online cho phòng này
+      await this.emitRoomOnlineMembers(roomId);
+    }
   }
+
   @SubscribeMessage('get_rooms')
   async handleGetRooms(@ConnectedSocket() client: AuthenticatedSocket) {
     const userId = validateClient(client);
@@ -211,6 +224,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (response.success) {
       await client.join(`room:${data.roomId}`);
       await client.join(`user:${userId}`);
+      const onlineMemberIds = await this.chatService.getOnlineMemberIds(data.roomId);
+      const onlineResponse: WsResponse = {
+        success: true,
+        data: { roomId: data.roomId, onlineMemberIds },
+      };
+      this.server.to(`room:${data.roomId}`).emit('room_online_members', onlineResponse);
     }
     client.emit(WebSocketEventName.ROOM_JOINED, response);
   }
@@ -225,7 +244,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         success: true,
         data: { roomId: data.roomId, onlineMemberIds },
       };
-      console.log(response);
       client.emit('room_online_members', response);
     } catch (err) {
       emitError(client, 'GET_ONLINE_MEMBERS_ERROR', (err as Error).message, 'room_online_members');

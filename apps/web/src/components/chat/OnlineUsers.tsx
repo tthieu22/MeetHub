@@ -4,6 +4,7 @@ import React from 'react';
 import { Avatar, List, Typography, Badge, Tag } from 'antd';
 import { UserOutlined } from '@ant-design/icons';
 import { useOnlineStatus } from '@web/hooks/useOnlineStatus';
+import { useChatStore } from '@web/store/chat.store';
 
 const { Text } = Typography;
 
@@ -18,7 +19,18 @@ interface OnlineUsersProps {
 }
 
 export default function OnlineUsers({ roomId, members }: OnlineUsersProps) {
-  const { onlineUsers, isOnline } = useOnlineStatus(roomId);
+  const { isOnline } = useOnlineStatus(roomId);
+  const roomOnlineMembers = useChatStore((s) => s.roomOnlineMembers);
+  const rooms = useChatStore((s) => s.rooms);
+  // Lấy onlineMemberIds realtime nếu có, fallback sang rooms nếu chưa có
+  let onlineMemberIds: string[] | undefined = undefined;
+  if (roomId) {
+    onlineMemberIds = roomOnlineMembers[roomId];
+    if (!onlineMemberIds) {
+      const room = rooms.find(r => r.roomId === roomId);
+      onlineMemberIds = room?.onlineMemberIds;
+    }
+  }
 
   if (!members || members.length === 0) {
     return (
@@ -33,8 +45,11 @@ export default function OnlineUsers({ roomId, members }: OnlineUsersProps) {
     index === self.findIndex(m => m.userId === member.userId)
   );
 
-  const onlineMembers = uniqueMembers.filter(member => isOnline(member.userId));
-  const offlineMembers = uniqueMembers.filter(member => !isOnline(member.userId));
+  // Ưu tiên check online theo onlineMemberIds nếu có, fallback sang isOnline
+  const onlineMembers = onlineMemberIds
+    ? uniqueMembers.filter(member => onlineMemberIds!.includes(member.userId))
+    : uniqueMembers.filter(member => isOnline(member.userId));
+  const offlineMembers = uniqueMembers.filter(member => !onlineMembers.includes(member));
 
   return (
     <div style={{ padding: '8px 16px' }}>

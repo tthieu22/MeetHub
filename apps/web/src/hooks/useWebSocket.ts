@@ -92,6 +92,7 @@ export const useWebSocket = () => {
     (roomId: string) => {
       if (isConnected && socket) {
         socket.emit(WS_EVENTS.JOIN_ROOM, { roomId });
+        socket.emit("get_room_online_members", { roomId });
       } else {
         console.warn("WebSocket not connected");
       }
@@ -124,14 +125,12 @@ export const useWebSocket = () => {
         !isConnected &&
         !isConnecting
       ) {
-        console.log("Tab became visible, attempting to reconnect WebSocket");
         connectWebSocket();
       }
     };
 
     const handleFocus = () => {
       if (currentUser && !isConnected && !isConnecting) {
-        console.log("Window focused, attempting to reconnect WebSocket");
         connectWebSocket();
       }
     };

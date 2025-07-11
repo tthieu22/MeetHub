@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { List, Avatar, Typography } from 'antd';
+import { List, Avatar, Typography, Badge } from 'antd';
 import { UserOutlined } from '@ant-design/icons'; 
 import { ChatRoom } from '@web/types/chat';
 
@@ -11,15 +11,10 @@ interface ChatListProps {
   rooms: ChatRoom[];
   selectedRoomId?: string;
   onRoomSelect?: (roomId: string) => void;
+  unreadCounts?: Record<string, number>;
 }
 
-export default function ChatList({ rooms, selectedRoomId, onRoomSelect }: ChatListProps) {
-  console.log('[ChatList] rooms:', rooms);
-  console.log('[ChatList] rooms with onlineMemberIds:', rooms.map(room => ({
-    name: room.name,
-    onlineMemberIds: room.onlineMemberIds,
-    memberCount: room.members?.length
-  }))); 
+export default function ChatList({ rooms, selectedRoomId, onRoomSelect, unreadCounts = {} }: ChatListProps) {
   const loading = false;
   const error = null;
 
@@ -75,6 +70,8 @@ export default function ChatList({ rooms, selectedRoomId, onRoomSelect }: ChatLi
         renderItem={(room) => {
           const firstMember = Array.isArray(room.members) && room.members.length > 0 ? room.members[0] : null;
           const avatarUrl = firstMember?.avatarURL;
+          const unread = unreadCounts[room.roomId] || 0;
+          const onlineCount = room.onlineMemberIds?.length || 0;
           return (
             <List.Item
               onClick={() => onRoomSelect?.(room.roomId)}
@@ -85,7 +82,8 @@ export default function ChatList({ rooms, selectedRoomId, onRoomSelect }: ChatLi
                 borderLeft: selectedRoomId === room.roomId ? '3px solid #1890ff' : 'none',
                 borderBottom: '1px solid #f0f0f0',
                 margin: 0,
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                position: 'relative',
               }}
               onMouseEnter={(e) => {
                 if (selectedRoomId !== room.roomId) {
@@ -112,18 +110,17 @@ export default function ChatList({ rooms, selectedRoomId, onRoomSelect }: ChatLi
                   </div>
                 }
                 title={
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text strong style={{ fontSize: '14px', color: selectedRoomId === room.roomId ? '#1890ff' : '#262626' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: selectedRoomId === room.roomId ? '#1890ff' : '#262626' }}>
                       {room.name}
-                    </Text>
-                    {room.onlineMemberIds && room.onlineMemberIds.length > 0 && (
-                      <div style={{
-                        fontSize: '12px',
-                        color: '#52c41a',
-                        fontWeight: 500
-                      }}>
-                        {room.onlineMemberIds.length} online
-                      </div>
+                    </span>
+                    {onlineCount > 0 && (
+                      <span style={{ fontSize: 12, color: '#52c41a', fontWeight: 500, marginLeft: 8 }}>
+                        {onlineCount} online
+                      </span>
+                    )}
+                    {unread > 0 && (
+                      <Badge count={unread} style={{ backgroundColor: '#f5222d', marginLeft: 8 }} />
                     )}
                   </div>
                 }

@@ -19,10 +19,6 @@ export const useOnlineStatus = (roomId?: string) => {
       if (prev !== onlineIdsStr) {
         setLocalOnlineUsers(onlineIds);
         prevOnlineIdsRef.current = onlineIds;
-        console.log(
-          "🔵 [useOnlineStatus] Updated localOnlineUsers:",
-          onlineIds
-        );
       }
     }
     // eslint-disable-next-line

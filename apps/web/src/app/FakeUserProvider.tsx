@@ -5,7 +5,6 @@ import { useUserStore } from '@web/store/user.store';
 
 export default function FakeUserProvider() {
   useEffect(() => {
-    console.log('👤 [FakeUserProvider] Setting fake user and access token');
     
     // Set fake user
     useUserStore.getState().setCurrentUser({
@@ -17,7 +16,7 @@ export default function FakeUserProvider() {
     
     // Set fake access token
     if (typeof window !== 'undefined') {
-      localStorage.setItem('access_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2ODZiMmI5ZmVmM2Y1N2JiMGY2MzhiYTkiLCJuYW1lIjoiYWRtaW4iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTIyMDc4OTIsImV4cCI6MTc1MjIzNzg5Mn0.FMK9ttViqFlWcaCXChxXhTCZFxPWy7eX4TS72mJE7WE');
+      localStorage.setItem('access_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2ODZiMmI5ZmVmM2Y1N2JiMGY2MzhiYTkiLCJuYW1lIjoiYWRtaW4iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTIyMjY2NjEsImV4cCI6MTc1MjI1NjY2MX0.3QkjV7yxA5Rug9fiCvc42sfeDljlGF9UbpAidcuSMgs');
     }
   }, []);
   return null;

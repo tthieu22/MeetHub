@@ -10,9 +10,9 @@ export const useChat = () => {
     currentRoomId,
     onlineUsers,
     setCurrentRoom,
-    setMessages,
-    addMessage,
-    updateUnreadCount,
+    // setMessages,
+    // addMessage,
+    // updateUnreadCount,
   } = useChatStore();
 
   const {

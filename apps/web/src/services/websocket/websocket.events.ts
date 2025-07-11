@@ -12,52 +12,23 @@ export class WebSocketEventHandlers {
     socket: Socket,
     data: WsResponse<{ userId: string; rooms: string[] }>
   ) {
-    console.log("🔌 [WebSocket] Received CONNECTION_SUCCESS event:", data);
-
     if (data.success && data.data) {
-      console.log(
-        "✅ [WebSocket] Connection successful for user:",
-        data.data.userId
-      );
-      console.log("🏠 [WebSocket] User joined rooms:", data.data.rooms);
-
-      // Lấy danh sách rooms
-      console.log("📤 [WebSocket] Requesting rooms data...");
       socket.emit("get_rooms");
-    } else {
-      console.error("❌ [WebSocket] Connection failed:", data);
     }
   }
 
   // Xử lý nhận danh sách rooms
-  static handleRooms(data: WsResponse<ChatRoom[]>) {
-    console.log("🏠 [WebSocket] Received ROOMS event:", data);
-
+  static handleRooms(data: WsResponse<ChatRoom[]>, socket?: Socket) {
     if (data.success && data.data) {
-      console.log(
-        "✅ [WebSocket] Rooms data received:",
-        data.data.length,
-        "rooms"
-      );
-
-      data.data.forEach((room, index) => {
-        console.log(`📋 [WebSocket] Room ${index + 1}:`, {
-          name: room.name,
-          roomId: room.roomId,
-          onlineMemberIds: room.onlineMemberIds,
-          memberCount: room.members?.length,
-          members: room.members?.map((m) => ({
-            userId: m.userId,
-            name: m.name,
-          })),
-        });
-      });
-
       const { setRooms } = useChatStore.getState();
       setRooms(data.data);
-      console.log("✅ [WebSocket] Rooms stored in Zustand");
-    } else {
-      console.error("❌ [WebSocket] Invalid rooms data:", data);
+      // Gửi get_room_online_members và get_unread_count cho tất cả phòng
+      if (socket) {
+        data.data.forEach((room) => {
+          socket.emit("get_room_online_members", { roomId: room.roomId });
+          socket.emit("get_unread_count", { roomId: room.roomId });
+        });
+      }
     }
   }
 
@@ -74,28 +45,55 @@ export class WebSocketEventHandlers {
       const { roomId, data: messages } = data.data;
       const { setMessages } = useChatStore.getState();
       setMessages(roomId, messages);
-      console.log("Received messages for room:", roomId, messages);
     }
   }
 
   // Xử lý tin nhắn mới
   static handleNewMessage(socket: Socket, data: WsResponse<Message>) {
     if (data.success && data.data) {
-      console.log("New message received:", data.data);
-
-      const { addMessage, currentRoomId } = useChatStore.getState();
+      const {
+        addMessage,
+        currentRoomId,
+        updateUnreadCount,
+        unreadCounts,
+        updateRoom,
+      } = useChatStore.getState();
+      const { currentUser } = useUserStore.getState();
       const roomId = data.data.conversationId;
 
       // Thêm tin nhắn mới vào store
       addMessage(roomId, data.data);
+
+      // Cập nhật lastMessage cho room
+      updateRoom(roomId, {
+        lastMessage: {
+          messageId: data.data._id,
+          conversationId: data.data.conversationId,
+          senderId:
+            typeof data.data.senderId === "string"
+              ? data.data.senderId
+              : data.data.senderId._id,
+          text: data.data.text,
+          createdAt: data.data.createdAt,
+        },
+      });
 
       // Nếu đang ở room này, mark as read
       if (currentRoomId === roomId) {
         socket.emit("mark_room_read", { roomId });
       }
 
-      // Hiển thị thông báo nếu không đang ở room này
-      if (currentRoomId !== roomId) {
+      // Nếu không phải phòng đang mở, tăng số chưa đọc (chỉ cho user khác)
+      if (
+        currentRoomId !== roomId &&
+        currentUser &&
+        ((typeof data.data.senderId === "string" &&
+          data.data.senderId !== currentUser._id) ||
+          (typeof data.data.senderId === "object" &&
+            data.data.senderId._id !== currentUser._id))
+      ) {
+        const currentUnread = unreadCounts[roomId] || 0;
+        updateUnreadCount(roomId, currentUnread + 1);
         this.showMessageNotification(data.data);
       }
     }
@@ -106,8 +104,6 @@ export class WebSocketEventHandlers {
     data: WsResponse<{ roomId: string; unreadCount: number }>
   ) {
     if (data.success && data.data) {
-      console.log("Unread count updated:", data.data);
-
       const { updateUnreadCount } = useChatStore.getState();
       updateUnreadCount(data.data.roomId, data.data.unreadCount);
     }
@@ -117,24 +113,10 @@ export class WebSocketEventHandlers {
   static handleUserOnline(
     data: WsResponse<{ userId: string; roomId: string }>
   ) {
-    console.log("🔵 [WebSocket] Received USER_ONLINE event:", data);
-
     if (data.success && data.data) {
-      console.log("✅ [WebSocket] User online data:", data.data);
-      console.log(
-        "📝 [WebSocket] Updating store for user:",
-        data.data.userId,
-        "in room:",
-        data.data.roomId
-      );
-
       const { setUserOnline, updateRoomOnlineStatus } = useChatStore.getState();
       setUserOnline(data.data.userId, true);
       updateRoomOnlineStatus(data.data.roomId, data.data.userId, true);
-
-      console.log("✅ [WebSocket] Store updated for user online");
-    } else {
-      console.error("❌ [WebSocket] Invalid user online data:", data);
     }
   }
 
@@ -142,7 +124,6 @@ export class WebSocketEventHandlers {
   static handleUserOffline(
     data: WsResponse<{ userId: string; roomId: string }>
   ) {
-
     if (data.success && data.data) {
       const { setUserOnline, updateRoomOnlineStatus } = useChatStore.getState();
       setUserOnline(data.data.userId, false);
@@ -152,8 +133,6 @@ export class WebSocketEventHandlers {
 
   // Xử lý lỗi
   static handleError(data: WsResponse) {
-    console.error("WebSocket error:", data);
-
     // TODO: Hiển thị thông báo lỗi cho user
     if (data.message) {
       console.error("Error message:", data.message);
@@ -176,12 +155,23 @@ export class WebSocketEventHandlers {
 
   // Hiển thị thông báo tin nhắn mới
   private static showMessageNotification(message: Message) {
-    const senderName =
-      typeof message.senderId === "object"
-        ? message.senderId.username || message.senderId.email
-        : "Unknown";
-
-    // TODO: Implement notification system
+    let senderName = "Unknown";
+    if (typeof message.senderId === "object") {
+      senderName =
+        message.senderId.username || message.senderId.email || "Unknown";
+    } else if (typeof message.senderId === "string") {
+      // Thử tìm trong danh sách phòng
+      const { rooms } = useChatStore.getState();
+      for (const room of rooms) {
+        if (Array.isArray(room.members)) {
+          const found = room.members.find((m) => m.userId === message.senderId);
+          if (found) {
+            senderName = found.name || found.email || "Unknown";
+            break;
+          }
+        }
+      }
+    }
     console.log(`Tin nhắn mới từ ${senderName}: ${message.text}`);
 
     // Có thể sử dụng toast notification hoặc browser notification
@@ -193,13 +183,29 @@ export class WebSocketEventHandlers {
     }
   }
 
+  // Thêm handler nhận danh sách online của phòng khi join room
+  static handleRoomOnlineMembers(
+    data: WsResponse<{ roomId: string; onlineMemberIds: string[] }>
+  ) {
+    if (data.success && data.data) {
+      const { setRoomOnlineMembers, updateRoom } = useChatStore.getState();
+      setRoomOnlineMembers(data.data.roomId, data.data.onlineMemberIds);
+      updateRoom(data.data.roomId, {
+        onlineMemberIds: data.data.onlineMemberIds,
+      });
+    }
+  }
+
+  // Xử lý đánh dấu đã đọc thành công
+  static handleRoomMarkedRead(data: WsResponse<{ roomId: string }>) {
+    if (data.success && data.data) {
+      const { updateUnreadCount } = useChatStore.getState();
+      updateUnreadCount(data.data.roomId, 0);
+    }
+  }
+
   // Setup tất cả event handlers cho socket
   static setupEventHandlers(socket: Socket) {
-    console.log(
-      "🔧 [WebSocket] Setting up event handlers for socket:",
-      socket.id
-    );
-
     // Response events - match với backend WebSocketEventName
     socket.on(
       WS_RESPONSE_EVENTS.CONNECTION_SUCCESS,
@@ -209,7 +215,7 @@ export class WebSocketEventHandlers {
     );
 
     socket.on(WS_RESPONSE_EVENTS.ROOMS, (data: WsResponse<ChatRoom[]>) => {
-      this.handleRooms(data);
+      this.handleRooms(data, socket);
     });
 
     socket.on(
@@ -237,33 +243,34 @@ export class WebSocketEventHandlers {
       }
     );
 
-    console.log(
-      "🔧 [WebSocket] Setting up USER_ONLINE handler for event:",
-      WS_RESPONSE_EVENTS.USER_ONLINE
-    );
     socket.on(
       WS_RESPONSE_EVENTS.USER_ONLINE,
       (data: WsResponse<{ userId: string; roomId: string }>) => {
-        console.log(
-          "🎯 [WebSocket] USER_ONLINE event handler triggered:",
-          data
-        );
         this.handleUserOnline(data);
       }
     );
 
-    console.log(
-      "🔧 [WebSocket] Setting up USER_OFFLINE handler for event:",
-      WS_RESPONSE_EVENTS.USER_OFFLINE
-    );
     socket.on(
       WS_RESPONSE_EVENTS.USER_OFFLINE,
       (data: WsResponse<{ userId: string; roomId: string }>) => {
-        console.log(
-          "🎯 [WebSocket] USER_OFFLINE event handler triggered:",
-          data
-        );
         this.handleUserOffline(data);
+      }
+    );
+
+    socket.on(
+      "room_online_members",
+      (data: WsResponse<{ roomId: string; onlineMemberIds: string[] }>) => {
+        WebSocketEventHandlers.handleRoomOnlineMembers(data);
+      }
+    );
+
+    socket.on("room_marked_read", (data: WsResponse<{ roomId: string }>) => {
+      this.handleRoomMarkedRead(data);
+    });
+    socket.on(
+      "mark_room_read_success",
+      (data: WsResponse<{ roomId: string }>) => {
+        this.handleRoomMarkedRead(data);
       }
     );
 
@@ -274,8 +281,6 @@ export class WebSocketEventHandlers {
     socket.on(WS_RESPONSE_EVENTS.AUTH_ERROR, (data: WsResponse) => {
       this.handleAuthError(data);
     });
-
-    console.log("✅ [WebSocket] All event handlers setup completed");
   }
 
   // Remove tất cả event handlers

@@ -10,7 +10,6 @@ import {
   WebSocketServiceInterface,
   WebSocketEventHandlers,
 } from "./websocket.types";
-import { useWebSocketStore } from "@web/store/websocket.store";
 
 class WebSocketService implements WebSocketServiceInterface {
   private socket: Socket | null = null;
@@ -35,14 +34,8 @@ class WebSocketService implements WebSocketServiceInterface {
       });
 
       this.setupEventListeners();
-
-      // Update store
-      const { setSocket } = useWebSocketStore.getState();
-      setSocket(this.socket);
     } catch (error) {
       console.error("WebSocket connection failed:", error);
-      const { setError } = useWebSocketStore.getState();
-      setError("Kết nối WebSocket thất bại");
       throw error;
     } finally {
       this.isConnecting = false;
@@ -53,10 +46,6 @@ class WebSocketService implements WebSocketServiceInterface {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
-
-      // Update store
-      const { setSocket } = useWebSocketStore.getState();
-      setSocket(null);
     }
   }
 
@@ -152,15 +141,9 @@ class WebSocketService implements WebSocketServiceInterface {
     if (!this.socket) return;
 
     // Connection events
-    this.socket.on("connect", () => {
-      console.log("WebSocket connected");
-      const { setError } = useWebSocketStore.getState();
-      setError(null);
-    });
+    this.socket.on("connect", () => {});
 
-    this.socket.on("disconnect", () => {
-      console.log("WebSocket disconnected");
-    });
+    this.socket.on("disconnect", () => {});
 
     // Response events - match với backend WebSocketEventName
     this.socket.on(

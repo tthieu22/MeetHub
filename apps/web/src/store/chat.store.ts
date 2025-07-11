@@ -7,6 +7,7 @@ interface ChatState {
   unreadCounts: Record<string, number>;
   currentRoomId: string | null;
   onlineUsers: Record<string, boolean>;
+  roomOnlineMembers: Record<string, string[]>;
 
   // Actions
   setRooms: (rooms: ChatRoom[]) => void;
@@ -29,6 +30,7 @@ interface ChatState {
     userId: string,
     isOnline: boolean
   ) => void;
+
   setRoomOnlineMembers: (roomId: string, onlineMemberIds: string[]) => void;
 
   clearChat: () => void;
@@ -40,26 +42,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   unreadCounts: {},
   currentRoomId: null,
   onlineUsers: {},
+  roomOnlineMembers: {},
 
   setRooms: (rooms: ChatRoom[]) => {
-    const { rooms: oldRooms } = get();
-    if (
-      oldRooms.length === rooms.length &&
-      oldRooms.every((r, i) => r.roomId === rooms[i].roomId)
-    ) {
-      return;
-    }
-    const mergedRooms = rooms.map((room) => {
-      const oldRoom = oldRooms.find((r) => r.roomId === room.roomId);
-      return {
-        ...room,
-        onlineMemberIds:
-          oldRoom?.onlineMemberIds && oldRoom.onlineMemberIds.length > 0
-            ? oldRoom.onlineMemberIds
-            : room.onlineMemberIds,
-      };
-    });
-    set({ rooms: mergedRooms });
+    set({ rooms });
   },
 
   addRoom: (room: ChatRoom) => {
@@ -78,18 +64,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setMessages: (roomId: string, messages: Message[]) => {
     const { messages: currentMessages } = get();
+    // Lọc trùng _id
+    const uniqueMessages = Array.from(
+      new Map(messages.map((m) => [m._id, m])).values()
+    );
     set({
-      messages: { ...currentMessages, [roomId]: messages },
+      messages: { ...currentMessages, [roomId]: uniqueMessages },
     });
   },
 
   addMessage: (roomId: string, message: Message) => {
     const { messages: currentMessages } = get();
     const roomMessages = currentMessages[roomId] || [];
+    // Lọc trùng _id
+    const uniqueMessages = Array.from(
+      new Map([...roomMessages, message].map((m) => [m._id, m])).values()
+    );
     set({
       messages: {
         ...currentMessages,
-        [roomId]: [...roomMessages, message],
+        [roomId]: uniqueMessages,
       },
     });
   },
@@ -97,10 +91,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   prependMessages: (roomId: string, messages: Message[]) => {
     const { messages: currentMessages } = get();
     const roomMessages = currentMessages[roomId] || [];
+    // Lọc trùng _id
+    const uniqueMessages = Array.from(
+      new Map([...messages, ...roomMessages].map((m) => [m._id, m])).values()
+    );
     set({
       messages: {
         ...currentMessages,
-        [roomId]: [...messages, ...roomMessages],
+        [roomId]: uniqueMessages,
       },
     });
   },
@@ -139,12 +137,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     userId: string,
     isOnline: boolean
   ) => {
-    console.log(`🔄 [Store] Updating room online status:`, {
-      roomId,
-      userId,
-      isOnline,
-    });
-
     const { rooms } = get();
     const roomIndex = rooms.findIndex((room) => room.roomId === roomId);
 
@@ -175,23 +167,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
 
     set({ rooms: updatedRooms });
-    console.log(`✅ [Store] Room online status updated:`, {
-      roomId,
-      onlineMemberIds: newOnlineIds,
-      updatedRooms: updatedRooms.map((r) => ({
-        roomId: r.roomId,
-        onlineMemberIds: r.onlineMemberIds,
-      })),
-    });
   },
 
   setRoomOnlineMembers: (roomId: string, onlineMemberIds: string[]) => {
-    const { rooms } = get();
-    set({
-      rooms: rooms.map((room) =>
-        room.roomId === roomId ? { ...room, onlineMemberIds } : room
-      ),
-    });
+    set((state) => ({
+      roomOnlineMembers: {
+        ...state.roomOnlineMembers,
+        [roomId]: onlineMemberIds,
+      },
+    }));
   },
 
   clearChat: () => {

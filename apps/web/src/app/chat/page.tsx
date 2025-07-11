@@ -1,49 +1,56 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useChatStore } from '@web/store/chat.store';
 import { useWebSocket } from '@web/hooks/useWebSocket';
 import ChatList from '@web/components/chat/ChatList';
 import ChatMessages from '@web/components/chat/ChatMessages';
 import ChatInput from '@web/components/chat/ChatInput';
 import ChatHeader from '@web/components/chat/ChatHeader';
-import OnlineUsers from '@web/components/chat/OnlineUsers';
 import { useSearchParams } from 'next/navigation';
 
 export default function ChatPage() {
   const rooms = useChatStore((state) => state.rooms);
   const messages = useChatStore((state) => state.messages);
+  const unreadCounts = useChatStore((state) => state.unreadCounts);
   const searchParams = useSearchParams();
   const roomId = searchParams.get('roomId');
   
-  console.log('🎯 [ChatPage] Current state:', {
-    roomsCount: rooms.length,
-    rooms: rooms.map(r => ({ name: r.name, roomId: r.roomId, onlineMemberIds: r.onlineMemberIds })),
-    roomId,
-    messagesKeys: Object.keys(messages)
-  });
-  
-  const currentMessages = roomId ? (messages[roomId] ?? []) : [];
+  const currentMessages = React.useMemo(
+  () => (roomId ? messages[roomId] ?? [] : []),
+  [roomId, messages]
+);
   const selectedRoom = roomId ? rooms.find(room => room.roomId === roomId) : undefined;
   
   const { getMessages, sendMessage, joinRoom, getRooms, isConnected } = useWebSocket();
 
+  // State quản lý loading, hasMore
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const hasMoreMessages = true;
+
   // Auto load rooms khi component mount
   useEffect(() => {
-    console.log('🎯 [ChatPage] Component mounted, checking WebSocket connection:', isConnected);
     if (isConnected && rooms.length === 0) {
-      console.log('🎯 [ChatPage] WebSocket connected but no rooms, requesting rooms...');
       getRooms();
     }
   }, [isConnected, rooms.length, getRooms]);
 
   useEffect(() => {
     if (roomId) {
-      console.log('🎯 [ChatPage] Room selected, getting messages and joining room:', roomId);
       getMessages(roomId);
       joinRoom(roomId);
     }
   }, [roomId, getMessages, joinRoom]);
+
+  // Hàm load thêm tin nhắn cũ
+  const handleLoadMore = useCallback(() => {
+    if (roomId && currentMessages.length > 0) {
+      setLoadingMessages(true);
+      const firstMsgId = currentMessages[0]._id;
+      getMessages(roomId, firstMsgId);
+      setLoadingMessages(false);
+    }
+  }, [roomId, currentMessages, getMessages]);
 
   const handleRoomSelect = (selectedRoomId: string) => {
     const url = new URL(window.location.href);
@@ -86,6 +93,7 @@ export default function ChatPage() {
             rooms={rooms}
             selectedRoomId={roomId || undefined}
             onRoomSelect={handleRoomSelect}
+            unreadCounts={unreadCounts}
           />
         </div>
       </div>
@@ -100,14 +108,13 @@ export default function ChatPage() {
         <ChatHeader room={selectedRoom} />
         {roomId ? (
           <>
-            <OnlineUsers 
-              roomId={roomId}
-              members={selectedRoom?.members}
-            />
             <div style={{ flex: 1, overflow: 'hidden' }}>
               <ChatMessages 
                 messages={currentMessages} 
                 onlineMemberIds={selectedRoom?.onlineMemberIds}
+                loading={loadingMessages}
+                hasMore={hasMoreMessages}
+                onLoadMore={handleLoadMore}
               />
             </div>
             <ChatInput 
