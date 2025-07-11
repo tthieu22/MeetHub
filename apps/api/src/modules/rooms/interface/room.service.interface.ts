@@ -75,5 +75,4 @@ export interface IRoomService {
             totalPages: number;
         };
     }>;
-
 }

@@ -27,7 +27,7 @@ import { SearchBookingsDetailedDto } from './dto/search-bookings-detailed.dto';
 export class BookingsController {
   constructor(
     @Inject(BOOKING_SERVICE_TOKEN) private readonly bookingService: IBookingService
-  ) {}
+  ) { }
 
   @Post("add-booking")
   @UseGuards(AuthGuard)
@@ -138,5 +138,12 @@ export class BookingsController {
       success: true,
       data: updatedBooking,
     };
+  }
+
+  @Get('search-exclude-deleted')
+  @UseGuards(AuthGuard)
+  async searchBookingsExcludeDeleted(@Query() dto: SearchBookingsDetailedDto) {
+    const result = await this.bookingService.searchBookingsExcludeDeleted(dto);
+    return result;
   }
 }

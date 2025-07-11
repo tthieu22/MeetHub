@@ -21,7 +21,7 @@ export class BookingsService implements IBookingService {
     @Inject(forwardRef(() => ROOM_SERVICE_TOKEN))
     private roomService: IRoomService,
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async create(createBookingDto: CreateBookingDto): Promise<IBooking> {
     try {
@@ -55,18 +55,18 @@ export class BookingsService implements IBookingService {
       // VALIDATION: Kiểm tra participants
       const participants: (User & Document)[] = createBookingDto.participants?.length
         ? await Promise.all(
-            createBookingDto.participants.map(async (id) => {
-              const participant = await this.userModel.findById(id);
-              if (!participant) {
-                throw new NotFoundException({
-                  success: false,
-                  message: `Không tìm thấy người tham gia với ID ${id}`,
-                  errorCode: 'PARTICIPANT_NOT_FOUND',
-                });
-              }
-              return participant;
-            }),
-          )
+          createBookingDto.participants.map(async (id) => {
+            const participant = await this.userModel.findById(id);
+            if (!participant) {
+              throw new NotFoundException({
+                success: false,
+                message: `Không tìm thấy người tham gia với ID ${id}`,
+                errorCode: 'PARTICIPANT_NOT_FOUND',
+              });
+            }
+            return participant;
+          }),
+        )
         : [];
 
       // VALIDATION: Kiểm tra sức chứa
@@ -652,16 +652,16 @@ export class BookingsService implements IBookingService {
               ...(userName ? [{ $cond: [{ $regexMatch: { input: '$user.name', regex: userName, options: 'i' } }, 1, 0] }] : []),
               ...(date
                 ? [
-                    {
-                      $cond: [
-                        {
-                          $and: [{ $gte: ['$startTime', filter.startTime.$gte] }, { $lte: ['$startTime', filter.startTime.$lte] }],
-                        },
-                        1,
-                        0,
-                      ],
-                    },
-                  ]
+                  {
+                    $cond: [
+                      {
+                        $and: [{ $gte: ['$startTime', filter.startTime.$gte] }, { $lte: ['$startTime', filter.startTime.$lte] }],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                ]
                 : []),
               ...(title ? [{ $cond: [{ $regexMatch: { input: '$title', regex: title, options: 'i' } }, 1, 0] }] : []),
               ...(description ? [{ $cond: [{ $regexMatch: { input: '$description', regex: description, options: 'i' } }, 1, 0] }] : []),
@@ -867,4 +867,174 @@ export class BookingsService implements IBookingService {
       });
     }
   }
+
+  async searchBookingsExcludeDeleted(dto: SearchBookingsDetailedDto): Promise<any> {
+    const { page = 1, limit = 10, roomName, userName, date, title, description } = dto;
+
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
+        errorCode: 'INVALID_PAGINATION',
+      });
+    }
+
+    const filter: any = { status: { $ne: BookingStatus.DELETED } };
+
+    if (roomName) {
+      if (typeof roomName !== 'string' || roomName.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Tên phòng phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_ROOM_NAME',
+        });
+      }
+      filter['room.name'] = { $regex: roomName.trim(), $options: 'i' };
+    }
+
+    if (userName) {
+      if (typeof userName !== 'string' || userName.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Tên người dùng phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_USER_NAME',
+        });
+      }
+      filter['user.name'] = { $regex: userName.trim(), $options: 'i' };
+    }
+
+    if (date) {
+      const dateRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
+      if (!dateRegex.test(date)) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Định dạng ngày không hợp lệ, phải là YYYY-MM-DD (ví dụ: 2025-07-10)',
+          errorCode: 'INVALID_DATE_FORMAT',
+        });
+      }
+      const [year, month, day] = date.split('-').map(Number);
+      const parsedDate = new Date(year, month - 1, day);
+      if (isNaN(parsedDate.getTime()) || parsedDate.getFullYear() !== year || parsedDate.getMonth() + 1 !== month || parsedDate.getDate() !== day) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Ngày không hợp lệ',
+          errorCode: 'INVALID_DATE',
+        });
+      }
+      const startOfDay = new Date(parsedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(parsedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      filter.startTime = {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      };
+    }
+
+    if (title) {
+      if (typeof title !== 'string' || title.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Tiêu đề phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_TITLE',
+        });
+      }
+      filter.title = { $regex: title.trim(), $options: 'i' };
+    }
+
+    if (description) {
+      if (typeof description !== 'string' || description.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Mô tả phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_DESCRIPTION',
+        });
+      }
+      filter.description = { $regex: description.trim(), $options: 'i' };
+    }
+
+    if (!roomName && !userName && !date && !title && !description) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Phải cung cấp ít nhất một tiêu chí tìm kiếm',
+        errorCode: 'MISSING_SEARCH_CRITERIA',
+      });
+    }
+
+    const pipeline: PipelineStage[] = [
+      {
+        $lookup: {
+          from: 'rooms',
+          localField: 'room',
+          foreignField: '_id',
+          as: 'room',
+        },
+      },
+      { $unwind: '$room' },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      { $unwind: '$user' },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'participants',
+          foreignField: '_id',
+          as: 'participants',
+        },
+      },
+      { $match: filter },
+      {
+        $addFields: {
+          matchScore: {
+            $sum: [
+              ...(roomName ? [{ $cond: [{ $regexMatch: { input: '$room.name', regex: roomName, options: 'i' } }, 1, 0] }] : []),
+              ...(userName ? [{ $cond: [{ $regexMatch: { input: '$user.name', regex: userName, options: 'i' } }, 1, 0] }] : []),
+              ...(date
+                ? [
+                  {
+                    $cond: [
+                      {
+                        $and: [{ $gte: ['$startTime', filter.startTime.$gte] }, { $lte: ['$startTime', filter.startTime.$lte] }],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                ]
+                : []),
+              ...(title ? [{ $cond: [{ $regexMatch: { input: '$title', regex: title, options: 'i' } }, 1, 0] }] : []),
+              ...(description ? [{ $cond: [{ $regexMatch: { input: '$description', regex: description, options: 'i' } }, 1, 0] }] : []),
+            ],
+          },
+        },
+      },
+      { $sort: { matchScore: -1, startTime: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ];
+
+    const [data, total] = await Promise.all([
+      this.bookingModel.aggregate(pipeline).exec(),
+      this.bookingModel.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    const message = `Tìm thấy ${data.length} đặt phòng khớp với tiêu chí, không bao gồm trạng thái DELETED (trang ${page}/${totalPages})`;
+    return {
+      success: true,
+      message,
+      total,
+      page,
+      limit,
+      totalPages,
+      data,
+    };
+  }
+
 }
