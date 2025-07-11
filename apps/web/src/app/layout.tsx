@@ -9,11 +9,12 @@ import { UserProvider } from "./UserProvider";
 import AuthGuard from "@web/components/AuthGuard";
 import React from "react";
 
-export default function RootLayout({
+function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  console.log("Render: RootLayout");
   return (
     <html lang="en" translate="no">
       <body>
@@ -31,3 +32,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+export default React.memo(RootLayout);

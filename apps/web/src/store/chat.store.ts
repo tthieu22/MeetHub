@@ -105,20 +105,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setUnreadCount: (roomId: string, count: number) => {
     const { unreadCounts } = get();
-    set({
-      unreadCounts: { ...unreadCounts, [roomId]: count },
-    });
+    // Only update if the count actually changed
+    if (unreadCounts[roomId] !== count) {
+      set({
+        unreadCounts: { ...unreadCounts, [roomId]: count },
+      });
+    }
   },
 
   updateUnreadCount: (roomId: string, count: number) => {
     const { unreadCounts } = get();
-    set({
-      unreadCounts: { ...unreadCounts, [roomId]: count },
-    });
+    // Only update if the count actually changed
+    if (unreadCounts[roomId] !== count) {
+      set({
+        unreadCounts: { ...unreadCounts, [roomId]: count },
+      });
+    }
   },
 
   setCurrentRoom: (roomId: string | null) => {
-    set({ currentRoomId: roomId });
+    const { currentRoomId } = get();
+    // Only update if the room actually changed
+    if (currentRoomId !== roomId) {
+      set({ currentRoomId: roomId });
+    }
   },
 
   setOnlineUsers: (users: Record<string, boolean>) => {
@@ -127,9 +137,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setUserOnline: (userId: string, online: boolean) => {
     const { onlineUsers } = get();
-    set({
-      onlineUsers: { ...onlineUsers, [userId]: online },
-    });
+    // Only update if the status actually changed
+    if (onlineUsers[userId] !== online) {
+      set({
+        onlineUsers: { ...onlineUsers, [userId]: online },
+      });
+    }
   },
 
   updateRoomOnlineStatus: (
@@ -156,26 +169,35 @@ export const useChatStore = create<ChatState>((set, get) => ({
       newOnlineIds = currentOnlineIds.filter((id) => id !== userId);
     }
 
-    const updatedRooms = rooms.map((room, index) => {
-      if (index === roomIndex) {
-        return {
-          ...room,
-          onlineMemberIds: newOnlineIds,
-        };
-      }
-      return room;
-    });
+    // Only update if the online members actually changed
+    if (JSON.stringify(currentOnlineIds) !== JSON.stringify(newOnlineIds)) {
+      const updatedRooms = rooms.map((room, index) => {
+        if (index === roomIndex) {
+          return {
+            ...room,
+            onlineMemberIds: newOnlineIds,
+          };
+        }
+        return room;
+      });
 
-    set({ rooms: updatedRooms });
+      set({ rooms: updatedRooms });
+    }
   },
 
   setRoomOnlineMembers: (roomId: string, onlineMemberIds: string[]) => {
-    set((state) => ({
-      roomOnlineMembers: {
-        ...state.roomOnlineMembers,
-        [roomId]: onlineMemberIds,
-      },
-    }));
+    const { roomOnlineMembers } = get();
+    const currentMembers = roomOnlineMembers[roomId] || [];
+
+    // Only update if the members actually changed
+    if (JSON.stringify(currentMembers) !== JSON.stringify(onlineMemberIds)) {
+      set((state) => ({
+        roomOnlineMembers: {
+          ...state.roomOnlineMembers,
+          [roomId]: onlineMemberIds,
+        },
+      }));
+    }
   },
 
   clearChat: () => {

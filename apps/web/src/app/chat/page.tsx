@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useChatStore } from "@web/store/chat.store";
 import { useWebSocket } from "@web/hooks/useWebSocket";
 import ChatList from "@web/components/chat/ChatList";
@@ -10,19 +10,24 @@ import ChatHeader from "@web/components/chat/ChatHeader";
 import { useSearchParams } from "next/navigation";
 
 export default function ChatPage() {
+  console.log("Render: ChatPage");
+  // Tối ưu selector: chỉ lấy đúng trường cần thiết
   const rooms = useChatStore((state) => state.rooms);
   const messages = useChatStore((state) => state.messages);
   const unreadCounts = useChatStore((state) => state.unreadCounts);
+
   const searchParams = useSearchParams();
   const roomId = searchParams.get("roomId");
 
-  const currentMessages = React.useMemo(
+  // Memo hóa currentMessages và selectedRoom
+  const currentMessages = useMemo(
     () => (roomId ? (messages[roomId] ?? []) : []),
     [roomId, messages]
   );
-  const selectedRoom = roomId
-    ? rooms.find((room) => room.roomId === roomId)
-    : undefined;
+  const selectedRoom = useMemo(
+    () => (roomId ? rooms.find((room) => room.roomId === roomId) : undefined),
+    [roomId, rooms]
+  );
 
   const {
     getMessages,
@@ -61,7 +66,7 @@ export default function ChatPage() {
     }
   }, [isConnected, rooms, getUnreadCount]);
 
-  // Hàm load thêm tin nhắn cũ
+  // Hàm load thêm tin nhắn cũ (memo hóa)
   const handleLoadMore = useCallback(() => {
     if (roomId && currentMessages.length > 0) {
       setLoadingMessages(true);
@@ -71,21 +76,28 @@ export default function ChatPage() {
     }
   }, [roomId, currentMessages, getMessages]);
 
-  const handleRoomSelect = (selectedRoomId: string) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("roomId", selectedRoomId);
-    window.history.pushState({}, "", url.toString());
+  // Memo hóa function chọn room
+  const handleRoomSelect = useCallback(
+    (selectedRoomId: string) => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("roomId", selectedRoomId);
+      window.history.pushState({}, "", url.toString());
+      // Mark the selected room as read immediately
+      console.log(`[ChatPage] Marking selected room ${selectedRoomId} as read`);
+      markRoomRead(selectedRoomId);
+    },
+    [markRoomRead]
+  );
 
-    // Mark the selected room as read immediately
-    console.log(`[ChatPage] Marking selected room ${selectedRoomId} as read`);
-    markRoomRead(selectedRoomId);
-  };
-
-  const handleSendMessage = (messageText: string) => {
-    if (roomId) {
-      sendMessage(roomId, messageText);
-    }
-  };
+  // Memo hóa function gửi tin nhắn
+  const handleSendMessage = useCallback(
+    (messageText: string) => {
+      if (roomId) {
+        sendMessage(roomId, messageText);
+      }
+    },
+    [roomId, sendMessage]
+  );
 
   return (
     <div

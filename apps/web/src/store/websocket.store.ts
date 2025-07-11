@@ -55,19 +55,29 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
     // Setup event listeners
     newSocket.on("connect", () => {
-      set({ isConnected: true, isConnecting: false, error: null });
+      const { isConnected } = get();
+      if (!isConnected) {
+        set({ isConnected: true, isConnecting: false, error: null });
+      }
     });
 
     newSocket.on("disconnect", () => {
-      set({ isConnected: false, isConnecting: false });
+      const { isConnected } = get();
+      if (isConnected) {
+        set({ isConnected: false, isConnecting: false });
+      }
     });
 
     newSocket.on("connect_error", () => {
-      set({
-        isConnected: false,
-        isConnecting: false,
-        error: "Kết nối WebSocket thất bại",
-      });
+      const { error } = get();
+      const newError = "Kết nối WebSocket thất bại";
+      if (error !== newError) {
+        set({
+          isConnected: false,
+          isConnecting: false,
+          error: newError,
+        });
+      }
     });
 
     newSocket.connect();
@@ -90,18 +100,30 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   },
 
   setError: (error: string | null) => {
-    set({ error, isConnecting: false });
+    const { error: currentError, isConnecting } = get();
+    if (currentError !== error || isConnecting) {
+      set({ error, isConnecting: false });
+    }
   },
 
   setSocket: (socket: Socket | null) => {
-    set({ socket });
+    const { socket: currentSocket } = get();
+    if (currentSocket !== socket) {
+      set({ socket });
+    }
   },
 
   setConnected: (connected: boolean) => {
-    set({ isConnected: connected });
+    const { isConnected } = get();
+    if (isConnected !== connected) {
+      set({ isConnected: connected });
+    }
   },
 
   setConnecting: (connecting: boolean) => {
-    set({ isConnecting: connecting });
+    const { isConnecting } = get();
+    if (isConnecting !== connecting) {
+      set({ isConnecting: connecting });
+    }
   },
 }));

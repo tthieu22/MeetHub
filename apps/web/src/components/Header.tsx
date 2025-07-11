@@ -9,6 +9,7 @@ import {
   Space,
   Badge,
   Dropdown,
+  type MenuProps,
 } from "antd";
 import {
   MessageOutlined,
@@ -24,40 +25,155 @@ import ConnectionStatus from "@web/app/ConnectionStatus";
 const { Header: AntHeader } = Layout;
 const { Title } = Typography;
 
+// Memoized ConnectionStatus component
+const MemoizedConnectionStatus = React.memo(ConnectionStatus);
+
+// Memoized user avatar component
+const UserAvatar = React.memo(
+  ({
+    currentUser,
+    onLogout,
+  }: {
+    currentUser: {
+      _id: string;
+      email: string;
+      username?: string;
+      avatar?: string;
+    } | null;
+    onLogout: () => void;
+  }) => {
+    const router = useRouter();
+
+    const userMenuItems: MenuProps["items"] = React.useMemo(
+      () => [
+        {
+          key: "logout",
+          icon: <LogoutOutlined />,
+          label: "Đăng xuất",
+          onClick: onLogout,
+        },
+      ],
+      [onLogout]
+    );
+
+    if (!currentUser) {
+      return (
+        <Button
+          type="primary"
+          onClick={() => router.push("/login")}
+          icon={<UserOutlined />}
+        >
+          Đăng nhập
+        </Button>
+      );
+    }
+
+    return (
+      <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+        <Space style={{ cursor: "pointer" }}>
+          <Avatar
+            src={currentUser?.avatar || null}
+            icon={<UserOutlined />}
+            size="large"
+          />
+          <span style={{ color: "#666" }}>
+            {currentUser?.username || currentUser?.email || "User"}
+          </span>
+        </Space>
+      </Dropdown>
+    );
+  }
+);
+
+UserAvatar.displayName = "UserAvatar";
+
+// Memoized navigation buttons component
+const NavigationButtons = React.memo(
+  ({
+    totalUnreadCount,
+    onMenuClick,
+  }: {
+    totalUnreadCount: number;
+    onMenuClick: (key: string) => void;
+  }) => {
+    return (
+      <Space size="large">
+        <Button
+          type="text"
+          onClick={() => onMenuClick("home")}
+          style={{
+            fontSize: "16px",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <HomeOutlined />
+          Trang chủ
+        </Button>
+        <Badge count={totalUnreadCount} offset={[-5, 5]}>
+          <Button
+            type="text"
+            onClick={() => onMenuClick("chat")}
+            style={{
+              fontSize: "16px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <MessageOutlined />
+            Chat
+          </Button>
+        </Badge>
+      </Space>
+    );
+  }
+);
+
+NavigationButtons.displayName = "NavigationButtons";
+
 function Header() {
   console.log("Render: Header");
+
   const router = useRouter();
+
+  // Optimized selectors - only select what we need
   const unreadCounts = useChatStore((state) => state.unreadCounts);
   const currentUser = useUserStore((state) => state.currentUser);
   const logout = useUserStore((state) => state.logout);
 
-  // Tính tổng số tin nhắn chưa đọc
-  const totalUnreadCount = Object.values(unreadCounts).reduce(
-    (sum, count) => sum + count,
-    0
-  );
+  // Memoized total unread count calculation
+  const totalUnreadCount = React.useMemo(() => {
+    if (!unreadCounts || Object.keys(unreadCounts).length === 0) {
+      return 0;
+    }
+    return Object.values(unreadCounts).reduce(
+      (sum, count) => sum + (count || 0),
+      0
+    );
+  }, [unreadCounts]);
 
-  const handleLogout = () => {
+  // Memoized handlers
+  const handleLogout = React.useCallback(() => {
     logout();
     router.push("/");
-  };
+  }, [logout, router]);
 
-  const userMenuItems = [
-    {
-      key: "logout",
-      icon: <LogoutOutlined />,
-      label: "Đăng xuất",
-      onClick: handleLogout,
+  const handleMenuClick = React.useCallback(
+    (key: string) => {
+      if (key === "home") {
+        router.push("/");
+      } else if (key === "chat") {
+        router.push("/chat");
+      }
     },
-  ];
+    [router]
+  );
 
-  const handleMenuClick = (key: string) => {
-    if (key === "home") {
-      router.push("/");
-    } else if (key === "chat") {
-      router.push("/chat");
-    }
-  };
+  const handleLogoClick = React.useCallback(() => {
+    router.push("/");
+  }, [router]);
 
   return (
     <AntHeader
@@ -80,7 +196,7 @@ function Header() {
             fontWeight: "bold",
             cursor: "pointer",
           }}
-          onClick={() => handleMenuClick("home")}
+          onClick={handleLogoClick}
         >
           MeetHub
         </Title>
@@ -94,67 +210,20 @@ function Header() {
           justifyContent: "center",
         }}
       >
-        <Space size="large">
-          <Button
-            type="text"
-            onClick={() => handleMenuClick("home")}
-            style={{
-              fontSize: "16px",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <HomeOutlined />
-            Trang chủ
-          </Button>
-          <Badge count={totalUnreadCount} offset={[-5, 5]}>
-            <Button
-              type="text"
-              onClick={() => handleMenuClick("chat")}
-              style={{
-                fontSize: "16px",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-              }}
-            >
-              <MessageOutlined />
-              Chat
-            </Button>
-          </Badge>
-        </Space>
+        <NavigationButtons
+          totalUnreadCount={totalUnreadCount}
+          onMenuClick={handleMenuClick}
+        />
       </div>
 
       {/* Connection Status */}
       <div style={{ display: "flex", alignItems: "center", marginRight: 16 }}>
-        <ConnectionStatus />
+        <MemoizedConnectionStatus />
       </div>
 
       {/* User Avatar or Login Button */}
       <div style={{ display: "flex", alignItems: "center" }}>
-        {currentUser ? (
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <Space style={{ cursor: "pointer" }}>
-              <Avatar
-                src={currentUser?.avatar}
-                icon={<UserOutlined />}
-                size="large"
-              />
-              <span style={{ color: "#666" }}>
-                {currentUser?.username || currentUser?.email || "User"}
-              </span>
-            </Space>
-          </Dropdown>
-        ) : (
-          <Button
-            type="primary"
-            onClick={() => router.push("/login")}
-            icon={<UserOutlined />}
-          >
-            Đăng nhập
-          </Button>
-        )}
+        <UserAvatar currentUser={currentUser} onLogout={handleLogout} />
       </div>
     </AntHeader>
   );

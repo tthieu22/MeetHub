@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   Avatar,
   Typography,
@@ -35,24 +35,41 @@ interface ChatHeaderProps {
   };
 }
 
-export default function ChatHeader({ room }: ChatHeaderProps) {
+function ChatHeader({ room }: ChatHeaderProps) {
+  console.log("Render: ChatHeader", room?.roomId, room?.name);
+
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const handleMenuClick = (key: string) => {
+
+  const handleMenuClick = useCallback((key: string) => {
     if (key === "members") {
       setIsMemberModalOpen(true);
       setPopoverOpen(false);
     }
-  };
+  }, []);
 
-  const menu = (
-    <div>
-      <Button type="text" block onClick={() => handleMenuClick("members")}>
-        Thành viên
-      </Button>
-      {/* Thêm các tuỳ chọn khác nếu cần */}
-    </div>
+  const handleModalCancel = useCallback(() => {
+    setIsMemberModalOpen(false);
+  }, []);
+
+  const handlePopoverChange = useCallback((open: boolean) => {
+    setPopoverOpen(open);
+  }, []);
+
+  const menu = useMemo(
+    () => (
+      <div>
+        <Button type="text" block onClick={() => handleMenuClick("members")}>
+          Thành viên
+        </Button>
+        {/* Thêm các tuỳ chọn khác nếu cần */}
+      </div>
+    ),
+    [handleMenuClick]
   );
+
+  const memberCount = room?.members?.length || 0;
+  const onlineCount = room?.onlineMemberIds?.length || 0;
 
   return (
     <div
@@ -90,10 +107,10 @@ export default function ChatHeader({ room }: ChatHeaderProps) {
           <Text type="secondary" style={{ fontSize: "12px" }}>
             {room ? (
               <>
-                {room.members?.length || 0} thành viên
-                {room.onlineMemberIds && room.onlineMemberIds.length > 0 && (
+                {memberCount} thành viên
+                {onlineCount > 0 && (
                   <span style={{ color: "#52c41a", marginLeft: "8px" }}>
-                    • {room.onlineMemberIds.length} online
+                    • {onlineCount} online
                   </span>
                 )}
               </>
@@ -114,7 +131,7 @@ export default function ChatHeader({ room }: ChatHeaderProps) {
           content={menu}
           trigger="click"
           open={popoverOpen}
-          onOpenChange={setPopoverOpen}
+          onOpenChange={handlePopoverChange}
           placement="bottomRight"
         >
           <Button type="text" icon={<MoreOutlined />} size="large" />
@@ -123,7 +140,7 @@ export default function ChatHeader({ room }: ChatHeaderProps) {
       <Modal
         title={`Thành viên phòng: ${room?.name || ""}`}
         open={isMemberModalOpen}
-        onCancel={() => setIsMemberModalOpen(false)}
+        onCancel={handleModalCancel}
         footer={null}
       >
         <List
@@ -153,3 +170,5 @@ export default function ChatHeader({ room }: ChatHeaderProps) {
     </div>
   );
 }
+
+export default React.memo(ChatHeader);
