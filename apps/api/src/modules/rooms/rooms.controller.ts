@@ -27,6 +27,7 @@ export class RoomsController {
     constructor(
         @Inject(ROOM_SERVICE_TOKEN) private readonly roomService: IRoomService
     ) { }
+
     // thêm phòng họp mới
     @Post('/add-room')
     @UseGuards(AuthGuard, RolesGuard)
@@ -38,81 +39,10 @@ export class RoomsController {
             data: room,
         };
     }
-    // Lấy tất cả phòng họp hiện thị ở trang Admin
-    // Có phân trang, lọc theo các trường như tên phòng, địa điểm, trạng thái, số lượng người tối đa
-    @Get('/get-all-rooms')
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN)
-    async findAll(
-        @Query('page') page: number = 1,
-        @Query('limit') limit: number = 10,
-        @Query('filter') filter: string = '{}'
-    ) {
-        const parsedFilter = JSON.parse(filter);
-        const result = await this.roomService.getAllRooms(page, limit, parsedFilter);
-        return result;
-    }
-    // Lấy tất cả phòng họp có trạng thái là available
-    @Get('/available')
+
+    // Lấy tất cả phòng họp có trạng thái active - Cả admin và user đều có thể dùng
+    @Get('/active')
     @UseGuards(AuthGuard)
-    async findAvailable(
-        @Query('page') page: number = 1,
-        @Query('limit') limit: number = 10,
-        @Query('filter') filter: string = '{}'
-    ) {
-        const parsedFilter = JSON.parse(filter);
-        const result = await this.roomService.getAvailableRooms(page, limit, parsedFilter);
-        return result;
-    }
-    // Lấy thông tin chi tiết của một phòng họp theo ID
-    @Get(':id')
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN)
-    async findOne(@Param('id') id: string) {
-        const room = await this.roomService.getRoomById(id);
-        return {
-            success: true,
-            data: room,
-        };
-    }
-    // Cập nhật thông tin phòng họp
-    @Put(':id')
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN)
-    async update(@Param('id') id: string, @Body() updateRoomDto: UpdateRoomDto) {
-        const updatedRoom = await this.roomService.updateRoom(id, updateRoomDto);
-        return {
-            success: true,
-            data: updatedRoom,
-        };
-    }
-    // Xóa phòng họp ( xoá vĩnh viễn )
-    @Delete(':id')
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN)
-    @HttpCode(HttpStatus.NO_CONTENT)
-    async remove(@Param('id') id: string) {
-        await this.roomService.deleteRoom(id);
-        return {
-            success: true,
-            message: 'Xóa phòng họp thành công',
-        };
-    }
-    // Xóa mềm - Chuyển trạng thái phòng thành deleted
-    @Get(':id/soft-delete')
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN)
-    async softDelete(@Param('id') id: string) {
-        await this.roomService.statusChangeDeleteRoom(id);
-        return {
-            success: true,
-            message: 'Chuyển trạng thái phòng thành đã xóa thành công',
-        };
-    }
-    // Tìm kiếm phòng họp theo tên
-    @Get('active')
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(UserRole.USER)
     async getAllActiveRooms(
         @Query('page') page: number = 1,
         @Query('limit') limit: number = 10
@@ -120,8 +50,9 @@ export class RoomsController {
         const result = await this.roomService.getAllActiveRooms(page, limit);
         return result;
     }
-    // Tìm kiếm phòng họp theo các tiêu chí như tên, địa điểm, số lượng người tối đa, trạng thái, có máy chiếu, cho phép mang đồ ăn, các tính năng khác chi tiết cho Amin
-    @Get('search')
+
+    // Tìm kiếm phòng họp theo các tiêu chí như tên, địa điểm, số lượng người tối đa, trạng thái, có máy chiếu, cho phép mang đồ ăn, các tính năng khác chi tiết cho Admin
+    @Get('/search')
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
     async searchRooms(@Query() query: Record<string, string>) {
@@ -141,10 +72,10 @@ export class RoomsController {
         const result = await this.roomService.searchRooms(filters);
         return result;
     }
-    // Tìm kiếm phòng họp theo tên trừ phòng đã xóa của người d
-    @Get('activity')
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(UserRole.USER)
+
+    // Tìm kiếm phòng họp theo tên trừ phòng đã xóa của người dùng - Cả admin và user đều có thể dùng
+    @Get('/activity')
+    @UseGuards(AuthGuard)
     async findActivityRooms(
         @Query('page') page: number = 1,
         @Query('limit') limit: number = 10
@@ -153,4 +84,80 @@ export class RoomsController {
         return result;
     }
 
+    // Lấy tất cả phòng họp hiện thị ở trang Admin
+    // Có phân trang, lọc theo các trường như tên phòng, địa điểm, trạng thái, số lượng người tối đa
+    @Get('/get-all-rooms')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
+    async findAll(
+        @Query('page') page: number = 1,
+        @Query('limit') limit: number = 10,
+        @Query('filter') filter: string = '{}'
+    ) {
+        const parsedFilter = JSON.parse(filter);
+        const result = await this.roomService.getAllRooms(page, limit, parsedFilter);
+        return result;
+    }
+
+    // Lấy tất cả phòng họp có trạng thái là available
+    @Get('/available')
+    @UseGuards(AuthGuard)
+    async findAvailable(
+        @Query('page') page: number = 1,
+        @Query('limit') limit: number = 10,
+        @Query('filter') filter: string = '{}'
+    ) {
+        const parsedFilter = JSON.parse(filter);
+        const result = await this.roomService.getAvailableRooms(page, limit, parsedFilter);
+        return result;
+    }
+
+    // Lấy thông tin chi tiết của một phòng họp theo ID
+    @Get(':id')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
+    async findOne(@Param('id') id: string) {
+        const room = await this.roomService.getRoomById(id);
+        return {
+            success: true,
+            data: room,
+        };
+    }
+
+    // Cập nhật thông tin phòng họp
+    @Put(':id')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
+    async update(@Param('id') id: string, @Body() updateRoomDto: UpdateRoomDto) {
+        const updatedRoom = await this.roomService.updateRoom(id, updateRoomDto);
+        return {
+            success: true,
+            data: updatedRoom,
+        };
+    }
+
+    // Xóa phòng họp ( xoá vĩnh viễn )
+    @Delete(':id')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
+    @HttpCode(HttpStatus.NO_CONTENT)
+    async remove(@Param('id') id: string) {
+        await this.roomService.deleteRoom(id);
+        return {
+            success: true,
+            message: 'Xóa phòng họp thành công',
+        };
+    }
+
+    // Xóa mềm - Chuyển trạng thái phòng thành deleted
+    @Get(':id/soft-delete')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
+    async softDelete(@Param('id') id: string) {
+        await this.roomService.statusChangeDeleteRoom(id);
+        return {
+            success: true,
+            message: 'Chuyển trạng thái phòng thành đã xóa thành công',
+        };
+    }
 }

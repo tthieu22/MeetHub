@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
   Inject,
+  Request
 } from '@nestjs/common';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { IBookingService } from './interface/booking.service.interface';
@@ -40,7 +41,8 @@ export class BookingsController {
   }
 
   @Get("")
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard , RolesGuard)
+  @Roles(UserRole.ADMIN)
   async findAll(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
@@ -52,7 +54,8 @@ export class BookingsController {
   }
 
   @Get(':id')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard ,RolesGuard )
+  @Roles(UserRole.ADMIN)
   async findOne(@Param('id') id: string) {
     const booking = await this.bookingService.findOne(id);
     return {
@@ -81,10 +84,11 @@ export class BookingsController {
     return { success: true };
   }
 
-  @Post(':id/cancel')
+ @Post(':id/cancel')
   @UseGuards(AuthGuard)
-  async cancel(@Param('id') id: string) {
-    const booking = await this.bookingService.cancelBooking(id);
+  async cancel(@Param('id') id: string, @Request() req) {
+    const userId = req.user.sub; // Giả sử userId được lưu trong req.user.sub từ AuthGuard
+    const booking = await this.bookingService.cancelBooking(id, userId);
     return {
       success: true,
       data: booking,

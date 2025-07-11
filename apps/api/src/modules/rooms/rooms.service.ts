@@ -6,11 +6,12 @@ import { IRoomService } from './interface/room.service.interface';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-rooms.dto';
 import { IRoom } from './interface/room.interface';
-import { isString, IsString } from 'class-validator';
+import { isString } from 'class-validator';
 
 @Injectable()
 export class RoomsService implements IRoomService {
     constructor(@InjectModel(Room.name) private roomModel: Model<Room>) { }
+
     /**
      * Tạo một phòng họp mới
      * @param createRoomDto Dữ liệu tạo phòng
@@ -19,6 +20,24 @@ export class RoomsService implements IRoomService {
      */
     async createRoom(createRoomDto: CreateRoomDto): Promise<IRoom> {
         try {
+            // Validate capacity trước khi tạo
+            if (createRoomDto.capacity < 6) {
+                throw new BadRequestException({
+                    success: false,
+                    message: 'Sức chứa phòng phải lớn hơn 5 người',
+                    errorCode: 'INVALID_CAPACITY'
+                });
+            }
+
+            // Validate location trước khi tạo
+            if (createRoomDto.location === 'tầng 1704 - tầng 17 - 19 Tố Hữu') {
+                throw new BadRequestException({
+                    success: false,
+                    message: 'Vị trí phòng không hợp lệ',
+                    errorCode: 'INVALID_LOCATION'
+                });
+            }
+
             const createdRoom = new this.roomModel(createRoomDto);
             const savedRoom = await createdRoom.save();
             return savedRoom.toObject() as IRoom;
@@ -29,20 +48,7 @@ export class RoomsService implements IRoomService {
                     message: `Phòng với tên ${createRoomDto.name} đã tồn tại`,
                 });
             }
-            if (createRoomDto.capacity < 6) {
-                throw new BadRequestException({
-                    success: false,
-                    message: 'Sức chứa phòng phải lớn hơn 5 người',
-                    errorCode: 'INVALID_CAPACITY'
-                });
-            }
-            if (createRoomDto.location === 'tầng 1704 - tầng 17 - 19 Tố Hữu') {
-                throw new BadRequestException({
-                    success: false,
-                    message: 'Vị trí phòng không hợp lệ',
-                    errorCode: 'INVALID_LOCATION'
-                });
-            }
+            
             if (error.name === 'ValidationError') {
                 const errors = Object.values(error.errors).map((err: any) => ({
                     field: err.path,
@@ -54,9 +60,16 @@ export class RoomsService implements IRoomService {
                     errors,
                 });
             }
+            
+            // Nếu là lỗi đã throw từ validation ở trên, throw lại
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+            
             throw error;
         }
     }
+
     /**
      * Lấy danh sách tất cả các phòng họp với phân trang và lọc
      * @param page Số trang
@@ -73,6 +86,7 @@ export class RoomsService implements IRoomService {
                 errorCode: 'INVALID_PAGINATION'
             });
         }
+
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.roomModel.find(filter)
@@ -82,6 +96,7 @@ export class RoomsService implements IRoomService {
                 .exec(),
             this.roomModel.countDocuments(filter),
         ]);
+
         const totalPages = Math.ceil(total / limit);
         return {
             success: true,
@@ -93,6 +108,7 @@ export class RoomsService implements IRoomService {
             data,
         };
     }
+
     /**
      * Lấy danh sách các phòng họp có trạng thái là 'available'
      * @param page Số trang
@@ -104,6 +120,7 @@ export class RoomsService implements IRoomService {
         const availableFilter = { ...filter, status: 'available' };
         return this.getAllRooms(page, limit, availableFilter);
     }
+
     /**
      * Lấy thông tin phòng họp theo ID
      * @param id ID của phòng cần lấy thông tin
@@ -115,11 +132,12 @@ export class RoomsService implements IRoomService {
         if (!room) {
             throw new NotFoundException({
                 success: false,
-                message: `Không tìm thấy mã phòng ${id} `,
+                message: `Không tìm thấy mã phòng ${id}`,
             });
         }
         return room as IRoom;
     }
+
     /**
      * Cập nhật thông tin phòng họp
      * @param id ID của phòng cần cập nhật
@@ -130,16 +148,7 @@ export class RoomsService implements IRoomService {
      */
     async updateRoom(id: string, updateRoomDto: UpdateRoomDto): Promise<IRoom> {
         try {
-            const updatedRoom = await this.roomModel
-                .findByIdAndUpdate(id, updateRoomDto, { new: true })
-                .lean()
-                .exec();
-            if (!updatedRoom) {
-                throw new NotFoundException({
-                    success: false,
-                    message: `Phòng với mã ${id} không tìm thấy`,
-                });
-            }
+            // Validate capacity nếu được cung cấp
             if (updateRoomDto.capacity !== undefined && updateRoomDto.capacity < 6) {
                 throw new BadRequestException({
                     success: false,
@@ -147,8 +156,31 @@ export class RoomsService implements IRoomService {
                     errorCode: 'INVALID_CAPACITY'
                 });
             }
-            if (updatedRoom.name !== updateRoomDto.name) {
-                const existingRoom = await this.roomModel.findOne({ name: updateRoomDto.name }).exec();
+
+            // Validate location nếu được cung cấp
+            if (updateRoomDto.location === 'tầng 1704 - tầng 17 - 19 Tố Hữu') {
+                throw new BadRequestException({
+                    success: false,
+                    message: 'Vị trí phòng không hợp lệ',
+                    errorCode: 'INVALID_LOCATION'
+                });
+            }
+
+            // Validate status nếu được cung cấp
+            if (updateRoomDto.status === 'Deleted') {
+                throw new BadRequestException({
+                    success: false,
+                    message: 'Không thể cập nhật trạng thái phòng thành "Deleted"',
+                    errorCode: 'INVALID_STATUS'
+                });
+            }
+
+            // Kiểm tra tên phòng trùng lặp nếu được cung cấp
+            if (updateRoomDto.name) {
+                const existingRoom = await this.roomModel.findOne({ 
+                    name: updateRoomDto.name, 
+                    _id: { $ne: id } 
+                }).exec();
                 if (existingRoom) {
                     throw new BadRequestException({
                         success: false,
@@ -156,6 +188,19 @@ export class RoomsService implements IRoomService {
                     });
                 }
             }
+
+            const updatedRoom = await this.roomModel
+                .findByIdAndUpdate(id, updateRoomDto, { new: true })
+                .lean()
+                .exec();
+
+            if (!updatedRoom) {
+                throw new NotFoundException({
+                    success: false,
+                    message: `Phòng với mã ${id} không tìm thấy`,
+                });
+            }
+
             return updatedRoom as IRoom;
         } catch (error) {
             if (error.code === 11000) {
@@ -164,27 +209,7 @@ export class RoomsService implements IRoomService {
                     message: `Phòng với tên ${updateRoomDto.name} đã tồn tại`,
                 });
             }
-            if (updateRoomDto.capacity !== undefined && updateRoomDto.capacity < 6) {
-                throw new BadRequestException({
-                    success: false,
-                    message: 'Sức chứa phòng phải lớn hơn 5 người',
-                    errorCode: 'INVALID_CAPACITY'
-                });
-            }
-            if (updateRoomDto.status === 'Deleted') {
-                throw new BadRequestException({
-                    success: false,
-                    message: 'Không thể cập nhật trạng thái phòng thành "Deleted"',
-                    errorCode: 'INVALID_STATUS'
-                });
-            }
-            if (updateRoomDto.location === 'tầng 1704 - tầng 17 - 19 Tố Hữu') {
-                throw new BadRequestException({
-                    success: false,
-                    message: 'Vị trí phòng không hợp lệ',
-                    errorCode: 'INVALID_LOCATION'
-                });
-            }
+
             if (error.name === 'ValidationError') {
                 const errors = Object.values(error.errors).map((err: any) => ({
                     field: err.path,
@@ -197,24 +222,33 @@ export class RoomsService implements IRoomService {
                 });
             }
 
+            // Nếu là lỗi đã throw từ validation ở trên, throw lại
+            if (error instanceof BadRequestException || error instanceof NotFoundException) {
+                throw error;
+            }
+
             throw error;
         }
     }
+
     /**
      * Xóa phòng họp theo ID
      * @param id ID của phòng cần xóa
      * @returns void
      * @throws NotFoundException nếu không tìm thấy phòng với ID tương ứng
      */
-    async deleteRoom(id: string ): Promise<void> {
-        const result = await this.roomModel.findByIdAndDelete(id).exec();
-        if (!id  || isNaN(Number(id)) === true || id === null) {
+    async deleteRoom(id: string): Promise<void> {
+        // Validate ID
+        if (!id || id.trim() === '') {
             throw new BadRequestException({
                 success: false,
-                message: 'Không thể xóa tất cả phòng họp',
-                errorCode: 'CANNOT_DELETE_ALL_ROOMS'
+                message: 'ID phòng không hợp lệ',
+                errorCode: 'INVALID_ROOM_ID'
             });
         }
+
+        const result = await this.roomModel.findByIdAndDelete(id).exec();
+        
         if (!result) {
             throw new NotFoundException({
                 success: false,
@@ -222,6 +256,7 @@ export class RoomsService implements IRoomService {
             });
         }
     }
+
     /**
      * Tìm kiếm phòng họp theo các tiêu chí
      * @param filters Các bộ lọc tìm kiếm
@@ -255,7 +290,7 @@ export class RoomsService implements IRoomService {
         // Validate phân trang
         const page = filters.page || 1;
         const limit = filters.limit || 10;
-        // Kiểm tra page và limit
+        
         if (page < 1 || limit < 1) {
             throw new BadRequestException({
                 success: false,
@@ -263,7 +298,9 @@ export class RoomsService implements IRoomService {
                 errorCode: 'INVALID_PAGINATION'
             });
         }
+
         const query: any = { isActive: true }; // Mặc định chỉ tìm phòng active
+
         // 1. Tìm kiếm đa trường (name, description)
         if (filters.keyword) {
             const keywordRegex = new RegExp(filters.keyword, 'i');
@@ -273,10 +310,12 @@ export class RoomsService implements IRoomService {
                 { 'devices.name': { $regex: keywordRegex } }
             ];
         }
+
         // 2. Lọc theo location
         if (filters.location) {
             query.location = filters.location;
         }
+
         // 3. Lọc theo sức chứa
         if (filters.minCapacity || filters.maxCapacity) {
             query.capacity = {};
@@ -301,9 +340,10 @@ export class RoomsService implements IRoomService {
                 query.capacity.$lte = filters.maxCapacity;
             }
         }
+
         // 4. Lọc theo trạng thái
         if (filters.status) {
-            const validStatuses = ['available', 'occupied', 'maintenance'];
+            const validStatuses = ['available', 'occupied', 'maintenance', 'cleaning'];
             if (!validStatuses.includes(filters.status)) {
                 throw new BadRequestException({
                     success: false,
@@ -313,6 +353,7 @@ export class RoomsService implements IRoomService {
             }
             query.status = filters.status;
         }
+
         // 5. Lọc theo thiết bị (máy chiếu)
         if (filters.hasProjector !== undefined) {
             query.devices = {
@@ -322,11 +363,18 @@ export class RoomsService implements IRoomService {
                 }
             };
         }
-        // 6. Lọc theo tính năng (features)
+
+        // 6. Lọc theo cho phép đồ ăn
+        if (filters.allowFood !== undefined) {
+            query.allowFood = filters.allowFood;
+        }
+
+        // 7. Lọc theo tính năng (features)
         if (filters.features && filters.features.length > 0) {
             query.features = { $all: filters.features };
         }
-        // 7. Lọc theo thời gian khả dụng (nếu cần)
+
+        // 8. Lọc theo thời gian khả dụng (nếu cần)
         if (filters.fromDate || filters.toDate) {
             query.$and = [];
 
@@ -361,6 +409,7 @@ export class RoomsService implements IRoomService {
                 });
             }
         }
+
         try {
             const skip = (page - 1) * limit;
             const [rooms, total] = await Promise.all([
@@ -372,7 +421,9 @@ export class RoomsService implements IRoomService {
                     .exec(),
                 this.roomModel.countDocuments(query)
             ]);
+
             const totalPages = Math.ceil(total / limit);
+
             return {
                 success: true,
                 message: `Tìm thấy ${rooms.length} phòng phù hợp`,
@@ -394,6 +445,7 @@ export class RoomsService implements IRoomService {
             });
         }
     }
+
     /**
      * Kiểm tra định dạng ngày hợp lệ (YYYY-MM-DD)
      * @param dateString Chuỗi ngày cần kiểm tra
@@ -402,6 +454,7 @@ export class RoomsService implements IRoomService {
     private isValidDate(dateString: string): boolean {
         return /^\d{4}-\d{2}-\d{2}$/.test(dateString);
     }
+
     /**
      * Lấy ngày trong tuần từ chuỗi ngày (YYYY-MM-DD)
      * @param dateString Chuỗi ngày cần lấy ngày trong tuần
@@ -412,6 +465,7 @@ export class RoomsService implements IRoomService {
         const date = new Date(dateString);
         return days[date.getDay()];
     }
+
     /**
      * Tìm kiếm phòng họp theo tên
      * @param name Tên phòng cần tìm kiếm
@@ -437,6 +491,7 @@ export class RoomsService implements IRoomService {
                 errorCode: 'INVALID_SEARCH_TERM'
             });
         }
+
         if (page < 1 || limit < 1) {
             throw new BadRequestException({
                 success: false,
@@ -444,31 +499,44 @@ export class RoomsService implements IRoomService {
                 errorCode: 'INVALID_PAGINATION'
             });
         }
+
         const regex = new RegExp(name, 'i'); // Case-insensitive search
         const query = {
             name: { $regex: regex },
             status: { $ne: 'deleted' } // Exclude deleted rooms
         };
-        const [rooms, total] = await Promise.all([
-            this.roomModel.find(query)
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .lean()
-                .exec(),
-            this.roomModel.countDocuments(query)
-        ]);
-        return {
-            success: true,
-            message: `Tìm thấy ${rooms.length} phòng phù hợp`,
-            data: rooms as IRoom[],
-            meta: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit)
-            }
-        };
+
+        try {
+            const [rooms, total] = await Promise.all([
+                this.roomModel.find(query)
+                    .skip((page - 1) * limit)
+                    .limit(limit)
+                    .lean()
+                    .exec(),
+                this.roomModel.countDocuments(query)
+            ]);
+
+            return {
+                success: true,
+                message: `Tìm thấy ${rooms.length} phòng phù hợp`,
+                data: rooms as IRoom[],
+                meta: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit)
+                }
+            };
+        } catch (error) {
+            throw new BadRequestException({
+                success: false,
+                message: 'Lỗi khi tìm kiếm phòng theo tên',
+                errorCode: 'SEARCH_BY_NAME_ERROR',
+                details: error.message
+            });
+        }
     }
+
     /**
      * Lấy danh sách tất cả các phòng đang hoạt động (trừ phòng đã xóa)
      * @param page Số trang
@@ -493,68 +561,96 @@ export class RoomsService implements IRoomService {
                 errorCode: 'INVALID_PAGINATION'
             });
         }
+
         const query = {
             status: { $ne: 'deleted' },
             isActive: true
         };
-        const [rooms, total] = await Promise.all([
-            this.roomModel.find(query)
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .sort({ name: 1 })
-                .lean()
-                .exec(),
-            this.roomModel.countDocuments(query)
-        ]);
-        return {
-            success: true,
-            message: `Lấy danh sách ${rooms.length} phòng đang hoạt động`,
-            data: rooms as IRoom[],
-            meta: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit)
-            }
-        };
+
+        try {
+            const [rooms, total] = await Promise.all([
+                this.roomModel.find(query)
+                    .skip((page - 1) * limit)
+                    .limit(limit)
+                    .sort({ name: 1 })
+                    .lean()
+                    .exec(),
+                this.roomModel.countDocuments(query)
+            ]);
+
+            return {
+                success: true,
+                message: `Lấy danh sách ${rooms.length} phòng đang hoạt động`,
+                data: rooms as IRoom[],
+                meta: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit)
+                }
+            };
+        } catch (error) {
+            throw new BadRequestException({
+                success: false,
+                message: 'Lỗi khi lấy danh sách phòng hoạt động',
+                errorCode: 'GET_ACTIVE_ROOMS_ERROR',
+                details: error.message
+            });
+        }
     }
+
     /**
      * Thay đổi trạng thái phòng thành 'deleted' (soft delete)
      * @param id ID của phòng cần thay đổi trạng thái
      */
     async statusChangeDeleteRoom(id: string): Promise<void> {
-        
-        // Thay vì xóa, cập nhật trạng thái thành 'deleted'
-        const updatedRoom = await this.roomModel.findByIdAndUpdate(
-            id,
-            {
-                status: 'deleted',
-                isActive: false
-            },
-            { new: true }
-        ).exec();
-        if(id == null || id === undefined || isString(id) === false ) {
+        // Validate ID
+        if (!id || id.trim() === '' || !isString(id)) {
             throw new BadRequestException({
                 success: false,
-                message: 'Không thể chuyển trạng thái phòng họp thành đã xóa',
-                errorCode: 'CANNOT_SOFT_DELETE_ALL_ROOMS'
+                message: 'ID phòng không hợp lệ',
+                errorCode: 'INVALID_ROOM_ID'
             });
         }
-        if (!updatedRoom) {
-            throw new NotFoundException({
+
+        try {
+            // Thay vì xóa, cập nhật trạng thái thành 'deleted'
+            const updatedRoom = await this.roomModel.findByIdAndUpdate(
+                id,
+                {
+                    status: 'deleted',
+                    isActive: false
+                },
+                { new: true }
+            ).exec();
+
+            if (!updatedRoom) {
+                throw new NotFoundException({
+                    success: false,
+                    message: `Phòng với mã ${id} không tìm thấy`,
+                });
+            }
+        } catch (error) {
+            if (error instanceof NotFoundException) {
+                throw error;
+            }
+            
+            throw new BadRequestException({
                 success: false,
-                message: `Phòng với mã ${id} không tìm thấy`,
+                message: 'Lỗi khi chuyển trạng thái phòng',
+                errorCode: 'STATUS_CHANGE_ERROR',
+                details: error.message
             });
         }
-        
     }
+
     /**
      * Tìm kiếm các phòng đang hoạt động trừ những phòng ở trạng thái xóa
      * @param page Số trang
      * @param limit Giới hạn số lượng phòng trên mỗi trang
      * @returns Danh sách các phòng đang hoạt động
      */
- async findActivityRooms(page: number = 1, limit: number = 10): Promise<{
+    async findActivityRooms(page: number = 1, limit: number = 10): Promise<{
         success: boolean;
         message: string;
         data: IRoom[];
@@ -573,22 +669,26 @@ export class RoomsService implements IRoomService {
                 errorCode: 'INVALID_PAGINATION'
             });
         }
+
         const query = {
             status: { $ne: 'deleted' },
             isActive: true
         };
+
         try {
             const skip = (page - 1) * limit;
             const [rooms, total] = await Promise.all([
                 this.roomModel.find(query)
                     .skip(skip)
                     .limit(limit)
-                    .sort({ bookingCount: -1, name: 1 }) 
+                    .sort({ bookingCount: -1, name: 1 })
                     .lean()
                     .exec(),
                 this.roomModel.countDocuments(query)
             ]);
+
             const totalPages = Math.ceil(total / limit);
+
             return {
                 success: true,
                 message: `Tìm thấy ${rooms.length} phòng đang hoạt động`,

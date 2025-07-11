@@ -408,7 +408,7 @@ export class BookingsService implements IBookingService {
     }
   }
 
-  async cancelBooking(id: string): Promise<IBooking> {
+  async cancelBooking(id: string, userId: string): Promise<IBooking> {
     const booking = await this.bookingModel.findById(id).populate('room').lean().exec();
     if (!booking) {
       throw new NotFoundException({
@@ -417,6 +417,16 @@ export class BookingsService implements IBookingService {
         errorCode: 'BOOKING_NOT_FOUND',
       });
     }
+
+    // VALIDATION: Kiểm tra xem userId có phải là người tạo booking không
+    if (booking.user.toString() !== userId) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Chỉ người tạo đặt phòng mới có thể hủy',
+        errorCode: 'UNAUTHORIZED_CANCEL',
+      });
+    }
+
     const updatedBooking = await this.bookingModel.findByIdAndUpdate(id, { status: BookingStatus.CANCELLED }, { new: true }).populate('room user participants').exec();
     if (updatedBooking) {
       for (const participant of updatedBooking.participants || []) {
@@ -435,7 +445,6 @@ export class BookingsService implements IBookingService {
 
     return updatedBooking as IBooking;
   }
-
   async searchBookings(dto: SearchBookingsDto): Promise<any> {
     const { page = 1, limit = 10, roomName, userName, date } = dto;
 
