@@ -6,6 +6,7 @@ import { IRoomService } from './interface/room.service.interface';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-rooms.dto';
 import { IRoom } from './interface/room.interface';
+import { isString, IsString } from 'class-validator';
 
 @Injectable()
 export class RoomsService implements IRoomService {
@@ -139,6 +140,22 @@ export class RoomsService implements IRoomService {
                     message: `Phòng với mã ${id} không tìm thấy`,
                 });
             }
+            if (updateRoomDto.capacity !== undefined && updateRoomDto.capacity < 6) {
+                throw new BadRequestException({
+                    success: false,
+                    message: 'Sức chứa phòng phải lớn hơn 5 người',
+                    errorCode: 'INVALID_CAPACITY'
+                });
+            }
+            if (updatedRoom.name !== updateRoomDto.name) {
+                const existingRoom = await this.roomModel.findOne({ name: updateRoomDto.name }).exec();
+                if (existingRoom) {
+                    throw new BadRequestException({
+                        success: false,
+                        message: `Phòng với tên ${updateRoomDto.name} đã tồn tại`,
+                    });
+                }
+            }
             return updatedRoom as IRoom;
         } catch (error) {
             if (error.code === 11000) {
@@ -189,12 +206,19 @@ export class RoomsService implements IRoomService {
      * @returns void
      * @throws NotFoundException nếu không tìm thấy phòng với ID tương ứng
      */
-    async deleteRoom(id: string): Promise<void> {
+    async deleteRoom(id: string ): Promise<void> {
         const result = await this.roomModel.findByIdAndDelete(id).exec();
+        if (!id  || isNaN(Number(id)) === true || id === null) {
+            throw new BadRequestException({
+                success: false,
+                message: 'Không thể xóa tất cả phòng họp',
+                errorCode: 'CANNOT_DELETE_ALL_ROOMS'
+            });
+        }
         if (!result) {
             throw new NotFoundException({
                 success: false,
-                message: `Phòng với mã ${id} không tìm thấy`,
+                message: `Không tìm thấy phòng với mã ${id}`,
             });
         }
     }
@@ -499,6 +523,7 @@ export class RoomsService implements IRoomService {
      * @param id ID của phòng cần thay đổi trạng thái
      */
     async statusChangeDeleteRoom(id: string): Promise<void> {
+        
         // Thay vì xóa, cập nhật trạng thái thành 'deleted'
         const updatedRoom = await this.roomModel.findByIdAndUpdate(
             id,
@@ -508,12 +533,20 @@ export class RoomsService implements IRoomService {
             },
             { new: true }
         ).exec();
+        if(id == null || id === undefined || isString(id) === false ) {
+            throw new BadRequestException({
+                success: false,
+                message: 'Không thể chuyển trạng thái phòng họp thành đã xóa',
+                errorCode: 'CANNOT_SOFT_DELETE_ALL_ROOMS'
+            });
+        }
         if (!updatedRoom) {
             throw new NotFoundException({
                 success: false,
                 message: `Phòng với mã ${id} không tìm thấy`,
             });
         }
+        
     }
     /**
      * Tìm kiếm các phòng đang hoạt động trừ những phòng ở trạng thái xóa

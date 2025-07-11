@@ -20,6 +20,7 @@ import { AuthGuard } from '@api/auth/auth.guard';
 import { RolesGuard } from '@api/auth/roles.guard';
 import { Roles } from '@api/auth/roles.decorator';
 import { UserRole } from '@api/modules/users/schema/user.schema';
+import { Room } from './room.schema';
 
 @Controller('rooms')
 export class RoomsController {
@@ -40,7 +41,7 @@ export class RoomsController {
     // Lấy tất cả phòng họp hiện thị ở trang Admin
     // Có phân trang, lọc theo các trường như tên phòng, địa điểm, trạng thái, số lượng người tối đa
     @Get('/get-all-rooms')
-    @UseGuards(AuthGuard)
+    @UseGuards(AuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
     async findAll(
         @Query('page') page: number = 1,
@@ -65,7 +66,7 @@ export class RoomsController {
     }
     // Lấy thông tin chi tiết của một phòng họp theo ID
     @Get(':id')
-    @UseGuards(AuthGuard)
+    @UseGuards(AuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
     async findOne(@Param('id') id: string) {
         const room = await this.roomService.getRoomById(id);
@@ -92,7 +93,10 @@ export class RoomsController {
     @HttpCode(HttpStatus.NO_CONTENT)
     async remove(@Param('id') id: string) {
         await this.roomService.deleteRoom(id);
-        return { success: true };
+        return {
+            success: true,
+            message: 'Xóa phòng họp thành công',
+        };
     }
     // Xóa mềm - Chuyển trạng thái phòng thành deleted
     @Get(':id/soft-delete')
@@ -102,13 +106,13 @@ export class RoomsController {
         await this.roomService.statusChangeDeleteRoom(id);
         return {
             success: true,
-            message: 'Chuyển trạng thái phòng thành đã xóa thành công'
+            message: 'Chuyển trạng thái phòng thành đã xóa thành công',
         };
     }
     // Tìm kiếm phòng họp theo tên
     @Get('active')
-    @UseGuards(AuthGuard)
-    @Roles(UserRole.ADMIN)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(UserRole.USER)
     async getAllActiveRooms(
         @Query('page') page: number = 1,
         @Query('limit') limit: number = 10
@@ -118,7 +122,8 @@ export class RoomsController {
     }
     // Tìm kiếm phòng họp theo các tiêu chí như tên, địa điểm, số lượng người tối đa, trạng thái, có máy chiếu, cho phép mang đồ ăn, các tính năng khác chi tiết cho Amin
     @Get('search')
-    @UseGuards(AuthGuard)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
     async searchRooms(@Query() query: Record<string, string>) {
         const filters: any = {};
         if (query.keyword) filters.keyword = query.keyword;
@@ -138,7 +143,8 @@ export class RoomsController {
     }
     // Tìm kiếm phòng họp theo tên trừ phòng đã xóa của người d
     @Get('activity')
-    @UseGuards(AuthGuard)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(UserRole.USER)
     async findActivityRooms(
         @Query('page') page: number = 1,
         @Query('limit') limit: number = 10
