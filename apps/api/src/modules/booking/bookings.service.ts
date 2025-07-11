@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, forwardRef, Inject } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ForbiddenException, forwardRef, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Document, PipelineStage, Types } from 'mongoose';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -12,6 +12,7 @@ import { User } from '../users/schema/user.schema';
 import { SearchBookingsDto } from './dto/search-bookings.dto';
 import { SearchBookingsDetailedDto } from './dto/search-bookings-detailed.dto';
 import { NotificationService } from '../notification/notification.service';
+import { log } from 'console';
 
 @Injectable()
 export class BookingsService implements IBookingService {
@@ -408,43 +409,34 @@ export class BookingsService implements IBookingService {
     }
   }
 
-  async cancelBooking(id: string, userId: string): Promise<IBooking> {
-    const booking = await this.bookingModel.findById(id).populate('room').lean().exec();
-    if (!booking) {
-      throw new NotFoundException({
-        success: false,
-        message: `Không tìm thấy đặt phòng với ID ${id}`,
-        errorCode: 'BOOKING_NOT_FOUND',
-      });
-    }
+async cancelBooking(id: string, userId: string): Promise<IBooking> {
+  // 1. Kiểm tra booking tồn tại
+  const booking = await this.bookingModel.findById(id)
+    .populate('user', '_id') // Chỉ lấy _id của user
+    .exec();
 
-    // VALIDATION: Kiểm tra xem userId có phải là người tạo booking không
-    if (booking.user.toString() !== userId) {
-      throw new BadRequestException({
-        success: false,
-        message: 'Chỉ người tạo đặt phòng mới có thể hủy',
-        errorCode: 'UNAUTHORIZED_CANCEL',
-      });
-    }
-
-    const updatedBooking = await this.bookingModel.findByIdAndUpdate(id, { status: BookingStatus.CANCELLED }, { new: true }).populate('room user participants').exec();
-    if (updatedBooking) {
-      for (const participant of updatedBooking.participants || []) {
-        const p = participant as any;
-        try {
-          await this.notificationService.notify(
-            p._id.toString(),
-            `Phòng "${updatedBooking.room.name}" bắt đầu lúc ${updatedBooking.startTime.toLocaleString()} kết thúc lúc ${updatedBooking.endTime.toLocaleString()} do ${updatedBooking.user.name} tạo đã bị huỷ`,
-            'booking',
-          );
-        } catch (err) {
-          console.error(`Không thể gửi noti cho ${p._id}:`, err.message);
-        }
-      }
-    }
-
-    return updatedBooking as IBooking;
+  if (!booking) {
+    throw new NotFoundException('Booking không tồn tại');
   }
+
+  // 2. Kiểm tra user có quyền hủy
+  const isCreator = (booking.user as any)._id.toString() == userId.toString();
+  log(`User ID: ${typeof booking.user === 'object' && booking.user !== null && '_id' in booking.user ? (booking.user as any)._id.toString() : booking.user.toString()}`);
+ log(`Is creator: ${isCreator}`);
+ log(`User ID from booking: ${userId}`);
+  if (isCreator === false) {
+    throw new ForbiddenException('Không có quyền hủy booking này');
+  }
+
+  // 3. Kiểm tra trạng thái hợp lệ để hủy
+  if ([BookingStatus.CANCELLED, BookingStatus.DELETED].includes(booking.status)) {
+    throw new BadRequestException(`Booking đã ở trạng thái ${booking.status}`);
+  }
+
+  // 4. Cập nhật và trả về kết quả
+  booking.status = BookingStatus.CANCELLED;
+  return booking.save();
+}
   async searchBookings(dto: SearchBookingsDto): Promise<any> {
     const { page = 1, limit = 10, roomName, userName, date } = dto;
 

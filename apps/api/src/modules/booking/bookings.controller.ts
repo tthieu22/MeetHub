@@ -84,16 +84,18 @@ export class BookingsController {
     return { success: true };
   }
 
- @Post(':id/cancel')
-  @UseGuards(AuthGuard)
-  async cancel(@Param('id') id: string, @Request() req) {
-    const userId = req.user.sub; // Giả sử userId được lưu trong req.user.sub từ AuthGuard
-    const booking = await this.bookingService.cancelBooking(id, userId);
-    return {
-      success: true,
-      data: booking,
-    };
-  }
+@Post(':id/cancel')
+@UseGuards(AuthGuard)
+async cancel(
+  @Param('id') id: string,
+  @Body('userId') userId: string, // Lấy trực tiếp userId từ body
+) {
+  const booking = await this.bookingService.cancelBooking(id, userId);
+  return {
+    success: true,
+    data: booking,
+  };
+}
 
   @Get('search')
   @UseGuards(AuthGuard)
