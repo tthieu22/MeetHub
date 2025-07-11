@@ -1,13 +1,11 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { jwtConstants } from '../auth/constants';
 import { WsAuthGuard } from './guards/ws-auth.guard';
 import { WsAuthService } from './services/ws-auth.service';
 
 @Module({
   imports: [
-    JwtModule.register({
-      secret: jwtConstants.secret,
+    JwtModule.register({ 
       signOptions: { expiresIn: '3000s' },
     }),
   ],

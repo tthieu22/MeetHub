@@ -1,4 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import mongoose, { Types } from 'mongoose';
 export type UserDocument = User & Document;
 export enum UserRole {
   ADMIN = 'admin',

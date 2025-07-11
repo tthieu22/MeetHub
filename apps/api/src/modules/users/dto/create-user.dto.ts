@@ -1,5 +1,6 @@
-import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { UserRole } from '../schema/user.schema';
+import { Transform } from 'class-transformer';
 
 export class CreateUserDto {
   @IsString({
@@ -26,6 +27,7 @@ export class CreateUserDto {
   })
   password: string;
 
+  @IsEnum(UserRole, { message: 'Vai trò không hợp lệ' })
   role: UserRole;
 
   @IsString()
@@ -34,5 +36,6 @@ export class CreateUserDto {
 
   @IsBoolean()
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
   isActive: boolean;
 }

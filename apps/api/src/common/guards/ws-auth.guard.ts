@@ -1,7 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Socket } from 'socket.io';
-import { jwtConstants } from '../../auth/constants';
 
 export interface WsUserPayload {
   sub: string;
@@ -32,7 +31,7 @@ export class WsAuthGuard implements CanActivate {
 
     try {
       const payload = await this.jwtService.verifyAsync<WsUserPayload>(token, {
-        secret: jwtConstants.secret,
+        secret: process.env.SECRET_JWT,
       });
       client.user = payload;
       return true;

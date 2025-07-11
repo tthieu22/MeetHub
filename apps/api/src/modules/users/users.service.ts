@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
@@ -6,6 +6,7 @@ import { User, UserDocument } from './schema/user.schema';
 import { Model } from 'mongoose';
 
 import { hashPassword } from '@api/utils/brcrypt.password';
+import { UpdateMeDto } from './dto/update-user-me.dto';
 
 @Injectable()
 export class UsersService {
@@ -43,14 +44,61 @@ export class UsersService {
   }
 
   async findOne(email: string) {
-    const user = await this.userDocumentModel.findOne({ email }).exec();
-    return user;
-  }
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+    try {
+      const user = await this.userDocumentModel.findOne({ email }).exec();
+      return user;
+    } catch (error) {
+      throw error;
+    }
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    try {
+      const data = await this.userDocumentModel.findByIdAndUpdate(id, { $set: updateUserDto }, { new: true });
+
+      return {
+        success: true,
+        data: data,
+      };
+    } catch (error) {
+      console.error('❌ Update error:', error);
+      throw new InternalServerErrorException('Lỗi khi cập nhật người dùng');
+    }
+  }
+
+  async remove(id: string) {
+    try {
+      const data = await this.userDocumentModel.updateOne({ _id: id }, { isActive: false });
+      return {
+        success: true,
+        data: data,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+  async activateUser(email: string) {
+    return this.userDocumentModel.updateOne({ email }, { isActive: true });
+  }
+  async findById(id: string) {
+    try {
+      return this.userDocumentModel.findById(id).select('-password');
+    } catch (error) {
+      console.log(error);
+      throw new BadRequestException('lỗi không tim thấy người dùng');
+    }
+  }
+
+  async updateMe(id: string, dto: UpdateMeDto) {
+    try {
+      return this.userDocumentModel
+        .findByIdAndUpdate(id, dto, {
+          new: true,
+          runValidators: true,
+        })
+        .select('-password');
+    } catch (error) {
+      throw new BadRequestException('lỗi không cập nhật được người dùng');
+    }
   }
 }

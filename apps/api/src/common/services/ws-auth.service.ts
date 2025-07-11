@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Socket } from 'socket.io';
-import { jwtConstants } from '../../auth/constants';
 import { WsUserPayload } from '../guards/ws-auth.guard';
 
 @Injectable()
@@ -16,9 +15,7 @@ export class WsAuthService {
     }
 
     try {
-      return await this.jwtService.verifyAsync<WsUserPayload>(token, {
-        secret: jwtConstants.secret,
-      });
+      return await this.jwtService.verifyAsync<WsUserPayload>(token, { secret: process.env.SECRET_JWT });
     } catch {
       throw new Error('Token không hợp lệ');
     }
