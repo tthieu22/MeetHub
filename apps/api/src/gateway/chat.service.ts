@@ -92,6 +92,10 @@ export class ChatService {
     return await this.userChatService.getBlockedUsers(userId);
   }
 
+  async getOnlineMemberIds(roomId: string): Promise<string[]> {
+    return this.roomService.getOnlineMemberIds(roomId);
+  }
+
   // Reaction methods
   async addReaction(messageId: string, userId: string, reaction: string) {
     return await this.reactionService.addReaction(messageId, userId, reaction);

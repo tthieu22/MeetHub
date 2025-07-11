@@ -214,4 +214,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     client.emit(WebSocketEventName.ROOM_JOINED, response);
   }
+
+  @SubscribeMessage('get_room_online_members')
+  async handleGetRoomOnlineMembers(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { roomId: string }) {
+    const userId = validateClient(client);
+    if (!userId) return;
+    try {
+      const onlineMemberIds = await this.chatService.getOnlineMemberIds(data.roomId);
+      const response: WsResponse = {
+        success: true,
+        data: { roomId: data.roomId, onlineMemberIds },
+      };
+      console.log(response);
+      client.emit('room_online_members', response);
+    } catch (err) {
+      emitError(client, 'GET_ONLINE_MEMBERS_ERROR', (err as Error).message, 'room_online_members');
+    }
+  }
 }
