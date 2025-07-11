@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
 import { Spin } from "antd";
 
@@ -9,28 +9,40 @@ interface AuthGuardProps {
   children: React.ReactNode;
 }
 
+// Danh sách các trang không cần authentication
+const PUBLIC_PAGES = ["/login", "/register", "/"];
+
 export default function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const currentUser = useUserStore((state) => state.currentUser);
   const isLoading = useUserStore((state) => state.isLoading);
 
   useEffect(() => {
-    // Kiểm tra nếu đang ở trang login thì không cần redirect
-    if (
-      typeof window !== "undefined" &&
-      window.location.pathname === "/login"
-    ) {
+    // Nếu đang loading, không làm gì cả
+    if (isLoading) {
+      return;
+    }
+
+    // Kiểm tra nếu đang ở trang public thì cho phép truy cập
+    if (PUBLIC_PAGES.includes(pathname)) {
       return;
     }
 
     // Kiểm tra token trong localStorage
     const token = localStorage.getItem("access_token");
 
-    if (!token && !isLoading) {
-      // Nếu không có token và không đang loading, chuyển hướng về login
+    if (!token) {
       router.push("/login");
+      return;
     }
-  }, [currentUser, isLoading, router]);
+
+    if (!currentUser && token) {
+      // localStorage.removeItem("access_token");
+      router.push("/login");
+      return;
+    }
+  }, [currentUser, isLoading, router, pathname]);
 
   // Hiển thị loading khi đang kiểm tra authentication
   if (isLoading) {
@@ -40,7 +52,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          height: "100vh",
+          height: "50vh",
         }}
       >
         <Spin size="large" />
@@ -48,7 +60,12 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  // Nếu chưa có user, hiển thị loading
+  // Nếu đang ở trang public, hiển thị children ngay lập tức
+  if (PUBLIC_PAGES.includes(pathname)) {
+    return <>{children}</>;
+  }
+
+  // Nếu chưa có user và không phải trang public, hiển thị loading
   if (!currentUser) {
     return (
       <div
@@ -56,7 +73,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          height: "100vh",
+          height: "50vh",
         }}
       >
         <Spin size="large" />

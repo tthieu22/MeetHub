@@ -106,9 +106,11 @@ const NavigationButtons = React.memo(
   ({
     totalUnreadCount,
     onMenuClick,
+    isAuthenticated,
   }: {
     totalUnreadCount: number;
     onMenuClick: (key: string) => void;
+    isAuthenticated: boolean;
   }) => {
     return (
       <Space size="large">
@@ -125,21 +127,23 @@ const NavigationButtons = React.memo(
           <HomeOutlined />
           Trang chủ
         </Button>
-        <Badge count={totalUnreadCount} offset={[-5, 5]}>
-          <Button
-            type="text"
-            onClick={() => onMenuClick("chat")}
-            style={{
-              fontSize: "16px",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <MessageOutlined />
-            Chat
-          </Button>
-        </Badge>
+        {isAuthenticated && (
+          <Badge count={totalUnreadCount} offset={[-5, 5]}>
+            <Button
+              type="text"
+              onClick={() => onMenuClick("chat")}
+              style={{
+                fontSize: "16px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <MessageOutlined />
+              Chat
+            </Button>
+          </Badge>
+        )}
       </Space>
     );
   }
@@ -156,6 +160,7 @@ function Header() {
   const unreadCounts = useChatStore((state) => state.unreadCounts);
   const currentUser = useUserStore((state) => state.currentUser);
   const logout = useUserStore((state) => state.logout);
+  const isLoading = useUserStore((state) => state.isLoading);
 
   // Memoized total unread count calculation
   const totalUnreadCount = React.useMemo(() => {
@@ -188,6 +193,11 @@ function Header() {
   const handleLogoClick = React.useCallback(() => {
     router.push("/");
   }, [router]);
+
+  // Don't render header while loading
+  if (isLoading) {
+    return null;
+  }
 
   return (
     <AntHeader
@@ -227,13 +237,16 @@ function Header() {
         <NavigationButtons
           totalUnreadCount={totalUnreadCount}
           onMenuClick={handleMenuClick}
+          isAuthenticated={!!currentUser}
         />
       </div>
 
-      {/* Connection Status */}
-      <div style={{ display: "flex", alignItems: "center", marginRight: 16 }}>
-        <MemoizedConnectionStatus />
-      </div>
+      {/* Connection Status - Only show when authenticated */}
+      {currentUser && (
+        <div style={{ display: "flex", alignItems: "center", marginRight: 16 }}>
+          <MemoizedConnectionStatus />
+        </div>
+      )}
 
       {/* User Avatar or Login Button */}
       <div style={{ display: "flex", alignItems: "center" }}>

@@ -17,16 +17,26 @@ function RootLayout({
   console.log("Render: RootLayout");
   return (
     <html lang="en" translate="no">
+      <head>
+        <title>MeetHub - Chat & Video Call Platform</title>
+        <meta
+          name="description"
+          content="Nền tảng chat và họp trực tuyến hiện đại"
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="alternate icon" href="/favicon.ico" />
+      </head>
       <body>
         <UserProvider />
         <WebSocketProvider />
         <ConfigProvider>
-          <AuthGuard>
-            <Layout style={{ minHeight: "100vh" }}>
-              <Header />
-              <Content>{children}</Content>
-            </Layout>
-          </AuthGuard>
+          <Layout style={{ minHeight: "100vh" }}>
+            <Header />
+            <Content>
+              <AuthGuard>{children}</AuthGuard>
+            </Content>
+          </Layout>
         </ConfigProvider>
       </body>
     </html>
