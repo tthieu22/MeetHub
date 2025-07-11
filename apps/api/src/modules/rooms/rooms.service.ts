@@ -10,7 +10,12 @@ import { IRoom } from './interface/room.interface';
 @Injectable()
 export class RoomsService implements IRoomService {
     constructor(@InjectModel(Room.name) private roomModel: Model<Room>) { }
-
+    /**
+     * Tạo một phòng họp mới
+     * @param createRoomDto Dữ liệu tạo phòng
+     * @returns Thông tin phòng đã tạo
+     * @throws BadRequestException nếu dữ liệu không hợp lệ hoặc vi phạm ràng buộc
+     */
     async createRoom(createRoomDto: CreateRoomDto): Promise<IRoom> {
         try {
             const createdRoom = new this.roomModel(createRoomDto);
@@ -51,7 +56,13 @@ export class RoomsService implements IRoomService {
             throw error;
         }
     }
-
+    /**
+     * Lấy danh sách tất cả các phòng họp với phân trang và lọc
+     * @param page Số trang
+     * @param limit Giới hạn số lượng phòng trên mỗi trang
+     * @param filter Bộ lọc tùy chọn
+     * @returns Danh sách các phòng họp
+     */
     async getAllRooms(page: number = 1, limit: number = 10, filter: any = {}): Promise<any> {
         // Validate phân trang
         if (page < 1 || limit < 1) {
@@ -61,7 +72,6 @@ export class RoomsService implements IRoomService {
                 errorCode: 'INVALID_PAGINATION'
             });
         }
-
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.roomModel.find(filter)
@@ -71,9 +81,7 @@ export class RoomsService implements IRoomService {
                 .exec(),
             this.roomModel.countDocuments(filter),
         ]);
-
         const totalPages = Math.ceil(total / limit);
-
         return {
             success: true,
             message: `Lấy danh sách phòng thành công (trang ${page}/${totalPages})`,
@@ -84,12 +92,23 @@ export class RoomsService implements IRoomService {
             data,
         };
     }
-
+    /**
+     * Lấy danh sách các phòng họp có trạng thái là 'available'
+     * @param page Số trang
+     * @param limit Giới hạn số lượng phòng trên mỗi trang
+     * @param filter Bộ lọc tùy chọn
+     * @returns Danh sách các phòng họp có trạng thái 'available'
+     */
     async getAvailableRooms(page: number = 1, limit: number = 10, filter: any = {}): Promise<any> {
         const availableFilter = { ...filter, status: 'available' };
         return this.getAllRooms(page, limit, availableFilter);
     }
-
+    /**
+     * Lấy thông tin phòng họp theo ID
+     * @param id ID của phòng cần lấy thông tin
+     * @returns Thông tin phòng họp
+     * @throws NotFoundException nếu không tìm thấy phòng với ID tương ứng
+     */
     async getRoomById(id: string): Promise<IRoom> {
         const room = await this.roomModel.findById(id).lean().exec();
         if (!room) {
@@ -100,7 +119,14 @@ export class RoomsService implements IRoomService {
         }
         return room as IRoom;
     }
-
+    /**
+     * Cập nhật thông tin phòng họp
+     * @param id ID của phòng cần cập nhật
+     * @param updateRoomDto Dữ liệu cập nhật
+     * @returns Thông tin phòng đã cập nhật
+     * @throws NotFoundException nếu không tìm thấy phòng với ID tương ứng
+     * @throws BadRequestException nếu dữ liệu không hợp lệ hoặc vi phạm ràng buộc
+     */
     async updateRoom(id: string, updateRoomDto: UpdateRoomDto): Promise<IRoom> {
         try {
             const updatedRoom = await this.roomModel
@@ -157,7 +183,12 @@ export class RoomsService implements IRoomService {
             throw error;
         }
     }
-
+    /**
+     * Xóa phòng họp theo ID
+     * @param id ID của phòng cần xóa
+     * @returns void
+     * @throws NotFoundException nếu không tìm thấy phòng với ID tương ứng
+     */
     async deleteRoom(id: string): Promise<void> {
         const result = await this.roomModel.findByIdAndDelete(id).exec();
         if (!result) {
@@ -167,7 +198,11 @@ export class RoomsService implements IRoomService {
             });
         }
     }
-
+    /**
+     * Tìm kiếm phòng họp theo các tiêu chí
+     * @param filters Các bộ lọc tìm kiếm
+     * @returns Danh sách các phòng phù hợp với bộ lọc
+     */
     async searchRooms(filters: {
         keyword?: string;
         location?: string;
@@ -196,7 +231,7 @@ export class RoomsService implements IRoomService {
         // Validate phân trang
         const page = filters.page || 1;
         const limit = filters.limit || 10;
-
+        // Kiểm tra page và limit
         if (page < 1 || limit < 1) {
             throw new BadRequestException({
                 success: false,
@@ -204,10 +239,7 @@ export class RoomsService implements IRoomService {
                 errorCode: 'INVALID_PAGINATION'
             });
         }
-
-        // Xây dựng query MongoDB
         const query: any = { isActive: true }; // Mặc định chỉ tìm phòng active
-
         // 1. Tìm kiếm đa trường (name, description)
         if (filters.keyword) {
             const keywordRegex = new RegExp(filters.keyword, 'i');
@@ -217,12 +249,10 @@ export class RoomsService implements IRoomService {
                 { 'devices.name': { $regex: keywordRegex } }
             ];
         }
-
         // 2. Lọc theo location
         if (filters.location) {
             query.location = filters.location;
         }
-
         // 3. Lọc theo sức chứa
         if (filters.minCapacity || filters.maxCapacity) {
             query.capacity = {};
@@ -247,7 +277,6 @@ export class RoomsService implements IRoomService {
                 query.capacity.$lte = filters.maxCapacity;
             }
         }
-
         // 4. Lọc theo trạng thái
         if (filters.status) {
             const validStatuses = ['available', 'occupied', 'maintenance'];
@@ -260,7 +289,6 @@ export class RoomsService implements IRoomService {
             }
             query.status = filters.status;
         }
-
         // 5. Lọc theo thiết bị (máy chiếu)
         if (filters.hasProjector !== undefined) {
             query.devices = {
@@ -270,12 +298,10 @@ export class RoomsService implements IRoomService {
                 }
             };
         }
-
         // 6. Lọc theo tính năng (features)
         if (filters.features && filters.features.length > 0) {
             query.features = { $all: filters.features };
         }
-
         // 7. Lọc theo thời gian khả dụng (nếu cần)
         if (filters.fromDate || filters.toDate) {
             query.$and = [];
@@ -295,7 +321,6 @@ export class RoomsService implements IRoomService {
                     ]
                 });
             }
-
             if (filters.toDate) {
                 if (!this.isValidDate(filters.toDate)) {
                     throw new BadRequestException({
@@ -312,8 +337,6 @@ export class RoomsService implements IRoomService {
                 });
             }
         }
-
-        // Thực hiện truy vấn
         try {
             const skip = (page - 1) * limit;
             const [rooms, total] = await Promise.all([
@@ -325,9 +348,7 @@ export class RoomsService implements IRoomService {
                     .exec(),
                 this.roomModel.countDocuments(query)
             ]);
-
             const totalPages = Math.ceil(total / limit);
-
             return {
                 success: true,
                 message: `Tìm thấy ${rooms.length} phòng phù hợp`,
@@ -349,18 +370,31 @@ export class RoomsService implements IRoomService {
             });
         }
     }
-
-    // Helper functions
+    /**
+     * Kiểm tra định dạng ngày hợp lệ (YYYY-MM-DD)
+     * @param dateString Chuỗi ngày cần kiểm tra
+     * @returns true nếu định dạng hợp lệ, false nếu không hợp lệ
+     */
     private isValidDate(dateString: string): boolean {
         return /^\d{4}-\d{2}-\d{2}$/.test(dateString);
     }
-
+    /**
+     * Lấy ngày trong tuần từ chuỗi ngày (YYYY-MM-DD)
+     * @param dateString Chuỗi ngày cần lấy ngày trong tuần
+     * @returns Ngày trong tuần (viết tắt: 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat')
+     */
     private getDayOfWeek(dateString: string): string {
         const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
         const date = new Date(dateString);
         return days[date.getDay()];
     }
-
+    /**
+     * Tìm kiếm phòng họp theo tên
+     * @param name Tên phòng cần tìm kiếm
+     * @param page Số trang
+     * @param limit Giới hạn số lượng phòng trên mỗi trang
+     * @returns Danh sách các phòng phù hợp với tên tìm kiếm
+     */
     async searchByName(name: string, page: number = 1, limit: number = 10): Promise<{
         success: boolean;
         message: string;
@@ -372,7 +406,6 @@ export class RoomsService implements IRoomService {
             totalPages: number;
         };
     }> {
-        // Validate input
         if (!name || name.trim().length < 2) {
             throw new BadRequestException({
                 success: false,
@@ -380,7 +413,6 @@ export class RoomsService implements IRoomService {
                 errorCode: 'INVALID_SEARCH_TERM'
             });
         }
-
         if (page < 1 || limit < 1) {
             throw new BadRequestException({
                 success: false,
@@ -388,13 +420,11 @@ export class RoomsService implements IRoomService {
                 errorCode: 'INVALID_PAGINATION'
             });
         }
-
         const regex = new RegExp(name, 'i'); // Case-insensitive search
         const query = {
             name: { $regex: regex },
             status: { $ne: 'deleted' } // Exclude deleted rooms
         };
-
         const [rooms, total] = await Promise.all([
             this.roomModel.find(query)
                 .skip((page - 1) * limit)
@@ -403,7 +433,6 @@ export class RoomsService implements IRoomService {
                 .exec(),
             this.roomModel.countDocuments(query)
         ]);
-
         return {
             success: true,
             message: `Tìm thấy ${rooms.length} phòng phù hợp`,
@@ -416,8 +445,12 @@ export class RoomsService implements IRoomService {
             }
         };
     }
-
-
+    /**
+     * Lấy danh sách tất cả các phòng đang hoạt động (trừ phòng đã xóa)
+     * @param page Số trang
+     * @param limit Giới hạn số lượng phòng trên mỗi trang
+     * @returns Danh sách các phòng đang hoạt động
+     */
     async getAllActiveRooms(page: number = 1, limit: number = 10): Promise<{
         success: boolean;
         message: string;
@@ -436,12 +469,10 @@ export class RoomsService implements IRoomService {
                 errorCode: 'INVALID_PAGINATION'
             });
         }
-
         const query = {
             status: { $ne: 'deleted' },
             isActive: true
         };
-
         const [rooms, total] = await Promise.all([
             this.roomModel.find(query)
                 .skip((page - 1) * limit)
@@ -451,7 +482,6 @@ export class RoomsService implements IRoomService {
                 .exec(),
             this.roomModel.countDocuments(query)
         ]);
-
         return {
             success: true,
             message: `Lấy danh sách ${rooms.length} phòng đang hoạt động`,
@@ -464,7 +494,10 @@ export class RoomsService implements IRoomService {
             }
         };
     }
-
+    /**
+     * Thay đổi trạng thái phòng thành 'deleted' (soft delete)
+     * @param id ID của phòng cần thay đổi trạng thái
+     */
     async statusChangeDeleteRoom(id: string): Promise<void> {
         // Thay vì xóa, cập nhật trạng thái thành 'deleted'
         const updatedRoom = await this.roomModel.findByIdAndUpdate(
@@ -475,7 +508,6 @@ export class RoomsService implements IRoomService {
             },
             { new: true }
         ).exec();
-
         if (!updatedRoom) {
             throw new NotFoundException({
                 success: false,
@@ -483,7 +515,12 @@ export class RoomsService implements IRoomService {
             });
         }
     }
-
+    /**
+     * Tìm kiếm các phòng đang hoạt động trừ những phòng ở trạng thái xóa
+     * @param page Số trang
+     * @param limit Giới hạn số lượng phòng trên mỗi trang
+     * @returns Danh sách các phòng đang hoạt động
+     */
  async findActivityRooms(page: number = 1, limit: number = 10): Promise<{
         success: boolean;
         message: string;
@@ -503,27 +540,22 @@ export class RoomsService implements IRoomService {
                 errorCode: 'INVALID_PAGINATION'
             });
         }
-
-        // Query for active rooms excluding deleted status
         const query = {
             status: { $ne: 'deleted' },
             isActive: true
         };
-
         try {
             const skip = (page - 1) * limit;
             const [rooms, total] = await Promise.all([
                 this.roomModel.find(query)
                     .skip(skip)
                     .limit(limit)
-                    .sort({ bookingCount: -1, name: 1 }) // Sort by booking count (descending) then name
+                    .sort({ bookingCount: -1, name: 1 }) 
                     .lean()
                     .exec(),
                 this.roomModel.countDocuments(query)
             ]);
-
             const totalPages = Math.ceil(total / limit);
-
             return {
                 success: true,
                 message: `Tìm thấy ${rooms.length} phòng đang hoạt động`,
@@ -544,7 +576,4 @@ export class RoomsService implements IRoomService {
             });
         }
     }
-
-
-
 }
