@@ -14,6 +14,8 @@ export class WebSocketEventHandlers {
   ) {
     if (data.success && data.data) {
       socket.emit("get_rooms");
+      // Lấy danh sách tất cả người online
+      socket.emit("get_all_online_users");
     }
   }
 
@@ -109,6 +111,23 @@ export class WebSocketEventHandlers {
 
       // Cập nhật unread count
       updateUnreadCount(roomId, unreadCount);
+    }
+  }
+
+  // Xử lý nhận danh sách tất cả người online
+  static handleAllOnlineUsers(
+    data: WsResponse<{ userId: string; isOnline: boolean }[]>
+  ) {
+    if (data.success && data.data) {
+      const { setAllOnline } = useChatStore.getState();
+      const onlineUsersMap: Record<string, boolean> = {};
+
+      data.data.forEach((user) => {
+        onlineUsersMap[user.userId] = user.isOnline;
+      });
+      // console.log(onlineUsersMap);
+      setAllOnline(onlineUsersMap);
+      console.log("[WebSocket] Updated all online users:", onlineUsersMap);
     }
   }
 
@@ -264,6 +283,13 @@ export class WebSocketEventHandlers {
       WS_RESPONSE_EVENTS.USER_OFFLINE,
       (data: WsResponse<{ userId: string; roomId: string }>) => {
         this.handleUserOffline(data);
+      }
+    );
+
+    socket.on(
+      "all_online_users",
+      (data: WsResponse<{ userId: string; isOnline: boolean }[]>) => {
+        this.handleAllOnlineUsers(data);
       }
     );
 

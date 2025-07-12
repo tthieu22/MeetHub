@@ -6,6 +6,7 @@ export const WS_EVENTS = {
   CREATE_MESSAGE: "create_message",
   MARK_ROOM_READ: "mark_room_read",
   GET_UNREAD_COUNT: "get_unread_count",
+  GET_ALL_ONLINE_USERS: "get_all_online_users",
   JOIN_ROOM: "join_room",
   USER_OFFLINE: "user_offline",
 } as const;
@@ -26,6 +27,7 @@ export const WS_RESPONSE_EVENTS = {
   ROOM_JOINED: "room_joined",
   USER_ONLINE: "user_online",
   USER_OFFLINE: "user_offline",
+  ALL_ONLINE_USERS: "all_online_users",
 } as const;
 
 // WebSocket configuration

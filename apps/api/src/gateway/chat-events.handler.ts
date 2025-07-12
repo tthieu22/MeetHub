@@ -59,4 +59,43 @@ export class ChatEventsHandler {
     }
     return { success: true, message: `Đã join vào room ${roomId}` };
   }
+
+  async handleGetAllOnlineUsers(): Promise<WsResponse> {
+    try {
+      const redisClient = this.chatService['redisClient'];
+      const keys = await redisClient.keys('user:online:*');
+
+      const onlineChecks = await Promise.all(
+        keys.map(async (key) => {
+          const userId = key.replace('user:online:', '');
+          const status = await redisClient.get(key);
+          return { userId, status };
+        }),
+      );
+
+      const onlineUserIds = onlineChecks.filter(({ status }) => status === '1').map(({ userId }) => userId);
+
+      const onlineUsers = await Promise.all(
+        onlineUserIds.map(async (userId) => {
+          const user = await this.chatService.getUser(userId);
+          if (!user) return null;
+
+          return {
+            userId: user._id,
+            name: user.name,
+            email: user.email,
+            avatarURL: user.avatarURL,
+            isOnline: true,
+          };
+        }),
+      );
+
+      // Lọc bỏ null values
+      const validOnlineUsers = onlineUsers.filter((user) => user !== null);
+      return { success: true, data: validOnlineUsers };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, message: errorMessage, code: 'GET_ONLINE_USERS_ERROR' };
+    }
+  }
 }

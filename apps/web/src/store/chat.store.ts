@@ -8,6 +8,7 @@ interface ChatState {
   currentRoomId: string | null;
   onlineUsers: Record<string, boolean>;
   roomOnlineMembers: Record<string, string[]>;
+  allOnline: Record<string, boolean>;
 
   // Actions
   setRooms: (rooms: ChatRoom[]) => void;
@@ -24,6 +25,8 @@ interface ChatState {
   setCurrentRoom: (roomId: string | null) => void;
 
   setOnlineUsers: (users: Record<string, boolean>) => void;
+  setAllOnline: (users: Record<string, boolean>) => void;
+
   setUserOnline: (userId: string, online: boolean) => void;
   updateRoomOnlineStatus: (
     roomId: string,
@@ -43,6 +46,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   currentRoomId: null,
   onlineUsers: {},
   roomOnlineMembers: {},
+  allOnline: {},
 
   setRooms: (rooms: ChatRoom[]) => {
     set({ rooms });
@@ -133,6 +137,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setOnlineUsers: (users: Record<string, boolean>) => {
     set({ onlineUsers: users });
+  },
+
+  setAllOnline: (users: Record<string, boolean>) => {
+    set({ allOnline: users });
   },
 
   setUserOnline: (userId: string, online: boolean) => {

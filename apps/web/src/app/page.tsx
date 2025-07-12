@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
 import CustomButton from "@web/components/CustomButton";
+import OnlineUsersList from "@web/components/OnlineUsersList";
 
 const { Title, Paragraph } = Typography;
 
@@ -94,6 +95,28 @@ export default function Home() {
           </Card>
         </Col>
       </Row>
+
+      {currentUser && (
+        <Row gutter={[24, 24]} style={{ marginBottom: "60px" }}>
+          <Col xs={24} md={12}>
+            <Card title="Người online" style={{ height: "400px" }}>
+              <OnlineUsersList />
+            </Card>
+          </Col>
+          <Col xs={24} md={12}>
+            <Card title="Thống kê" style={{ height: "400px" }}>
+              <div style={{ padding: "16px", textAlign: "center" }}>
+                <Title level={2} style={{ color: "#1890ff" }}>
+                  Chào mừng trở lại!
+                </Title>
+                <Paragraph>
+                  Bạn có thể bắt đầu chat với những người online hoặc tạo phòng mới.
+                </Paragraph>
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      )}
 
       <div style={{ textAlign: "center" }}>
         {currentUser ? (
