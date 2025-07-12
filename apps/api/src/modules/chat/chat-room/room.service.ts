@@ -279,10 +279,6 @@ export class RoomService {
         role: 'member',
       });
     } catch (error) {
-      // Handle duplicate key error gracefully
-      if (error.code === 11000) {
-        throw new ForbiddenException('User is already a member of this conversation');
-      }
       throw error;
     }
 
