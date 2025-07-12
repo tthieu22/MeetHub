@@ -4,3 +4,4 @@ export { default as ChatHeader } from "./chat/ChatHeader";
 export { default as ChatMessages } from "./chat/ChatMessages";
 export { default as ChatInput } from "./chat/ChatInput";
 export { default as RelatedOnlineUsers } from "./chat/MessageReactions";
+export { default as UnreadCountBadge } from "./UnreadCountBadge";

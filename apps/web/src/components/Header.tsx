@@ -4,7 +4,9 @@ import { Avatar, Popover, Space, Typography, Button } from "antd";
 import { UserOutlined, LogoutOutlined } from "@ant-design/icons";
 import { useUserStore } from "@web/store/user.store";
 import { useWebSocketStore } from "@web/store/websocket.store";
+import { useRouter } from "next/navigation";
 import ConnectionStatus from "@web/app/ConnectionStatus";
+import UnreadCountBadge from "./UnreadCountBadge";
 
 const { Text } = Typography;
 
@@ -17,7 +19,7 @@ const UserAvatar = memo(() => {
     disconnect();
     // Logout user
     logout();
-  }, [logout]);
+  }, [logout, disconnect]);
 
   if (!currentUser) {
     return null;
@@ -66,6 +68,11 @@ UserAvatar.displayName = "UserAvatar";
 
 const Header = memo(() => {
   const { currentUser } = useUserStore();
+  const router = useRouter();
+ 
+  const handleLogoClick = useCallback(() => {
+    router.push("/");
+  }, [router]);
 
   return (
     <header
@@ -80,11 +87,20 @@ const Header = memo(() => {
       }}
     >
       <div style={{ display: "flex", alignItems: "center" }}>
-        <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 600 }}>
+        <h1 
+          style={{ 
+            margin: 0, 
+            fontSize: "20px", 
+            fontWeight: 600,
+            cursor: "pointer"
+          }}
+          onClick={handleLogoClick}
+        >
           MeetHub
         </h1>
       </div>
       <Space>
+        {currentUser && <UnreadCountBadge />}
         {currentUser && <ConnectionStatus />}
         {currentUser && <UserAvatar />}
       </Space>
