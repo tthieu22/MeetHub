@@ -1,7 +1,7 @@
 import { CreateParticipationRequestDto } from '../dto/create-participation-request.dto';
 import { UpdateParticipationRequestDto } from '../dto/update-participation-request.dto';
 import { IParticipationRequest } from './participation-request.interface';
-
+import { SearchParticipationRequestsDto } from '../dto/search-participation-requests.dto';
 export interface IParticipationRequestService {
   create(createDto: CreateParticipationRequestDto): Promise<IParticipationRequest>;
   findAll(page: number, limit: number, filter: any): Promise<{
@@ -24,4 +24,11 @@ export interface IParticipationRequestService {
   approveRequest(id: string, approverId: string): Promise<IParticipationRequest>;
   rejectRequest(id: string, approverId: string): Promise<IParticipationRequest>;
   softDelete(id: string): Promise<IParticipationRequest>;
+  searchParticipationRequestsExcludeDeleted(dto: SearchParticipationRequestsDto): Promise<{
+    data: IParticipationRequest[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }>;
 }

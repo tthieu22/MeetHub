@@ -6,6 +6,7 @@ import { AuthGuard } from '@api/auth/auth.guard';
 import { RolesGuard } from '@api/auth/roles.guard';
 import { Roles } from '@api/auth/roles.decorator';
 import { UserRole } from '@api/modules/users/schema/user.schema';
+import { SearchParticipationRequestsDto } from './dto/search-participation-requests.dto';
 
 @Controller('participation-requests')
 @UseGuards(AuthGuard)
@@ -83,7 +84,7 @@ export class ParticipationRequestsController {
     const data = await this.service.softDelete(id);
     return { success: true, data };
   }
-  
+
   @Get('exclude-deleted')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -98,6 +99,16 @@ export class ParticipationRequestsController {
       success: true,
       ...result,
       filter: parsedFilter
+    };
+  }
+  @Post('search-exclude-deleted')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async searchExcludeDeleted(@Body() dto: SearchParticipationRequestsDto) {
+    const result = await this.service.searchParticipationRequestsExcludeDeleted(dto);
+    return {
+      success: true,
+      ...result,
     };
   }
 }
