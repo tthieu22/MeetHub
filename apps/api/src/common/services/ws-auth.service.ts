@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { Socket } from 'socket.io';
 import { WsUserPayload } from '../guards/ws-auth.guard';
 
 @Injectable()
 export class WsAuthService {
-  constructor(private jwtService: JwtService) {}
+  constructor(
+    private jwtService: JwtService,
+    private configService: ConfigService,
+  ) {}
 
   async validateToken(client: Socket): Promise<WsUserPayload> {
     const token = this.extractToken(client);
@@ -15,7 +19,7 @@ export class WsAuthService {
     }
 
     try {
-      return await this.jwtService.verifyAsync<WsUserPayload>(token, { secret: process.env.SECRET_JWT });
+      return await this.jwtService.verifyAsync<WsUserPayload>(token, { secret: this.configService.get<string>('SECRET_JWT') });
     } catch {
       throw new Error('Token không hợp lệ');
     }

@@ -7,11 +7,11 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
 const redisProvider = {
   provide: REDIS_CLIENT,
   inject: [ConfigService],
-  useFactory: (config: ConfigService) => {
+  useFactory: (configService: ConfigService) => {
     return new Redis({
-      host: config.get('REDIS_HOST') || '127.0.0.1',
-      port: +(config.get('REDIS_PORT') || 6379),
-      password: config.get('REDIS_PASSWORD') || undefined,
+      host: configService.get<string>('REDIS_HOST') || '127.0.0.1',
+      port: +(configService.get<number>('REDIS_PORT') || 6379),
+      password: configService.get<string>('REDIS_PASSWORD') || undefined,
     });
   },
 };
