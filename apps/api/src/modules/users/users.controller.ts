@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, ForbiddenException, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, UseGuards, Req, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -54,8 +54,6 @@ export class UsersController {
   @UseGuards(AuthGuard)
   @Get('/me')
   async getMe(@Req() req: Request) {
-    console.log('hello');
-    console.log(req.user);
     if (!req.user) return { success: false, messege: 'vui lòng đăng nhập' };
     return this.usersService.findById(req.user._id);
   }

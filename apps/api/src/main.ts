@@ -10,15 +10,33 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
+  const corsOrigins = configService.get<string>('CORS_ORIGINS')?.split(',');
+  const corsCredentials = configService.get<boolean>('CORS_CREDENTIALS');
+  const corsMethods = configService.get<string>('CORS_METHODS')?.split(',');
+  const corsAllowedHeaders = configService.get<string>('CORS_ALLOWED_HEADERS')?.split(',');
+
+  app.enableCors({
+    origin: corsOrigins,
+    credentials: corsCredentials,
+    methods: corsMethods,
+    allowedHeaders: corsAllowedHeaders,
+  });
+
   const port = configService.get<number>('PORT', 8000);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api');
+  const sessionSecret = configService.get<string>('SESSION_SECRET');
+
+  if (!sessionSecret) {
+    console.warn('⚠️  SESSION_SECRET is not set! Using default secret for development only.');
+  }
+
   app.setGlobalPrefix(apiPrefix);
   app.useGlobalPipes(new ValidationPipe());
   app.useGlobalFilters(new AllExceptionsFilter());
   app.use(cookieParser());
   app.use(
     session({
-      secret: process.env.SESSION_SECRET, // nên để vào .env
+      secret: sessionSecret || 'default-secret-for-development',
       resave: false,
       saveUninitialized: false,
       cookie: {
@@ -34,7 +52,6 @@ async function bootstrap() {
     }),
   );
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}/${apiPrefix}`);
 }
 bootstrap().catch((error) => {
   console.error('Failed to start application:', error);
