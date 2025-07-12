@@ -108,6 +108,15 @@ export const useWebSocket = () => {
     [isConnected, socket]
   );
 
+  // Get all online users
+  const getAllOnlineUsers = useCallback(() => {
+    if (isConnected && socket) {
+      socket.emit("get_all_online_users");
+    } else {
+      console.warn("WebSocket not connected");
+    }
+  }, [isConnected, socket]);
+
   // Join room
   const joinRoom = useCallback(
     (roomId: string) => {
@@ -220,6 +229,7 @@ export const useWebSocket = () => {
     getMessages,
     markRoomRead,
     getUnreadCount,
+    getAllOnlineUsers,
     joinRoom,
   };
 };

@@ -6,45 +6,16 @@ import { useUserStore } from "@web/store/user.store";
 
 const { Text } = Typography;
 
-interface OnlineUser {
-  userId: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  isOnline: boolean;
-}
-
 const OnlineUsersList: React.FC = memo(() => {
-  const { rooms, onlineUsers } = useChatStore();
+  const { allOnline } = useChatStore();
   const { currentUser } = useUserStore();
 
-  // Tạo danh sách tất cả users từ các phòng
-  const allUsers = useMemo(() => {
-    const userMap = new Map<string, OnlineUser>();
-
-    rooms.forEach((room) => {
-      if (Array.isArray(room.members)) {
-        room.members.forEach((member) => {
-          if (member.userId !== currentUser?._id) {
-            userMap.set(member.userId, {
-              userId: member.userId,
-              name: member.name || member.email || "Unknown",
-              email: member.email || "",
-              avatar: member?.avatar || "",
-              isOnline: onlineUsers[member.userId] || false,
-            });
-          }
-        });
-      }
-    });
-
-    return Array.from(userMap.values());
-  }, [rooms, onlineUsers, currentUser]);
-
-  // Lọc ra những user online
+  // Lọc ra những user online (không bao gồm current user)
   const onlineUsersList = useMemo(() => {
-    return allUsers.filter((user) => user.isOnline);
-  }, [allUsers]);
+    return allOnline.filter(
+      (user) => user.isOnline && user.userId !== currentUser?._id
+    );
+  }, [allOnline, currentUser]);
 
   if (onlineUsersList.length === 0) {
     return (
@@ -68,16 +39,14 @@ const OnlineUsersList: React.FC = memo(() => {
               avatar={
                 <Avatar
                   size={32}
-                  src={user.avatar || null}
+                  src={user.avatarURL || null}
                   icon={<UserOutlined />}
                 />
               }
               title={
                 <Space>
                   <Text strong>{user.name}</Text>
-                  <Tag color="green">
-                    Online
-                  </Tag>
+                  <Tag color="green">Online</Tag>
                 </Space>
               }
               description={
@@ -95,4 +64,4 @@ const OnlineUsersList: React.FC = memo(() => {
 
 OnlineUsersList.displayName = "OnlineUsersList";
 
-export default OnlineUsersList; 
+export default OnlineUsersList;

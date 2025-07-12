@@ -58,3 +58,10 @@ export interface MessagesResponse {
   hasMore: boolean;
   before?: string;
 }
+export interface UsersOnline {
+  userId: string;
+  name: string;
+  email: string;
+  avatarURL?: string;
+  isOnline: boolean;
+}

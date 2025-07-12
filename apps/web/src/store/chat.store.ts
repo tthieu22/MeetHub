@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ChatRoom, Message } from "@web/types/chat";
+import { ChatRoom, Message, UsersOnline } from "@web/types/chat";
 
 interface ChatState {
   rooms: ChatRoom[];
@@ -8,7 +8,7 @@ interface ChatState {
   currentRoomId: string | null;
   onlineUsers: Record<string, boolean>;
   roomOnlineMembers: Record<string, string[]>;
-  allOnline: Record<string, boolean>;
+  allOnline: UsersOnline[];
 
   // Actions
   setRooms: (rooms: ChatRoom[]) => void;
@@ -25,7 +25,7 @@ interface ChatState {
   setCurrentRoom: (roomId: string | null) => void;
 
   setOnlineUsers: (users: Record<string, boolean>) => void;
-  setAllOnline: (users: Record<string, boolean>) => void;
+  setAllOnline: (users: UsersOnline[]) => void;
 
   setUserOnline: (userId: string, online: boolean) => void;
   updateRoomOnlineStatus: (
@@ -46,7 +46,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   currentRoomId: null,
   onlineUsers: {},
   roomOnlineMembers: {},
-  allOnline: {},
+  allOnline: [],
 
   setRooms: (rooms: ChatRoom[]) => {
     set({ rooms });
@@ -139,13 +139,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ onlineUsers: users });
   },
 
-  setAllOnline: (users: Record<string, boolean>) => {
+  setAllOnline: (users: UsersOnline[]) => {
     set({ allOnline: users });
   },
 
   setUserOnline: (userId: string, online: boolean) => {
     const { onlineUsers } = get();
-    // Only update if the status actually changed
     if (onlineUsers[userId] !== online) {
       set({
         onlineUsers: { ...onlineUsers, [userId]: online },

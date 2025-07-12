@@ -124,6 +124,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(`room:${roomId}`).emit(WebSocketEventName.USER_ONLINE, response);
       await this.emitRoomOnlineMembers(roomId);
     }
+
+    // Emit all_online_users để cập nhật danh sách tổng thể
+    const allOnlineResponse = await this.chatEventsHandler.handleGetAllOnlineUsers();
+    this.server.emit('all_online_users', allOnlineResponse);
   }
   // lấy tất cả các phòng
   @SubscribeMessage('get_rooms')
@@ -255,6 +259,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         await this.emitRoomOnlineMembers(roomId);
       }),
     );
+
+    // Emit all_online_users để cập nhật danh sách tổng thể
+    const allOnlineResponse = await this.chatEventsHandler.handleGetAllOnlineUsers();
+    this.server.emit('all_online_users', allOnlineResponse);
   }
   @SubscribeMessage('get_all_online_users')
   async handlerUserOnline(@ConnectedSocket() client: AuthenticatedSocket) {
