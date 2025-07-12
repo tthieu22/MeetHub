@@ -24,13 +24,19 @@ async function bootstrap() {
 
   const port = configService.get<number>('PORT', 8000);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api');
+  const sessionSecret = configService.get<string>('SESSION_SECRET');
+
+  if (!sessionSecret) {
+    console.warn('⚠️  SESSION_SECRET is not set! Using default secret for development only.');
+  }
+
   app.setGlobalPrefix(apiPrefix);
   app.useGlobalPipes(new ValidationPipe());
   app.useGlobalFilters(new AllExceptionsFilter());
   app.use(cookieParser());
   app.use(
     session({
-      secret: process.env.SESSION_SECRET, // nên để vào .env
+      secret: sessionSecret || 'default-secret-for-development',
       resave: false,
       saveUninitialized: false,
       cookie: {

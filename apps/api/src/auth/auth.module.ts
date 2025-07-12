@@ -4,7 +4,7 @@ import { AuthService } from './auth.service';
 import { UsersModule } from '@api/modules/users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { RolesGuard } from './roles.guard';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { GoogleOidcStrategy } from './strategies/google.strategy';
 import { MailerService } from '../login-resgister/mailer.service';
@@ -21,10 +21,13 @@ import { LoginResgisterModule } from '@api/login-resgister/login-resgister.modul
     PassportModule,
     UsersModule,
     LoginResgisterModule,
-    JwtModule.register({
+    JwtModule.registerAsync({
       global: true,
-      secret: process.env.SECRET_JWT,
-      signOptions: { expiresIn: '7h' },
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('SECRET_JWT'),
+        signOptions: { expiresIn: '7h' },
+      }),
     }),
     MongooseModule.forFeature([{ name: VerifyCode.name, schema: VerifyCodeSchema }]),
   ],
