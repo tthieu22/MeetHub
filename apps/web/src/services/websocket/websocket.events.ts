@@ -147,12 +147,12 @@ export class WebSocketEventHandlers {
     console.error("WebSocket auth error:", data);
 
     // Logout user nếu token không hợp lệ
-    // if (data.code === "TOKEN_INVALID" || data.code === "USER_INVALID") {
-    //   // const { logout } = useUserStore.getState();
-    //   // logout();
-    //   // Redirect to login
-    //   // window.location.href = "/login";
-    // }
+    if (data.code === "TOKEN_INVALID" || data.code === "USER_INVALID") {
+      const { logout } = useUserStore.getState();
+      logout();
+      // Redirect to login
+      window.location.href = "/login";
+    }
   }
 
   // Hiển thị thông báo tin nhắn mới

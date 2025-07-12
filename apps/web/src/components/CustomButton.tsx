@@ -82,7 +82,7 @@ export default function CustomButton({
         },
         default: {
           backgroundColor: "#fafafa",
-          borderColor: "#40a9ff",
+          border: "1px solid #40a9ff",
         },
         text: {
           backgroundColor: "rgba(24, 144, 255, 0.1)",

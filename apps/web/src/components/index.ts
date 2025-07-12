@@ -3,5 +3,4 @@ export { default as ChatList } from "./chat/ChatList";
 export { default as ChatHeader } from "./chat/ChatHeader";
 export { default as ChatMessages } from "./chat/ChatMessages";
 export { default as ChatInput } from "./chat/ChatInput";
-export { default as ChatDebugInfo } from "./chat/ChatDebugInfo";
-export { default as RelatedOnlineUsers } from "./chat/RelatedOnlineUsers";
+export { default as RelatedOnlineUsers } from "./chat/MessageReactions";
