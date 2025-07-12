@@ -17,10 +17,10 @@ function RootLayout({
   return (
     <html lang="en" translate="no">
       <head>
-        <title>MeetHub - Chat & Video Call Platform</title>
+        <title>MeetHub - Chat & Meeting Platform</title>
         <meta
           name="description"
-          content="Nền tảng chat và họp trực tuyến hiện đại"
+          content="Nền tảng chat và đặt lịch họp hiện đại"
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

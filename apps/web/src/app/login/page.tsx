@@ -27,7 +27,8 @@ export default function LoginPage() {
   const onFinish = async (values: LoginForm) => {
     setLoading(true);
     try {
-      const response = await fetch("/api/auth/login", {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${API_BASE_URL}/api/auth/signIn`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
