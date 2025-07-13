@@ -2,34 +2,29 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from '../../users/schema/user.schema';
-
-/**
- * Optimized User Search Service
- *
- * Required MongoDB indexes for optimal performance:
- * 1. Compound index: { isActive: 1, name: 1 }
- * 2. Text index: { name: "text", email: "text" } (optional, for better text search)
- *
- * Create indexes:
- * db.users.createIndex({ "isActive": 1, "name": 1 })
- * db.users.createIndex({ "name": "text", "email": "text" })
- */
+import { UserRelationshipService } from './user-relationship.service';
 
 export interface UserProfile {
   userId: string;
   name: string;
   email: string;
   avatar?: string | null;
+  chated?: boolean;
+  roomId?: string | null;
 }
 
 @Injectable()
 export class UserChatService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private userRelationshipService: UserRelationshipService,
+  ) {}
 
   async getAllUsers(
     page: number = 1,
     limit: number = 20,
     search?: string,
+    currentUserId?: string,
   ): Promise<{
     success: boolean;
     data: UserProfile[];
@@ -41,30 +36,53 @@ export class UserChatService {
     message?: string;
   }> {
     try {
-      // Validate parameters
       const validPage = Math.max(1, page);
-      const validLimit = Math.min(Math.max(1, limit), 100); // Max 100 per page
+      const validLimit = Math.min(Math.max(1, limit), 100);
       const skip = (validPage - 1) * validLimit;
 
-      // Build query with search functionality
       const query: Record<string, any> = {};
       if (search && search.trim()) {
         const searchRegex = new RegExp(search.trim(), 'i');
         query.$or = [{ name: searchRegex }, { email: searchRegex }];
       }
 
-      // Get total count for pagination
       const total = await this.userModel.countDocuments(query);
 
-      // Get paginated users with optimized field selection
       const users = await this.userModel.find(query).select('_id name email avatarURL').sort({ name: 1 }).skip(skip).limit(validLimit).lean().exec();
+      let relatedUserIds: string[] = [];
+      if (currentUserId) {
+        try {
+          relatedUserIds = await this.userRelationshipService.getRelatedUsers(currentUserId);
+        } catch (error) {
+          console.error('Error getting related users:', error);
+        }
+      }
 
-      const userProfiles = users.map((user) => ({
-        userId: user._id.toString(),
-        name: user.name || 'Unknown User',
-        email: user.email,
-        avatar: user.avatarURL || null,
-      }));
+      // Lấy roomId cho từng user đã chat
+      const userProfiles = await Promise.all(
+        users.map(async (user) => {
+          const userId = user._id.toString();
+          const hasChatted = relatedUserIds.includes(userId);
+
+          let roomId: string | null = null;
+          if (hasChatted && currentUserId) {
+            try {
+              roomId = await this.userRelationshipService.getPrivateRoomId(currentUserId, userId);
+            } catch (error) {
+              console.error(`Error getting room ID for user ${userId}:`, error);
+            }
+          }
+
+          return {
+            userId,
+            name: user.name || 'Unknown User',
+            email: user.email,
+            avatar: user.avatarURL || null,
+            chated: hasChatted,
+            roomId,
+          };
+        }),
+      );
 
       const totalPages = Math.ceil(total / validLimit);
       const hasNextPage = validPage < totalPages;
@@ -90,7 +108,7 @@ export class UserChatService {
         currentPage: page,
         hasNextPage: false,
         hasPrevPage: false,
-        message: `Failed to retrieve users: ${error?.message || 'Unknown error'}`,
+        message: `Failed to retrieve users: ${error || 'Unknown error'}`,
       };
     }
   }

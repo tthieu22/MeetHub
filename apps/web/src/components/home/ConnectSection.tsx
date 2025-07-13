@@ -28,6 +28,7 @@ import { WS_EVENTS } from "@web/constants/websocket.events";
 import CustomButton from "@web/components/CustomButton";
 import LoadingCard from "./LoadingCard";
 import usersApiService, { User } from "@web/services/api/users.api";
+import { useRouter } from "next/navigation";
 
 const { Title, Text } = Typography;
 
@@ -49,6 +50,7 @@ interface ConnectSectionProps {
 
 interface UserWithStatus extends User {
   isOnline: boolean;
+  chated?: boolean;
 }
 
 // Cache for users data
@@ -67,6 +69,7 @@ export default function ConnectSection({
   const rooms = useChatStore((s) => s.rooms);
   const { currentUser } = useUserStore();
   const { isConnected, socket } = useWebSocketStore();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<UserWithStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -96,13 +99,14 @@ export default function ConnectSection({
         const result = await usersApiService.getUsers({ limit: 50, page: 1 });
 
         if (result.success && result.data) {
-          // Merge with online status from WebSocket store
+          // Merge with online status from WebSocket store - realtime
           const usersWithStatus: UserWithStatus[] = result.data.map(
             (user: User) => ({
               ...user,
               isOnline: allOnline.some(
                 (onlineUser) => onlineUser.userId === user.userId
               ),
+              chated: user?.chated || false,
             })
           );
 
@@ -156,7 +160,7 @@ export default function ConnectSection({
     }
   }, [isConnected, socket, rooms.length]);
 
-  // Update online status when allOnline changes
+  // Update online status when allOnline changes - realtime
   useEffect(() => {
     if (users.length > 0) {
       const updatedUsers = users.map((user) => ({
@@ -167,7 +171,31 @@ export default function ConnectSection({
       }));
       setUsers(updatedUsers);
     }
-  }, [allOnline]);
+  }, [allOnline, users.length]);
+
+  // Real-time online status update with interval
+  useEffect(() => {
+    if (!isConnected || users.length === 0) return;
+
+    const updateOnlineStatus = () => {
+      setUsers((prevUsers) =>
+        prevUsers.map((user) => ({
+          ...user,
+          isOnline: allOnline.some(
+            (onlineUser) => onlineUser.userId === user.userId
+          ),
+        }))
+      );
+    };
+
+    // Update immediately
+    updateOnlineStatus();
+
+    // Set up interval for real-time updates
+    const interval = setInterval(updateOnlineStatus, 2000); // Update every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [isConnected, users.length, allOnline]);
 
   // Memoized user lists for performance
   const { onlineUsers, offlineUsers } = useMemo(
@@ -181,6 +209,35 @@ export default function ConnectSection({
   const handleRefresh = () => {
     fetchUsers(true);
   };
+
+  // Chuyển đến cuộc trò chuyện với user
+  const handleChatClick = useCallback(
+    (targetUserId: string, roomId?: string | null) => {
+      if (!currentUser?._id) return;
+
+      if (roomId) {
+        // Sử dụng roomId từ API nếu có
+        router.push(`/chat?roomId=${roomId}`);
+      } else {
+        // Fallback: tìm room trong danh sách hiện tại
+        const directRoom = rooms.find((room) => {
+          if (room.isGroup) return false;
+
+          const memberIds = room.members.map((member) => member.userId);
+          return (
+            memberIds.length === 2 &&
+            memberIds.includes(currentUser._id) &&
+            memberIds.includes(targetUserId)
+          );
+        });
+
+        if (directRoom) {
+          router.push(`/chat?roomId=${directRoom.roomId}`);
+        }
+      }
+    },
+    [currentUser?._id, rooms, router]
+  );
 
   if (loading) {
     return (
@@ -260,10 +317,20 @@ export default function ConnectSection({
                     </Tag>
                   </div>
                   <Space style={{ marginTop: 8 }}>
-                    <CustomButton size="small" type="primary">
-                      Chat
-                    </CustomButton>
-                    <CustomButton size="small">Invite</CustomButton>
+                    {user.chated && user.roomId && (
+                      <CustomButton
+                        size="small"
+                        type="primary"
+                        onClick={() =>
+                          handleChatClick(user.userId, user.roomId)
+                        }
+                      >
+                        Chat
+                      </CustomButton>
+                    )}
+                    {(!user.chated || !user.roomId) && (
+                      <CustomButton size="small">Invite</CustomButton>
+                    )}
                   </Space>
                 </Card>
               </Col>
@@ -297,10 +364,20 @@ export default function ConnectSection({
                       </Tag>
                     </div>
                     <Space style={{ marginTop: 8 }}>
-                      <CustomButton size="small" type="primary">
-                        Chat
-                      </CustomButton>
-                      <CustomButton size="small">Invite</CustomButton>
+                      {user.chated && user.roomId && (
+                        <CustomButton
+                          size="small"
+                          type="primary"
+                          onClick={() =>
+                            handleChatClick(user.userId, user.roomId)
+                          }
+                        >
+                          Chat
+                        </CustomButton>
+                      )}
+                      {(!user.chated || !user.roomId) && (
+                        <CustomButton size="small">Invite</CustomButton>
+                      )}
                     </Space>
                   </Card>
                 </Col>

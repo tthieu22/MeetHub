@@ -1,4 +1,3 @@
-// Users API Service for ConnectSection component
 import { message } from "antd";
 
 export interface User {
@@ -6,6 +5,8 @@ export interface User {
   name: string;
   email: string;
   avatar: string | null;
+  chated?: boolean;
+  roomId?: string | null;
 }
 
 export interface ApiResponse<T> {
