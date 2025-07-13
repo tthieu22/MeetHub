@@ -1,7 +1,7 @@
 import "antd/dist/reset.css";
 import "@web/style/globals.css";
 
-import { ConfigProvider, Layout } from "antd";
+import { ConfigProvider, Layout, App } from "antd";
 import Header from "@web/components/Header";
 import { Content } from "antd/es/layout/layout";
 import { WebSocketProvider } from "./WebSocketProvider";
@@ -30,12 +30,14 @@ function RootLayout({
         <UserProvider />
         <WebSocketProvider />
         <ConfigProvider>
-          <Layout style={{ minHeight: "100vh" }}>
-            <Header />
-            <Content>
-              <AuthGuard>{children}</AuthGuard>
-            </Content>
-          </Layout>
+          <App>
+            <Layout style={{ minHeight: "100vh" }}>
+              <Header />
+              <Content>
+                <AuthGuard>{children}</AuthGuard>
+              </Content>
+            </Layout>
+          </App>
         </ConfigProvider>
       </body>
     </html>

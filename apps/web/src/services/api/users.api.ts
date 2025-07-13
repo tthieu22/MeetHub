@@ -1,4 +1,4 @@
-import { message } from "antd";
+import { notification } from "antd";
 
 export interface User {
   userId: string;
@@ -74,7 +74,12 @@ class UsersApiService {
       console.error("API request failed:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Failed to load users";
-      message.error(errorMessage);
+      notification.error({
+        message: "Lỗi API",
+        description: errorMessage,
+        placement: "topRight",
+        duration: 5,
+      });
 
       return {
         success: false,

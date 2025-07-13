@@ -142,7 +142,6 @@ export default function ChatPage() {
       url.searchParams.set("roomId", selectedRoomId);
       window.history.pushState({}, "", url.toString());
       // Mark the selected room as read immediately
-      console.log(`[ChatPage] Marking selected room ${selectedRoomId} as read`);
       markRoomRead(selectedRoomId);
     },
     [markRoomRead]

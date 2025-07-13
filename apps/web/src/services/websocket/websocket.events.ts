@@ -136,8 +136,6 @@ export class WebSocketEventHandlers {
         onlineUsersMap[user.userId] = user.isOnline;
       });
       setOnlineUsers(onlineUsersMap);
-
-      console.log("[WebSocket] Updated all online users:", data.data);
     }
   }
 
@@ -217,14 +215,9 @@ export class WebSocketEventHandlers {
   static handleRoomOnlineMembers(
     data: WsResponse<{ roomId: string; onlineMemberIds: string[] }>
   ) {
-    console.log("[WebSocket] Received room_online_members event:", data);
     if (data.success && data.data) {
       const { setRoomOnlineMembers } = useChatStore.getState();
       setRoomOnlineMembers(data.data.roomId, data.data.onlineMemberIds);
-      console.log(
-        `[WebSocket] Updated online members for room ${data.data.roomId}:`,
-        data.data.onlineMemberIds
-      );
     }
   }
 

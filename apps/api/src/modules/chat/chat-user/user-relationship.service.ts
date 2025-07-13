@@ -286,18 +286,48 @@ export class UserRelationshipService {
         return [];
       }
 
-      // Lấy tất cả user khác trong các conversation này
-      const relatedMembers = await this.conversationMemberModel
+      // Lấy thông tin conversation để lọc chỉ private conversations
+      const conversations = await this.conversationModel
         .find({
-          conversationId: { $in: conversationIds },
-          userId: { $ne: new Types.ObjectId(currentUserId) },
+          _id: { $in: conversationIds },
+          type: 'private',
         })
-        .select('userId')
+        .select('_id')
         .lean()
         .exec();
 
+      const privateConversationIds = conversations.map((conv) => conv._id);
+
+      if (privateConversationIds.length === 0) {
+        return [];
+      }
+
+      // Lấy tất cả user khác trong các private conversation này
+      const relatedMembers = await this.conversationMemberModel
+        .find({
+          conversationId: { $in: privateConversationIds },
+          userId: { $ne: new Types.ObjectId(currentUserId) },
+        })
+        .select('userId conversationId')
+        .lean()
+        .exec();
+
+      // Lọc chỉ những conversation có đúng 2 thành viên
+      const validUserIds: string[] = [];
+      for (const member of relatedMembers) {
+        const memberCount = await this.conversationMemberModel
+          .countDocuments({
+            conversationId: member.conversationId,
+          })
+          .exec();
+
+        if (memberCount === 2) {
+          validUserIds.push(member.userId.toString());
+        }
+      }
+
       // Lấy unique user IDs
-      const relatedUserIds = [...new Set(relatedMembers.map((member) => member.userId.toString()))];
+      const relatedUserIds = [...new Set(validUserIds)];
 
       return relatedUserIds;
     } catch (error) {

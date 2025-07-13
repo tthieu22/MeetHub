@@ -13,9 +13,6 @@ export class NotificationService {
   ) {}
 
   async notify(userId: string, message: string, type: string) {
-    console.log(userId);
-    console.log(message);
-    console.log(type);
     const noti = await this.notificationDocumentModel.create({ receiverId: userId, content: message, type: type });
     this.gateway.sendToUser(userId, noti); // realtime
   }

@@ -13,8 +13,6 @@ import { useUserStore } from "@web/store/user.store";
 import CustomButton from "@web/components/CustomButton";
 import WelcomeSection from "@web/components/home/WelcomeSection";
 import TodaySchedule from "@web/components/home/TodaySchedule";
-import NotificationsSection from "@web/components/home/NotificationsSection";
-import RecentChats from "@web/components/home/RecentChats";
 import ConnectSection from "@web/components/home/ConnectSection";
 import RightSidebar from "@web/components/home/RightSidebar";
 import PageLoading from "@web/components/home/PageLoading";
@@ -93,60 +91,6 @@ export default function Home() {
     },
   ]);
 
-  const [recentChats] = useState([
-    {
-      id: "1",
-      name: "Project Team",
-      lastMessage: "Can we discuss the project timeline?",
-      sender: "Sarah",
-      time: "2 minutes ago",
-      unread: 3,
-    },
-    {
-      id: "2",
-      name: "Marketing Group",
-      lastMessage: "Meeting notes are ready for review",
-      sender: "Mike",
-      time: "15 minutes ago",
-      unread: 1,
-    },
-    {
-      id: "3",
-      name: "Sarah",
-      lastMessage: "Let's schedule a quick call tomorrow",
-      sender: "Sarah",
-      time: "1 hour ago",
-      unread: 2,
-    },
-  ]);
-
-  const [connectionRequests] = useState<
-    Array<{
-      id: string;
-      name: string;
-      type: "connection" | "meeting";
-      team?: string;
-      mutualConnections?: number;
-      meetingTitle?: string;
-      meetingTime?: string;
-    }>
-  >([
-    {
-      id: "1",
-      name: "Emma",
-      mutualConnections: 2,
-      team: "Marketing Team",
-      type: "connection",
-    },
-    {
-      id: "2",
-      name: "Alex",
-      meetingTitle: "Project Discussion",
-      meetingTime: "Tomorrow 2:00 PM",
-      type: "meeting",
-    },
-  ]);
-
   const [availableRooms] = useState([
     {
       id: "1",
@@ -193,17 +137,6 @@ export default function Home() {
     message.info(`Joining meeting ${meetingId}...`);
   };
 
-  const handleOpenChat = (chatId: string) => {
-    router.push(`/chat?roomId=${chatId}`);
-  };
-
-  const handleAcceptRequest = () => {
-    message.success("Request accepted!");
-  };
-
-  const handleDeclineRequest = () => {
-    message.info("Request declined");
-  };
   const handleLogin = () => {
     router.push("/login");
   };
@@ -339,19 +272,7 @@ export default function Home() {
             meetings={todayMeetings}
             onJoinMeeting={handleJoinMeeting}
           />
-
-          <NotificationsSection
-            notifications={notifications}
-            totalCount={totalNotifications}
-          />
-
-          <RecentChats chats={recentChats} onOpenChat={handleOpenChat} />
-
-          <ConnectSection
-            connectionRequests={connectionRequests}
-            onAcceptRequest={handleAcceptRequest}
-            onDeclineRequest={handleDeclineRequest}
-          />
+          <ConnectSection />
         </Col>
 
         {/* Right Sidebar */}

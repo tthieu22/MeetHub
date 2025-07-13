@@ -25,8 +25,6 @@ function MessageReactions({
   onAddReaction,
   onRemoveReaction,
 }: MessageReactionsProps) {
-  console.log("Render: MessageReactions", messageId, reactions.length);
-
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const handleReactionClick = useCallback(

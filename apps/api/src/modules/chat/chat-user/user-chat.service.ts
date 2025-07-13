@@ -49,31 +49,29 @@ export class UserChatService {
       const total = await this.userModel.countDocuments(query);
 
       const users = await this.userModel.find(query).select('_id name email avatarURL').sort({ name: 1 }).skip(skip).limit(validLimit).lean().exec();
-      let relatedUserIds: string[] = [];
-      if (currentUserId) {
-        try {
-          relatedUserIds = await this.userRelationshipService.getRelatedUsers(currentUserId);
-        } catch (error) {
-          console.error('Error getting related users:', error);
-        }
-      }
+      // Note: relatedUserIds is no longer used since we check directly with getPrivateRoomId
 
       // Lấy roomId cho từng user đã chat
       const userProfiles = await Promise.all(
         users.map(async (user) => {
           const userId = user._id.toString();
-          const hasChatted = relatedUserIds.includes(userId);
 
+          // Kiểm tra trực tiếp xem có private conversation không
+          let hasChatted = false;
           let roomId: string | null = null;
-          if (hasChatted && currentUserId) {
+
+          if (currentUserId) {
             try {
               roomId = await this.userRelationshipService.getPrivateRoomId(currentUserId, userId);
+              hasChatted = !!roomId; // Nếu có roomId thì đã chat
+
+              // Debug: Log detailed info
             } catch (error) {
-              console.error(`Error getting room ID for user ${userId}:`, error);
+              console.error(`Error checking chat status for user ${userId}:`, error);
             }
           }
 
-          return {
+          const userProfile = {
             userId,
             name: user.name || 'Unknown User',
             email: user.email,
@@ -81,6 +79,8 @@ export class UserChatService {
             chated: hasChatted,
             roomId,
           };
+
+          return userProfile;
         }),
       );
 
