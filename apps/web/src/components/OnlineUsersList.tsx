@@ -3,6 +3,7 @@ import { Avatar, List, Typography, Space, Tag } from "antd";
 import { UserOutlined } from "@ant-design/icons";
 import { useChatStore } from "@web/store/chat.store";
 import { useUserStore } from "@web/store/user.store";
+import { filterOnlineUsersExcludingCurrent } from "@web/utils/online-users.utils";
 
 const { Text } = Typography;
 
@@ -12,9 +13,11 @@ const OnlineUsersList: React.FC = memo(() => {
 
   // Lọc ra những user online (không bao gồm current user)
   const onlineUsersList = useMemo(() => {
-    return allOnline.filter(
-      (user) => user.isOnline && user.userId !== currentUser?._id
+    const filtered = filterOnlineUsersExcludingCurrent(
+      allOnline,
+      currentUser?._id
     );
+    return filtered;
   }, [allOnline, currentUser]);
 
   if (onlineUsersList.length === 0) {

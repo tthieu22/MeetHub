@@ -11,7 +11,6 @@ export const useWebSocket = () => {
 
   const { currentUser, isAuthenticated } = useUserStore();
   const hasConnectedRef = useRef(false);
-  const offlineTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Connect to WebSocket
   const connectWebSocket = useCallback(() => {
@@ -154,39 +153,8 @@ export const useWebSocket = () => {
     disconnectWebSocket,
   ]);
 
-  // Handle page visibility change - delay offline notification
+  // Handle page hide - only disconnect when actually closing the tab
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden" && isConnected && socket) {
-        // Clear any existing timeout
-        if (offlineTimeoutRef.current) {
-          console.log("[useWebSocket] Clearing existing offline timeout");
-          clearTimeout(offlineTimeoutRef.current);
-        }
-        // Schedule offline notification after 30 seconds
-        offlineTimeoutRef.current = setTimeout(() => {
-          socket.emit(WS_EVENTS.USER_OFFLINE);
-        }, 30000); // 30 seconds delay
-      } else if (document.visibilityState === "visible") {
-        // Clear offline timeout when page becomes visible
-        if (offlineTimeoutRef.current) {
-          clearTimeout(offlineTimeoutRef.current);
-          offlineTimeoutRef.current = null;
-        }
-
-        // Reconnect if needed
-        if (
-          isAuthenticated &&
-          currentUser &&
-          !isConnected &&
-          !isConnecting &&
-          !hasConnectedRef.current
-        ) {
-          connectWebSocket();
-        }
-      }
-    };
-
     const handlePageHide = (event: PageTransitionEvent) => {
       // Chỉ emit user_offline khi thực sự đóng tab (không phải chuyển tab)
       if (!event.persisted && isConnected && socket) {
@@ -194,25 +162,12 @@ export const useWebSocket = () => {
       }
     };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("pagehide", handlePageHide);
 
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pagehide", handlePageHide);
-      // Clear timeout on cleanup
-      if (offlineTimeoutRef.current) {
-        clearTimeout(offlineTimeoutRef.current);
-      }
     };
-  }, [
-    isConnected,
-    socket,
-    isAuthenticated,
-    currentUser,
-    isConnecting,
-    connectWebSocket,
-  ]);
+  }, [isConnected, socket]);
 
   return {
     // State

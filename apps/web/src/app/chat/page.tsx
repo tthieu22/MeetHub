@@ -7,6 +7,7 @@ import ChatList from "@web/components/chat/ChatList";
 import ChatMessages from "@web/components/chat/ChatMessages";
 import ChatInput from "@web/components/chat/ChatInput";
 import ChatHeader from "@web/components/chat/ChatHeader";
+import OnlineUsersList from "@web/components/OnlineUsersList";
 import { useSearchParams } from "next/navigation";
 import { WS_EVENTS } from "@web/constants/websocket.events";
 
@@ -195,6 +196,19 @@ export default function ChatPage() {
             unreadCounts={unreadCounts}
           />
         </div>
+      </div>
+
+      {/* Sidebar bên phải - Danh sách người online */}
+      <div
+        style={{
+          width: 250,
+          backgroundColor: "white",
+          borderLeft: "1px solid #e8e8e8",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <OnlineUsersList />
       </div>
 
       {/* Nội dung bên phải - Tin nhắn */}

@@ -6,11 +6,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 import { GatewayModule } from '@api/gateway/gateway.module';
 
-import { MessageModule } from './modules/chat/chat-message/message.module';
-import { RoomModule } from './modules/chat/chat-room/room.module';
-import { NotificationModule } from './modules/chat/chat-notification/notification.module';
-import { UserChatModule } from './modules/chat/chat-user/user-chat.module';
-import { ReactionModule } from './modules/chat/chat-reactions/reaction.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -35,11 +31,7 @@ import { PasswordResetModule } from './modules/password-reset/password-reset.mod
       }),
     }),
     UsersModule,
-    MessageModule,
-    RoomModule,
-    NotificationModule,
-    UserChatModule,
-    ReactionModule,
+    ChatModule,
     AuthModule,
     GatewayModule,
     RedisModule,

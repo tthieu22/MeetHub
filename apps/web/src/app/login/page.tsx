@@ -6,17 +6,12 @@ import { UserOutlined, LockOutlined, LoginOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
 import CustomButton from "@web/components/CustomButton";
+import authApiService, {
+  LoginForm,
+  LoginResponse,
+} from "@web/services/api/auth.api";
 
 const { Title, Text } = Typography;
-
-interface LoginForm {
-  email: string;
-  password: string;
-}
-
-interface LoginResponse {
-  access_token: string;
-}
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -27,20 +22,7 @@ export default function LoginPage() {
   const onFinish = async (values: LoginForm) => {
     setLoading(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const response = await fetch(`${API_BASE_URL}/api/auth/signIn`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        throw new Error("Đăng nhập thất bại");
-      }
-
-      const data: LoginResponse = await response.json();
+      const data: LoginResponse = await authApiService.login(values);
 
       // Lưu token vào localStorage
       localStorage.setItem("access_token", data.access_token);

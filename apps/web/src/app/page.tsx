@@ -11,13 +11,13 @@ import {
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
 import CustomButton from "@web/components/CustomButton";
-import WelcomeSection from "@web/components/dashboard/WelcomeSection";
-import TodaySchedule from "@web/components/dashboard/TodaySchedule";
-import NotificationsSection from "@web/components/dashboard/NotificationsSection";
-import RecentChats from "@web/components/dashboard/RecentChats";
-import ConnectSection from "@web/components/dashboard/ConnectSection";
-import RightSidebar from "@web/components/dashboard/RightSidebar";
-import PageLoading from "@web/components/dashboard/PageLoading";
+import WelcomeSection from "@web/components/home/WelcomeSection";
+import TodaySchedule from "@web/components/home/TodaySchedule";
+import NotificationsSection from "@web/components/home/NotificationsSection";
+import RecentChats from "@web/components/home/RecentChats";
+import ConnectSection from "@web/components/home/ConnectSection";
+import RightSidebar from "@web/components/home/RightSidebar";
+import PageLoading from "@web/components/home/PageLoading";
 
 const { Title, Paragraph } = Typography;
 
