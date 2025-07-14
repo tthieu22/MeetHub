@@ -5,10 +5,15 @@ import { MarkRoomReadDto } from '@api/modules/chat/chat-message/dto/mark-room-re
 import { GetUnreadCountDto } from '@api/modules/chat/chat-message/dto/get-unread-count.dto';
 import { CreateMessageDto } from '@api/modules/chat/chat-message/dto/create-message.dto';
 import { WsResponse } from '@api/common/interfaces/ws-response.interface';
-
+import { UploadService } from '@api/modules/upload/upload.service';
+import { Express } from 'express';
+import { Readable } from 'stream';
 @Injectable()
 export class ChatEventsHandler {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly uploadService: UploadService,
+  ) {}
 
   async handleGetRooms(userId: string): Promise<WsResponse> {
     const rooms: any[] = await this.chatService.getRoomSidebarInfo(userId);
@@ -47,6 +52,26 @@ export class ChatEventsHandler {
     const isMember = await this.chatService.validateRoomMembership(userId, dto.roomId);
     if (!isMember) {
       return { success: false, message: 'Bạn không phải member của room này', code: 'NOT_MEMBER' };
+    }
+    if (dto.fileData) {
+      const buffer = Buffer.from(dto.fileData, 'base64');
+      const fakeFile: Express.Multer.File = {
+        fieldname: 'file',
+        originalname: dto.fileName || 'upload.bin',
+        encoding: '7bit',
+        mimetype: dto.fileType || 'application/octet-stream',
+        size: buffer.length,
+        buffer,
+        destination: '',
+        filename: '',
+        path: '',
+        stream: Readable.from([]),
+      };
+      const uploadResult = await this.uploadService.uploadFileToChatFolder(fakeFile);
+      if (uploadResult.success && uploadResult.data) {
+        dto.fileUrl = uploadResult.data.savedFile.url;
+      }
+      delete dto.fileData;
     }
     const message = await this.chatService.createMessage(dto, dto.roomId, userId);
     return { success: true, data: message };

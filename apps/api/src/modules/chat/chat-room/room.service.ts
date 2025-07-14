@@ -359,7 +359,7 @@ export class RoomService {
       messageId: getIdString(msg._id),
       conversationId: getIdString(msg.conversationId),
       senderId: getIdString(msg.senderId),
-      text: msg.text,
+      text: msg.text || '',
       createdAt: (msg as { createdAt?: Date | string }).createdAt ? new Date((msg as { createdAt?: Date | string }).createdAt!) : new Date(0),
     };
   }

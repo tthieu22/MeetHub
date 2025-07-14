@@ -10,9 +10,10 @@ import { UsersModule } from '@api/modules/users/users.module';
 import { WsAuthGuard } from '@api/common/guards/ws-auth.guard';
 import { WsAuthService } from '@api/common/services/ws-auth.service';
 import { ChatEventsHandler } from './chat-events.handler';
+import { UploadImageModule } from '@api/modules/upload/upload.module';
 
 @Module({
-  imports: [MessageModule, UserChatModule, RoomModule, NotificationModule, ReactionModule, UsersModule],
+  imports: [MessageModule, UserChatModule, RoomModule, NotificationModule, ReactionModule, UsersModule, UploadImageModule],
   providers: [ChatGateway, ChatService, WsAuthGuard, WsAuthService, ChatEventsHandler],
   exports: [ChatGateway],
 })
