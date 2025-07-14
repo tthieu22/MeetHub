@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { DeleteOutlined, SearchOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
+import { DeleteOutlined, SearchOutlined, DownOutlined, UpOutlined, PlusOutlined, HomeOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@web/store/user.store';
-import { message, Card, Typography, Button, Row, Col, Input, Space, Tag, Select, DatePicker, InputNumber, Checkbox, Spin } from 'antd';
+import { message, Card, Typography, Button, Row, Col, Input, Space, Tag, Select, DatePicker, InputNumber, Checkbox, Spin, Modal } from 'antd';
 import { StarFilled } from '@ant-design/icons';
 import moment from 'moment';
+import AddRoom from './AddRoom';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -85,6 +86,7 @@ const RoomList = () => {
     features: [] as string[],
   });
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const router = useRouter();
   const { token } = useUserStore();
   const [pagination, setPagination] = useState({
@@ -287,6 +289,18 @@ const RoomList = () => {
     setPagination((prev) => ({ ...prev, page: newPage }));
   };
 
+  const handleBackToHome = () => {
+    router.push('http://localhost:3000');
+  };
+
+  const showAddModal = () => {
+    setIsAddModalVisible(true);
+  };
+
+  const handleModalClose = () => {
+    setIsAddModalVisible(false);
+  };
+
   useEffect(() => {
     fetchUserRole();
   }, []);
@@ -300,10 +314,10 @@ const RoomList = () => {
   return (
     <div style={{ 
       padding: '24px', 
-      maxWidth: '1200px', 
-      margin: '0 auto', 
+      width: '100vw', 
+      height: '100vh', 
       background: 'linear-gradient(135deg, #e6f7ff 0%, #f0f2f5 100%)',
-      minHeight: '100vh',
+      overflow: 'auto',
       position: 'relative',
     }}>
       {loading ? (
@@ -316,13 +330,15 @@ const RoomList = () => {
               background: 'linear-gradient(135deg, #e6f7ff 0%, #f0f2f5 100%)',
               textAlign: 'center',
               padding: '40px',
+              width: '100%',
+              height: '100%',
             },
           }}
         >
           <Spin size="large" style={{ marginBottom: '16px' }} />
           <Text 
             style={{ 
-              fontSize: '18px', 
+              fontSize: '24px', 
               color: '#1d39c4', 
               fontWeight: 500,
               animation: 'pulse 1.5s infinite',
@@ -343,17 +359,24 @@ const RoomList = () => {
           body: { 
             borderRadius: '12px', 
             boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
-            border: '2px solid #ff4d4f' 
+            border: '2px solid #ff4d4f',
+            textAlign: 'center',
+            width: '100%',
+            height: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           },
         }}>
-          <Text type="danger" style={{ fontSize: '16px', fontWeight: 500 }}>{error}</Text>
+          <Text type="danger" style={{ fontSize: '24px', fontWeight: 500 }}>{error}</Text>
         </Card>
       ) : (
         <>
           <Title level={2} style={{ 
             color: '#1d39c4', 
             textShadow: '1px 1px 2px rgba(0,0,0,0.1)', 
-            marginBottom: '24px' 
+            marginBottom: '24px',
+            fontSize: '32px',
           }}>
             {isAdmin ? 'Quản Lý Phòng Họp' : 'Danh Sách Phòng Khả Dụng'}
           </Title>
@@ -363,62 +386,109 @@ const RoomList = () => {
               boxShadow: '0 6px 16px rgba(0,0,0,0.15)', 
               marginBottom: '24px',
               background: 'linear-gradient(180deg, #ffffff, #f0faff)',
+              width: '100%',
             },
           }}>
-            <Space style={{ marginBottom: showAdvancedSearch ? '16px' : '0' }}>
+            <Space style={{ marginBottom: showAdvancedSearch ? '16px' : '0', justifyContent: 'space-between', width: '100%' }}>
               <Input
                 placeholder="Tìm kiếm theo tên phòng"
                 value={searchParams.keyword}
                 onChange={(e) => setSearchParams({ ...searchParams, keyword: e.target.value })}
                 onPressEnter={handleSearch}
                 style={{
-                  width: showAdvancedSearch ? '300px' : '400px',
+                  width: showAdvancedSearch ? '40%' : '50%',
                   borderRadius: '8px',
                   border: '1px solid #1890ff',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  padding: '8px 12px',
-                  transition: 'all 0.3s ease',
+                  padding: '12px 16px',
+                  fontSize: '16px',
+                  marginRight: '16px',
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.border = '1px solid #40c4ff'}
                 onMouseLeave={(e) => e.currentTarget.style.border = '1px solid #1890ff'}
               />
-              <Button
-                type="primary"
-                icon={<SearchOutlined />}
-                onClick={handleSearch}
-                style={{
-                  borderRadius: '8px',
-                  background: 'linear-gradient(90deg, #1890ff, #40c4ff)',
-                  border: 'none',
-                  padding: '8px 16px',
-                  transition: 'all 0.3s ease',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                Tìm kiếm
-              </Button>
-              <Button
-                onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
-                style={{
-                  borderRadius: '8px',
-                  background: 'linear-gradient(90deg, #ff4d4f, #ff7875)',
-                  border: 'none',
-                  color: '#fff',
-                  padding: '8px 16px',
-                  transition: 'all 0.3s ease',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                {showAdvancedSearch ? <><UpOutlined /> Ẩn</> : <><DownOutlined /> Chi tiết</>}
-              </Button>
+              <Space>
+                <Button
+                  type="primary"
+                  icon={<SearchOutlined />}
+                  onClick={handleSearch}
+                  style={{
+                    borderRadius: '8px',
+                    background: 'linear-gradient(90deg, #1890ff, #40c4ff)',
+                    border: 'none',
+                    padding: '12px 24px',
+                    fontSize: '16px',
+                    transition: 'all 0.3s ease',
+                    marginRight: '16px',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  Tìm kiếm
+                </Button>
+                <Button
+                  onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+                  style={{
+                    borderRadius: '8px',
+                    background: 'linear-gradient(90deg, #ff4d4f, #ff7875)',
+                    border: 'none',
+                    color: '#fff',
+                    padding: '12px 24px',
+                    fontSize: '16px',
+                    transition: 'all 0.3s ease',
+                    marginRight: '16px',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  {showAdvancedSearch ? <><UpOutlined /> Ẩn</> : <><DownOutlined /> Chi tiết</>}
+                </Button>
+                <Button
+                  type="default"
+                  icon={<HomeOutlined />}
+                  onClick={handleBackToHome}
+                  style={{
+                    borderRadius: '8px',
+                    background: 'linear-gradient(90deg, #1890ff, #40c4ff)',
+                    border: 'none',
+                    color: '#fff',
+                    padding: '12px 24px',
+                    fontSize: '16px',
+                    transition: 'all 0.3s ease',
+                    marginRight: '16px',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  Trang chủ
+                </Button>
+                {isAdmin && (
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={showAddModal}
+                    style={{
+                      borderRadius: '8px',
+                      background: 'linear-gradient(90deg, #52c41a, #73d13d)',
+                      border: 'none',
+                      color: '#fff',
+                      padding: '12px 24px',
+                      fontSize: '16px',
+                      transition: 'all 0.3s ease',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  >
+                    Tạo phòng
+                  </Button>
+                )}
+              </Space>
             </Space>
             {showAdvancedSearch && (
               <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: '16px' }}>
                 <Row gutter={[16, 16]}>
-                  <Col xs={24} sm={12}>
-                    <Text strong style={{ color: '#1d39c4' }}>Vị trí:</Text>
+                  <Col xs={24} sm={12} md={8}>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Vị trí:</Text>
                     <Input
                       placeholder="Nhập vị trí (ví dụ: phòng 1901 - tầng 19)"
                       value={searchParams.location}
@@ -427,20 +497,21 @@ const RoomList = () => {
                         borderRadius: '8px',
                         border: '1px solid #1890ff',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                        padding: '8px 12px',
-                        transition: 'all 0.3s ease',
+                        padding: '12px 16px',
+                        fontSize: '16px',
+                        width: '100%',
                       }}
                       onMouseEnter={(e) => e.currentTarget.style.border = '1px solid #40c4ff'}
                       onMouseLeave={(e) => e.currentTarget.style.border = '1px solid #1890ff'}
                     />
                   </Col>
-                  <Col xs={24} sm={12}>
-                    <Text strong style={{ color: '#1d39c4' }}>Trạng thái:</Text>
+                  <Col xs={24} sm={12} md={8}>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Trạng thái:</Text>
                     <Select
                       placeholder="Chọn trạng thái"
                       value={searchParams.status || undefined}
                       onChange={(value) => setSearchParams({ ...searchParams, status: value })}
-                      style={{ width: '100%', borderRadius: '8px' }}
+                      style={{ width: '100%', borderRadius: '8px', fontSize: '16px' }}
                       allowClear
                     >
                       <Option value="available">Sẵn sàng</Option>
@@ -449,82 +520,85 @@ const RoomList = () => {
                       <Option value="deleted">Đã xóa</Option>
                     </Select>
                   </Col>
-                  <Col xs={24} sm={12}>
-                    <Text strong style={{ color: '#1d39c4' }}>Tính năng:</Text>
+                  <Col xs={24} sm={12} md={8}>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Tính năng:</Text>
                     <Select
                       mode="tags"
                       placeholder="Nhập tính năng (ví dụ: Wi-Fi, Âm thanh)"
                       value={searchParams.features}
                       onChange={(value) => setSearchParams({ ...searchParams, features: value })}
-                      style={{ width: '100%', borderRadius: '8px' }}
+                      style={{ width: '100%', borderRadius: '8px', fontSize: '16px' }}
                     />
                   </Col>
-                  <Col xs={24} sm={12}>
-                    <Text strong style={{ color: '#1d39c4' }}>Từ ngày:</Text>
+                  <Col xs={24} sm={12} md={8}>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Từ ngày:</Text>
                     <DatePicker
                       value={searchParams.fromDate}
                       onChange={(date) => setSearchParams({ ...searchParams, fromDate: date })}
                       format="YYYY-MM-DD"
-                      style={{ width: '100%', borderRadius: '8px' }}
+                      style={{ width: '100%', borderRadius: '8px', fontSize: '16px' }}
                     />
                   </Col>
-                  <Col xs={24} sm={12}>
-                    <Text strong style={{ color: '#1d39c4' }}>Đến ngày:</Text>
+                  <Col xs={24} sm={12} md={8}>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Đến ngày:</Text>
                     <DatePicker
                       value={searchParams.toDate}
                       onChange={(date) => setSearchParams({ ...searchParams, toDate: date })}
                       format="YYYY-MM-DD"
-                      style={{ width: '100%', borderRadius: '8px' }}
+                      style={{ width: '100%', borderRadius: '8px', fontSize: '16px' }}
                     />
                   </Col>
-                  <Col xs={24} sm={12}>
-                    <Text strong style={{ color: '#1d39c4' }}>Sức chứa tối thiểu:</Text>
+                  <Col xs={24} sm={12} md={8}>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Sức chứa tối thiểu:</Text>
                     <InputNumber
                       min={1}
                       value={searchParams.minCapacity}
                       onChange={(value) => setSearchParams({ ...searchParams, minCapacity: value })}
-                      style={{ width: '100%', borderRadius: '8px' }}
+                      style={{ width: '100%', borderRadius: '8px', fontSize: '16px' }}
                     />
                   </Col>
-                  <Col xs={24} sm={12}>
-                    <Text strong style={{ color: '#1d39c4' }}>Sức chứa tối đa:</Text>
+                  <Col xs={24} sm={12} md={8}>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Sức chứa tối đa:</Text>
                     <InputNumber
                       min={1}
                       value={searchParams.maxCapacity}
                       onChange={(value) => setSearchParams({ ...searchParams, maxCapacity: value })}
-                      style={{ width: '100%', borderRadius: '8px' }}
+                      style={{ width: '100%', borderRadius: '8px', fontSize: '16px' }}
                     />
                   </Col>
-                  <Col xs={24} sm={12}>
+                  <Col xs={24} sm={12} md={8}>
                     <Checkbox
                       checked={searchParams.hasProjector}
                       onChange={(e) => setSearchParams({ ...searchParams, hasProjector: e.target.checked })}
+                      style={{ fontSize: '16px' }}
                     >
-                      <Text style={{ color: '#1d39c4' }}>Có máy chiếu</Text>
+                      <Text style={{ color: '#1d39c4', fontSize: '16px' }}>Có máy chiếu</Text>
                     </Checkbox>
                   </Col>
-                  <Col xs={24} sm={12}>
+                  <Col xs={24} sm={12} md={8}>
                     <Checkbox
                       checked={searchParams.allowFood}
                       onChange={(e) => setSearchParams({ ...searchParams, allowFood: e.target.checked })}
+                      style={{ fontSize: '16px' }}
                     >
-                      <Text style={{ color: '#1d39c4' }}>Cho phép đồ ăn</Text>
+                      <Text style={{ color: '#1d39c4', fontSize: '16px' }}>Cho phép đồ ăn</Text>
                     </Checkbox>
                   </Col>
                 </Row>
               </Space>
             )}
           </Card>
-          <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+          <Row gutter={[16, 16]} style={{ marginBottom: '24px', width: '100%' }}>
             {rooms.length > 0 ? (
               rooms.map((room) => (
-                <Col xs={24} sm={12} md={8} lg={6} key={room._id}>
+                <Col xs={24} sm={12} md={8} lg={6} key={room._id} style={{ padding: '16px' }}>
                   <Card
                     hoverable
                     onClick={() => handleRoomClick(room._id)}
                     styles={{ 
                       body: { 
                         padding: '16px',
+                        height: '100%',
                       },
                     }}
                     style={{
@@ -535,6 +609,8 @@ const RoomList = () => {
                       transition: 'all 0.3s ease',
                       cursor: 'pointer',
                       position: 'relative',
+                      height: '100%',
+                      minHeight: '300px',
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
                     onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -544,9 +620,10 @@ const RoomList = () => {
                         background: fieldStyles[0].bg,
                         border: `1px solid ${fieldStyles[0].border}`,
                         borderRadius: '8px',
-                        padding: '8px',
-                        marginBottom: '12px',
+                        padding: '12px',
+                        marginBottom: '16px',
                         transition: 'all 0.3s ease',
+                        fontSize: '18px',
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background = fieldStyles[0].hoverBg;
@@ -557,7 +634,7 @@ const RoomList = () => {
                         e.currentTarget.style.color = '#1d39c4';
                       }}
                     >
-                      <Title level={4} style={{ margin: 0, color: '#1d39c4' }}>
+                      <Title level={4} style={{ margin: 0, color: '#1d39c4', fontSize: '20px' }}>
                         {room.name}
                       </Title>
                     </div>
@@ -566,9 +643,10 @@ const RoomList = () => {
                         background: fieldStyles[1].bg,
                         border: `1px solid ${fieldStyles[1].border}`,
                         borderRadius: '8px',
-                        padding: '8px',
-                        marginBottom: '12px',
+                        padding: '12px',
+                        marginBottom: '16px',
                         transition: 'all 0.3s ease',
+                        fontSize: '16px',
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background = fieldStyles[1].hoverBg;
@@ -579,17 +657,18 @@ const RoomList = () => {
                         e.currentTarget.style.color = '#595959';
                       }}
                     >
-                      <Text strong style={{ color: '#1d39c4', fontSize: '14px' }}>Sức chứa: </Text>
-                      <Text style={{ fontSize: '14px', color: '#595959' }}>{room.capacity} người</Text>
+                      <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Sức chứa: </Text>
+                      <Text style={{ fontSize: '16px', color: '#595959' }}>{room.capacity} người</Text>
                     </div>
                     <div
                       style={{
                         background: fieldStyles[2].bg,
                         border: `1px solid ${fieldStyles[2].border}`,
                         borderRadius: '8px',
-                        padding: '8px',
-                        marginBottom: '12px',
+                        padding: '12px',
+                        marginBottom: '16px',
                         transition: 'all 0.3s ease',
+                        fontSize: '16px',
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background = fieldStyles[2].hoverBg;
@@ -600,8 +679,8 @@ const RoomList = () => {
                         e.currentTarget.style.color = '#595959';
                       }}
                     >
-                      <Text strong style={{ color: '#1d39c4', fontSize: '14px' }}>Vị trí: </Text>
-                      <Text style={{ fontSize: '14px', color: '#595959' }}>{room.location}</Text>
+                      <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Vị trí: </Text>
+                      <Text style={{ fontSize: '16px', color: '#595959' }}>{room.location}</Text>
                     </div>
                     <Tag
                       color={
@@ -611,15 +690,25 @@ const RoomList = () => {
                         room.status === 'deleted' ? '#ff4d4f' : '#722ed1'
                       }
                       style={{
-                        fontSize: '14px',
-                        padding: '6px 12px',
+                        fontSize: '16px',
+                        padding: '8px 16px',
                         borderRadius: '12px',
                         transition: 'all 0.3s ease',
                       }}
-                      onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.1)';
+                        if (room.status === 'available') {
+                          e.currentTarget.title = 'Sẵn sàng: Phòng này bạn có thể dùng được';
+                        } else if (room.status === 'deleted') {
+                          e.currentTarget.title = 'Đã xóa: Phòng này không còn khả dụng';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.title = '';
+                      }}
                     >
-                      <StarFilled style={{ marginRight: '4px' }} />
+                      <StarFilled style={{ marginRight: '6px' }} />
                       {room.status === 'available' ? 'Sẵn sàng' :
                        room.status === 'occupied' ? 'Đang sử dụng' :
                        room.status === 'maintenance' ? 'Bảo trì' :
@@ -635,13 +724,15 @@ const RoomList = () => {
                           handleSoftDelete(room._id);
                         }}
                         style={{
-                          marginTop: '12px',
+                          marginTop: '16px',
                           borderRadius: '8px',
                           background: 'linear-gradient(90deg, #ff4d4f, #ff7875)',
                           border: 'none',
                           transition: 'all 0.3s ease',
-                          width: '100px',
-                          height: '40px',
+                          width: '120px',
+                          height: '48px',
+                          fontSize: '16px',
+                          marginRight: '16px',
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
@@ -660,9 +751,14 @@ const RoomList = () => {
                     boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
                     border: '2px solid #ff4d4f',
                     textAlign: 'center',
+                    width: '100%',
+                    height: '80vh',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   },
                 }}>
-                  <Text style={{ fontSize: '16px', color: '#8c8c8c' }}>Không tìm thấy phòng nào</Text>
+                  <Text style={{ fontSize: '24px', color: '#8c8c8c' }}>Không tìm thấy phòng nào</Text>
                 </Card>
               </Col>
             )}
@@ -678,13 +774,16 @@ const RoomList = () => {
                   border: 'none',
                   color: pagination.page > 1 ? '#fff' : '#8c8c8c',
                   transition: 'all 0.3s ease',
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  marginRight: '16px',
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
               >
                 Trước
               </Button>
-              <Text style={{ fontSize: '14px', color: '#1d39c4' }}>
+              <Text style={{ fontSize: '18px', color: '#1d39c4' }}>
                 Trang {pagination.page} / {pagination.totalPages}
               </Text>
               <Button
@@ -696,6 +795,9 @@ const RoomList = () => {
                   border: 'none',
                   color: pagination.page < pagination.totalPages ? '#fff' : '#8c8c8c',
                   transition: 'all 0.3s ease',
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  marginLeft: '16px',
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
@@ -706,6 +808,16 @@ const RoomList = () => {
           )}
         </>
       )}
+      <Modal
+        title="Thêm phòng mới"
+        open={isAddModalVisible}
+        onCancel={handleModalClose}
+        footer={null}
+        width={800}
+        style={{ top: 20 }}
+      >
+        <AddRoom onClose={handleModalClose} fetchRooms={fetchRooms} />
+      </Modal>
     </div>
   );
 };
