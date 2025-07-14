@@ -4,6 +4,16 @@ import { useUserStore } from "@web/store/user.store";
 import { WsResponse } from "@web/types/websocket";
 import { Message, ChatRoom, UsersOnline } from "@web/types/chat";
 import { WS_RESPONSE_EVENTS } from "@web/constants/websocket.events";
+import { useWebSocketStore } from "@web/store/websocket.store";
+
+// Định nghĩa kiểu dữ liệu cho các event Chat with admin
+export interface SupportRoomEvent {
+  roomId: string;
+  admin?: {
+    name?: string;
+    _id?: string;
+  };
+}
 
 // WebSocket event handlers - xử lý các events từ backend
 export class WebSocketEventHandlers {
@@ -239,8 +249,77 @@ export class WebSocketEventHandlers {
     }
   }
 
+  // Thông báo khi phòng đang pending (chưa có admin)
+  static handleSupportRoomPending(onSupportRoomPending?: () => void) {
+    console.debug("[FE] handleSupportRoomPending");
+    if (onSupportRoomPending) onSupportRoomPending();
+  }
+
+  // Khi đã được gán admin
+  static handleSupportRoomAssigned(
+    data: SupportRoomEvent,
+    onSupportRoomAssigned?: (data: SupportRoomEvent) => void
+  ) {
+    console.debug("[FE] handleSupportRoomAssigned", data);
+    if (onSupportRoomAssigned) onSupportRoomAssigned(data);
+  }
+
+  // Khi admin join vào phòng pending
+  static handleSupportAdminJoined(
+    data: SupportRoomEvent,
+    onSupportAdminJoined?: (data: SupportRoomEvent) => void
+  ) {
+    console.debug("[FE] handleSupportAdminJoined", data);
+    if (onSupportAdminJoined) onSupportAdminJoined(data);
+    // Sau khi admin join, reload lại danh sách phòng và load messages cho phòng support
+    try {
+      const { socket } = useWebSocketStore.getState();
+      if (socket && socket.connected) {
+        socket.emit("get_rooms");
+        if (data && data.roomId) {
+          socket.emit("get_messages", { roomId: data.roomId });
+        }
+      }
+    } catch (err) {
+      console.error(
+        "[FE] handleSupportAdminJoined: reload rooms/messages error",
+        err
+      );
+    }
+  }
+
+  // Khi admin nhận được ticket hỗ trợ
+  static handleSupportTicketAssigned(
+    data: { roomId: string; userId: string },
+    onSupportTicketAssigned?: (data: { roomId: string; userId: string }) => void
+  ) {
+    console.debug("[FE] handleSupportTicketAssigned", data);
+    if (onSupportTicketAssigned) onSupportTicketAssigned(data);
+  }
+
+  // Hàm emit yêu cầu chat với admin từ FE
+  static emitUserRequestSupport(socket: Socket) {
+    if (socket && socket.connected) {
+      console.debug("[WebSocketEventHandlers] Emit user_request_support");
+      socket.emit("user_request_support");
+    } else {
+      console.error("[WebSocketEventHandlers] Socket not connected");
+    }
+  }
+
   // Setup tất cả event handlers cho socket
-  static setupEventHandlers(socket: Socket) {
+  static setupEventHandlers(
+    socket: Socket,
+    handlers?: {
+      onSupportRoomPending?: () => void;
+      onSupportRoomAssigned?: (data: SupportRoomEvent) => void;
+      onSupportAdminJoined?: (data: SupportRoomEvent) => void;
+      onSupportTicketAssigned?: (data: {
+        roomId: string;
+        userId: string;
+      }) => void;
+    }
+  ) {
     // Response events - match với backend WebSocketEventName
     socket.on(
       WS_RESPONSE_EVENTS.CONNECTION_SUCCESS,
@@ -317,6 +396,33 @@ export class WebSocketEventHandlers {
       "mark_room_read_success",
       (data: WsResponse<{ roomId: string }>) => {
         this.handleRoomMarkedRead(data);
+      }
+    );
+
+    socket.on("support_room_pending", () => {
+      WebSocketEventHandlers.handleSupportRoomPending(
+        handlers?.onSupportRoomPending
+      );
+    });
+    socket.on("support_room_assigned", (data: SupportRoomEvent) => {
+      WebSocketEventHandlers.handleSupportRoomAssigned(
+        data,
+        handlers?.onSupportRoomAssigned
+      );
+    });
+    socket.on("support_admin_joined", (data: SupportRoomEvent) => {
+      WebSocketEventHandlers.handleSupportAdminJoined(
+        data,
+        handlers?.onSupportAdminJoined
+      );
+    });
+    socket.on(
+      "support_ticket_assigned",
+      (data: { roomId: string; userId: string }) => {
+        WebSocketEventHandlers.handleSupportTicketAssigned(
+          data,
+          handlers?.onSupportTicketAssigned
+        );
       }
     );
 

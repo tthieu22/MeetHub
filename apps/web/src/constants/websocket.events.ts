@@ -9,6 +9,7 @@ export const WS_EVENTS = {
   GET_ALL_ONLINE_USERS: "get_all_online_users",
   JOIN_ROOM: "join_room",
   USER_OFFLINE: "user_offline",
+  CLOSE_SUPPORT_ROOM: "close_support_room",
 } as const;
 
 // Server to Client events - match với backend WebSocketEventName
@@ -28,6 +29,8 @@ export const WS_RESPONSE_EVENTS = {
   USER_ONLINE: "user_online",
   USER_OFFLINE: "user_offline",
   ALL_ONLINE_USERS: "all_online_users",
+  SUPPORT_ROOM_CLOSED: "support_room_closed",
+  SUPPORT_ADMIN_CHANGED: "support_admin_changed",
 } as const;
 
 // WebSocket configuration

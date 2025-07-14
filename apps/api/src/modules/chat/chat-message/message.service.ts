@@ -127,6 +127,21 @@ export class MessageService {
       throw new Error(errorMsg);
     }
     const populatedMessage = await this.messageModel.findById(savedMessage._id).populate('senderId', 'name avatar email').exec();
+    // Nếu sender là admin và là tin nhắn đầu tiên của admin trong phòng, xóa timeout
+    const isAdmin = await this.conversationMemberModel.findOne({
+      userId: new Types.ObjectId(userId),
+      conversationId: new Types.ObjectId(roomId),
+      role: 'admin',
+    });
+    if (isAdmin) {
+      const adminMsgCount = await this.messageModel.countDocuments({
+        conversationId: new Types.ObjectId(roomId),
+        senderId: new Types.ObjectId(userId),
+      });
+      if (adminMsgCount === 1) {
+        await this.redisClient.del(`support:room:${String(roomId)}:waiting_admin`);
+      }
+    }
     if (!populatedMessage) {
       throw new Error('Message not found');
     }

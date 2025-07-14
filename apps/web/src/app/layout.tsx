@@ -8,6 +8,7 @@ import { WebSocketProvider } from "./WebSocketProvider";
 import { UserProvider } from "./UserProvider";
 import AuthGuard from "@web/components/AuthGuard";
 import React from "react";
+import ChatWithAdminButton from "@web/components/ChatWithAdminButton";
 
 function RootLayout({
   children,
@@ -37,6 +38,7 @@ function RootLayout({
                 <AuthGuard>{children}</AuthGuard>
               </Content>
             </Layout>
+            <ChatWithAdminButton />
           </App>
         </ConfigProvider>
       </body>

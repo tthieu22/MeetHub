@@ -17,8 +17,6 @@ interface WelcomeSectionProps {
   onBookRoom: () => void;
   onStartChat: () => void;
   onFindPeople: () => void;
-  todayMeetingsCount: number;
-  notificationsCount: number;
 }
 
 export default function WelcomeSection({
@@ -26,8 +24,6 @@ export default function WelcomeSection({
   onBookRoom,
   onStartChat,
   onFindPeople,
-  todayMeetingsCount,
-  notificationsCount,
 }: WelcomeSectionProps) {
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -56,8 +52,7 @@ export default function WelcomeSection({
               margin: "8px 0 0 0",
             }}
           >
-            Welcome back! You have {todayMeetingsCount} meetings today and{" "}
-            {notificationsCount} notifications
+            Welcome back!
           </Paragraph>
         </div>
         <Space>
