@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { DeleteOutlined, SearchOutlined, DownOutlined, UpOutlined, PlusOutlined, HomeOutlined } from '@ant-design/icons';
+import { DeleteOutlined, SearchOutlined, DownOutlined, UpOutlined, PlusOutlined, HomeOutlined, EditOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@web/store/user.store';
@@ -9,6 +9,7 @@ import { message, Card, Typography, Button, Row, Col, Input, Space, Tag, Select,
 import { StarFilled } from '@ant-design/icons';
 import moment from 'moment';
 import AddRoom from './AddRoom';
+import UpdateRoom from './UpdateRoom'; // Giả định component UpdateRoom đã được tạo
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -87,6 +88,8 @@ const RoomList = () => {
   });
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [isUpdateModalVisible, setIsUpdateModalVisible] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const router = useRouter();
   const { token } = useUserStore();
   const [pagination, setPagination] = useState({
@@ -246,7 +249,6 @@ const RoomList = () => {
     if (!authToken) {
       setError('Vui lòng đăng nhập để xóa phòng.');
       message.error('Vui lòng đăng nhập để tiếp tục.');
-
       router.push('/login');
       return;
     }
@@ -300,6 +302,16 @@ const RoomList = () => {
 
   const handleModalClose = () => {
     setIsAddModalVisible(false);
+  };
+
+  const handleUpdateClick = (room: Room) => {
+    setSelectedRoom(room);
+    setIsUpdateModalVisible(true);
+  };
+
+  const handleUpdateModalClose = () => {
+    setIsUpdateModalVisible(false);
+    setSelectedRoom(null);
   };
 
   useEffect(() => {
@@ -716,30 +728,51 @@ const RoomList = () => {
                        room.status === 'deleted' ? 'Đã xóa' : room.status}
                     </Tag>
                     {isAdmin && (
-                      <Button
-                        type="primary"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSoftDelete(room._id);
-                        }}
-                        style={{
-                          marginTop: '16px',
-                          borderRadius: '8px',
-                          background: 'linear-gradient(90deg, #ff4d4f, #ff7875)',
-                          border: 'none',
-                          transition: 'all 0.3s ease',
-                          width: '120px',
-                          height: '48px',
-                          fontSize: '16px',
-                          marginRight: '16px',
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                      >
-                        Xóa
-                      </Button>
+                      <Space style={{ marginTop: '16px' }}>
+                        <Button
+                          type="primary"
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSoftDelete(room._id);
+                          }}
+                          style={{
+                            borderRadius: '8px',
+                            background: 'linear-gradient(90deg, #ff4d4f, #ff7875)',
+                            border: 'none',
+                            transition: 'all 0.3s ease',
+                            width: '120px',
+                            height: '48px',
+                            fontSize: '16px',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        >
+                          Xóa
+                        </Button>
+                        <Button
+                          type="default"
+                          icon={<EditOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateClick(room);
+                          }}
+                          style={{
+                            borderRadius: '8px',
+                            background: 'linear-gradient(90deg, #1890ff, #40c4ff)',
+                            border: 'none',
+                            color: '#fff',
+                            padding: '12px 24px',
+                            fontSize: '16px',
+                            transition: 'all 0.3s ease',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        >
+                          Sửa
+                        </Button>
+                      </Space>
                     )}
                   </Card>
                 </Col>
@@ -818,6 +851,16 @@ const RoomList = () => {
         style={{ top: 20, maxWidth: '1200px' }}
       >
         <AddRoom onClose={handleModalClose} fetchRooms={fetchRooms} />
+      </Modal>
+      <Modal
+        title="Sửa thông tin phòng"
+        open={isUpdateModalVisible}
+        onCancel={handleUpdateModalClose}
+        footer={null}
+        width="90vw"
+        style={{ top: 20, maxWidth: '1200px' }}
+      >
+        <UpdateRoom room={selectedRoom} onClose={handleUpdateModalClose} fetchRooms={fetchRooms} />
       </Modal>
     </div>
   );
