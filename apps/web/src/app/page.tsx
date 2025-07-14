@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
 import CustomButton from "@web/components/CustomButton";
+import RoomList from "@web/components/RoomList";
 
 const { Title, Paragraph } = Typography;
 
@@ -95,7 +96,9 @@ export default function Home() {
         </Col>
       </Row>
 
-      <div style={{ textAlign: "center" }}>
+      <RoomList />
+
+      <div style={{ textAlign: "center", marginTop: "60px" }}>
         {currentUser ? (
           <CustomButton
             type="primary"
