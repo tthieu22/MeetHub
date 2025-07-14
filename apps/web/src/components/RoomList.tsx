@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { DeleteOutlined, SearchOutlined, DownOutlined, UpOutlined, PlusOutlined, HomeOutlined, EditOutlined } from '@ant-design/icons';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { DeleteOutlined, SearchOutlined, DownOutlined, UpOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@web/store/user.store';
 import { message, Card, Typography, Button, Input, Space, Tag, Select, DatePicker, InputNumber, Checkbox, Spin, Modal, Table, Row, Col } from 'antd';
 import moment from 'moment';
-
+import _ from 'lodash'; // Thêm lodash để sử dụng debounce
 import AddRoom from './AddRoom';
 import UpdateRoom from './UpdateRoom';
 
@@ -65,6 +65,7 @@ interface Room {
 
 const RoomList = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [filteredRooms, setFilteredRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<string>('user');
@@ -96,7 +97,7 @@ const RoomList = () => {
   const isAdmin = role === 'admin';
   const NESTJS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-  const fetchUserRole = async () => {
+  const fetchUserRole = useCallback(async () => {
     const authToken = token || localStorage.getItem('access_token');
     if (!authToken) {
       setError('Vui lòng đăng nhập để xem thông tin.');
@@ -113,13 +114,12 @@ const RoomList = () => {
         },
       });
 
-      if (response.data && response.data.role) {
+      if (response.data?.role) {
         setRole(response.data.role);
       } else {
-        setError('Không thể lấy thông tin vai trò người dùng.');
-        message.error('Không thể lấy thông tin vai trò người dùng.');
+        throw new Error('Không thể lấy thông tin vai trò người dùng.');
       }
-    } catch (error) {
+    } catch (error: any) {
       const errorMsg = error.response?.data?.message || error.message;
       setError(`Lỗi khi lấy thông tin người dùng: ${errorMsg}`);
       message.error(errorMsg);
@@ -127,9 +127,9 @@ const RoomList = () => {
         router.push('/login');
       }
     }
-  };
+  }, [token, router]);
 
-  const fetchRooms = async () => {
+  const fetchRooms = useCallback(async () => {
     const authToken = token || localStorage.getItem('access_token');
     if (!authToken) {
       setError('Vui lòng đăng nhập để xem danh sách phòng.');
@@ -155,18 +155,19 @@ const RoomList = () => {
         },
       });
 
-      if (response.data && response.data.success) {
-        setRooms(response.data.data || []);
+      if (response.data?.success) {
+        const fetchedRooms = response.data.data || [];
+        setRooms(fetchedRooms);
+        setFilteredRooms(fetchedRooms);
         setPagination((prev) => ({
           ...prev,
           total: response.data.total || 0,
           totalPages: response.data.totalPages || 1,
         }));
       } else {
-        setError(response.data?.message || 'Lỗi không xác định từ server');
-        message.error(response.data?.message || 'Lỗi khi tải dữ liệu');
+        throw new Error(response.data?.message || 'Lỗi không xác định từ server');
       }
-    } catch (error) {
+    } catch (error: any) {
       const errorMsg = error.response?.data?.message || error.message;
       setError(`Lỗi khi lấy danh sách phòng: ${errorMsg}`);
       message.error(errorMsg);
@@ -176,9 +177,9 @@ const RoomList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, router, isAdmin, pagination.page, pagination.limit]);
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     const authToken = token || localStorage.getItem('access_token');
     if (!authToken) {
       setError('Vui lòng đăng nhập để tìm kiếm phòng.');
@@ -190,23 +191,24 @@ const RoomList = () => {
     try {
       setLoading(true);
       setError(null);
-      const url = `${NESTJS_API_URL}/api/rooms/search`;
-      const params = {
-        keyword: searchParams.keyword.trim() || undefined,
-        location: searchParams.location.trim() || undefined,
-        status: searchParams.status || undefined,
-        fromDate: searchParams.fromDate ? searchParams.fromDate.format('YYYY-MM-DD') : undefined,
-        toDate: searchParams.toDate ? searchParams.toDate.format('YYYY-MM-DD') : undefined,
-        minCapacity: searchParams.minCapacity || undefined,
-        maxCapacity: searchParams.maxCapacity || undefined,
-        hasProjector: searchParams.hasProjector || undefined,
-        allowFood: searchParams.allowFood || undefined,
-        features: searchParams.features.length > 0 ? searchParams.features.join(',') : undefined,
+
+      const params: Record<string, any> = {
         page: 1,
         limit: pagination.limit,
       };
 
-      const response = await axios.get(url, {
+      if (searchParams.keyword?.trim()) params.keyword = searchParams.keyword.trim().toLowerCase();
+      if (searchParams.location?.trim()) params.location = searchParams.location.trim();
+      if (searchParams.status) params.status = searchParams.status;
+      if (searchParams.fromDate) params.fromDate = searchParams.fromDate.format('YYYY-MM-DD');
+      if (searchParams.toDate) params.toDate = searchParams.toDate.format('YYYY-MM-DD');
+      if (searchParams.minCapacity !== null) params.minCapacity = searchParams.minCapacity;
+      if (searchParams.maxCapacity !== null) params.maxCapacity = searchParams.maxCapacity;
+      if (searchParams.hasProjector) params.hasProjector = searchParams.hasProjector;
+      if (searchParams.allowFood) params.allowFood = searchParams.allowFood;
+      if (searchParams.features?.length) params.features = searchParams.features.join(',');
+
+      const response = await axios.get(`${NESTJS_API_URL}/api/rooms/search`, {
         params,
         headers: {
           'Content-Type': 'application/json',
@@ -215,19 +217,29 @@ const RoomList = () => {
       });
 
       if (response.data.success) {
-        setRooms(response.data.data || []);
+        const fetchedRooms = response.data.data || [];
+        // Sắp xếp kết quả để ưu tiên khớp chính xác với từ khóa
+        const sortedRooms = fetchedRooms.sort((a: Room, b: Room) => {
+          const keyword = searchParams.keyword?.trim().toLowerCase() || '';
+          const aMatch = a.name.toLowerCase().startsWith(keyword) ? 1 : 0;
+          const bMatch = b.name.toLowerCase().startsWith(keyword) ? 1 : 0;
+          return bMatch - aMatch;
+        });
+        setFilteredRooms(sortedRooms);
         setPagination((prev) => ({
           ...prev,
           page: 1,
-          total: response.data.total || 0,
-          totalPages: response.data.totalPages || 1,
+          total: response.data.meta?.total || 0,
+          totalPages: response.data.meta?.totalPages || 1,
         }));
+        message.success(`Tìm thấy ${sortedRooms.length} phòng phù hợp`);
       } else {
-        setError(response.data.message || 'Không tìm thấy phòng phù hợp');
-        message.error(response.data.message || 'Không tìm thấy phòng phù hợp');
+        throw new Error(response.data.message || 'Không tìm thấy phòng phù hợp');
       }
-    } catch (error) {
-      const errorMsg = error.response?.data?.message || error.message;
+    } catch (error: any) {
+      const errorMsg = Array.isArray(error.response?.data?.message)
+        ? error.response.data.message.join('; ')
+        : error.response?.data?.message || error.message;
       setError(`Lỗi khi tìm kiếm: ${errorMsg}`);
       message.error(errorMsg);
       if (error.response?.status === 401) {
@@ -236,9 +248,55 @@ const RoomList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, router, pagination.limit, searchParams]);
 
-  const handleSoftDelete = async (id: string) => {
+  // Debounce search function to handle real-time filtering
+  const debouncedSearch = useMemo(
+    () =>
+      _.debounce(() => {
+        handleSearch();
+      }, 500),
+    [handleSearch]
+  );
+
+  // Tự động tìm kiếm khi thay đổi keyword
+  useEffect(() => {
+    if (searchParams.keyword?.trim()) {
+      debouncedSearch();
+    } else {
+      setFilteredRooms(rooms);
+    }
+  }, [searchParams.keyword, rooms, debouncedSearch]);
+
+  // Tự động tìm kiếm khi thay đổi các tham số tìm kiếm chi tiết
+  useEffect(() => {
+    if (
+      searchParams.location ||
+      searchParams.status ||
+      searchParams.fromDate ||
+      searchParams.toDate ||
+      searchParams.minCapacity !== null ||
+      searchParams.maxCapacity !== null ||
+      searchParams.hasProjector ||
+      searchParams.allowFood ||
+      searchParams.features.length
+    ) {
+      debouncedSearch();
+    }
+  }, [
+    searchParams.location,
+    searchParams.status,
+    searchParams.fromDate,
+    searchParams.toDate,
+    searchParams.minCapacity,
+    searchParams.maxCapacity,
+    searchParams.hasProjector,
+    searchParams.allowFood,
+    searchParams.features,
+    debouncedSearch,
+  ]);
+
+  const handleSoftDelete = useCallback(async (id: string) => {
     const authToken = token || localStorage.getItem('access_token');
     if (!authToken) {
       setError('Vui lòng đăng nhập để xóa phòng.');
@@ -254,8 +312,7 @@ const RoomList = () => {
 
     try {
       setLoading(true);
-      const url = `${NESTJS_API_URL}/api/rooms/${id}/soft-delete`;
-      const response = await axios.patch(url, {}, {
+      const response = await axios.get(`${NESTJS_API_URL}/api/rooms/${id}/soft-delete`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
@@ -263,60 +320,79 @@ const RoomList = () => {
       });
 
       if (response.data.success) {
-        fetchRooms();
+        await fetchRooms();
         message.success('Phòng đã được xóa mềm thành công!');
       } else {
-        setError(response.data.message || 'Xóa phòng thất bại');
-        message.error(response.data.message);
+        throw new Error(response.data.message || 'Xóa phòng thất bại');
       }
-    } catch (error) {
-      const errorMsg = error.response?.data?.message || error.message;
+    } catch (error: any) {
+      const errorMsg = Array.isArray(error.response?.data?.message)
+        ? error.response.data.message.join('; ')
+        : error.response?.data?.message || error.message;
       setError(`Lỗi khi xóa phòng: ${errorMsg}`);
       message.error(errorMsg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, router, isAdmin, fetchRooms]);
 
-  const handleRoomClick = (id: string) => {
+  const handleRoomClick = useCallback((id: string) => {
     router.push(`/rooms/${id}`);
-  };
+  }, [router]);
 
-  const handlePageChange = (newPage: number) => {
-    setPagination((prev) => ({ ...prev, page: newPage }));
-  };
+  const handlePageChange = useCallback((newPage: number, pageSize?: number) => {
+    setPagination((prev) => ({
+      ...prev,
+      page: newPage,
+      limit: pageSize || prev.limit,
+    }));
+  }, []);
 
-  const handleBackToHome = () => {
-    router.push('http://localhost:3000');
-  };
+  const handleResetSearch = useCallback(() => {
+    setSearchParams({
+      keyword: '',
+      location: '',
+      status: '',
+      fromDate: null,
+      toDate: null,
+      minCapacity: null,
+      maxCapacity: null,
+      hasProjector: false,
+      allowFood: false,
+      features: [],
+    });
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    setFilteredRooms(rooms);
+    message.info('Đã đặt lại bộ lọc tìm kiếm');
+  }, [rooms]);
 
-  const showAddModal = () => {
+  const showAddModal = useCallback(() => {
     setIsAddModalVisible(true);
-  };
+  }, []);
 
-  const handleModalClose = () => {
+  const handleModalClose = useCallback(() => {
     setIsAddModalVisible(false);
-  };
+  }, []);
 
-  const handleUpdateClick = (room: Room) => {
+  const handleUpdateClick = useCallback((room: Room) => {
     setSelectedRoom(room);
     setIsUpdateModalVisible(true);
-  };
+  }, []);
 
-  const handleUpdateModalClose = () => {
+  const handleUpdateModalClose = useCallback(() => {
     setIsUpdateModalVisible(false);
     setSelectedRoom(null);
-  };
+  }, []);
 
   useEffect(() => {
     fetchUserRole();
-  }, []);
+  }, [fetchUserRole]);
 
   useEffect(() => {
     if (role) {
       fetchRooms();
     }
-  }, [pagination.page, pagination.limit, role]);
+  }, [role, fetchRooms, pagination.page, pagination.limit]);
 
   const columns = [
     {
@@ -347,20 +423,23 @@ const RoomList = () => {
             status === 'available' ? '#52c41a' :
             status === 'occupied' ? '#fa8c16' :
             status === 'maintenance' ? '#faad14' :
-            status === 'deleted' ? '#ff4d4f' : '#722ed1'
+            status === 'deleted' ? '#ff4d4f' :
+            status === 'cleaning' ? '#1890ff' : '#722ed1'
           }
           style={{ fontSize: '18px', padding: '8px 16px', borderRadius: '12px' }}
         >
           {status === 'available' ? 'Sẵn sàng' :
            status === 'occupied' ? 'Đang sử dụng' :
            status === 'maintenance' ? 'Bảo trì' :
-           status === 'deleted' ? 'Đã xóa' : status}
+           status === 'deleted' ? 'Đã xóa' :
+           status === 'cleaning' ? 'Đang dọn dẹp' : status}
         </Tag>
       ),
     },
     {
       title: 'Hành động',
       key: 'action',
+      hidden: !isAdmin,
       render: (_: any, record: Room) => (
         <Space size={16}>
           <Button
@@ -420,7 +499,7 @@ const RoomList = () => {
         </Space>
       ),
     },
-  ];
+  ].filter(col => !col.hidden);
 
   return (
     <div style={{ 
@@ -513,6 +592,7 @@ const RoomList = () => {
                 value={searchParams.keyword}
                 onChange={(e) => setSearchParams({ ...searchParams, keyword: e.target.value })}
                 onPressEnter={handleSearch}
+                prefix={<SearchOutlined />}
                 style={{
                   width: showAdvancedSearch ? '60%' : '70%',
                   minWidth: '300px',
@@ -585,8 +665,7 @@ const RoomList = () => {
                 </Button>
                 <Button
                   type="default"
-                  icon={<HomeOutlined />}
-                  onClick={handleBackToHome}
+                  onClick={handleResetSearch}
                   size="large"
                   style={{
                     borderRadius: '20px',
@@ -605,7 +684,7 @@ const RoomList = () => {
                   onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                   onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                  Trang chủ
+                  Đặt lại
                 </Button>
                 {isAdmin && (
                   <Button
@@ -640,47 +719,48 @@ const RoomList = () => {
                 <Row gutter={[24, 24]}>
                   <Col xs={24} sm={12} md={8}>
                     <Text strong style={{ color: '#1d39c4', fontSize: '18px', marginBottom: '8px' }}>Vị trí:</Text>
-                    <Input
-                      placeholder="Nhập vị trí (ví dụ: phòng 1901 - tầng 19)"
-                      value={searchParams.location}
-                      onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
-                      style={{
-                        borderRadius: '12px',
-                        border: '1px solid #d9d9d9',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                        padding: '12px 16px',
-                        fontSize: '16px',
-                        width: '100%',
-                        color: '#1d39c4',
-                        transition: 'all 0.3s ease',
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.border = '1px solid #40a9ff'}
-                      onMouseLeave={(e) => e.currentTarget.style.border = '1px solid #d9d9d9'}
-                    />
+                    <Select
+                      placeholder="Chọn vị trí"
+                      value={searchParams.location || undefined}
+                      onChange={(value) => setSearchParams({ ...searchParams, location: value || '' })}
+                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      allowClear
+                    >
+                      <Option value="phòng 1901 - tầng 19 - 19 Tố Hữu">Phòng 1901 - Tầng 19</Option>
+                      <Option value="phòng 1902 - tầng 19 - 19 Tố Hữu">Phòng 1902 - Tầng 19</Option>
+                      <Option value="tầng 1704 - tầng 17 - 19 Tố Hữu">Tầng 1704 - Tầng 17</Option>
+                    </Select>
                   </Col>
                   <Col xs={24} sm={12} md={8}>
                     <Text strong style={{ color: '#1d39c4', fontSize: '18px', marginBottom: '8px' }}>Trạng thái:</Text>
                     <Select
                       placeholder="Chọn trạng thái"
                       value={searchParams.status || undefined}
-                      onChange={(value) => setSearchParams({ ...searchParams, status: value })}
+                      onChange={(value) => setSearchParams({ ...searchParams, status: value || '' })}
                       style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
                       allowClear
                     >
                       <Option value="available">Sẵn sàng</Option>
                       <Option value="occupied">Đang sử dụng</Option>
                       <Option value="maintenance">Bảo trì</Option>
-                      <Option value="deleted">Đã xóa</Option>
+                      <Option value="cleaning">Đang dọn dẹp</Option>
+                      {isAdmin && <Option value="deleted">Đã xóa</Option>}
                     </Select>
                   </Col>
                   <Col xs={24} sm={12} md={8}>
                     <Text strong style={{ color: '#1d39c4', fontSize: '18px', marginBottom: '8px' }}>Tính năng:</Text>
                     <Select
-                      mode="tags"
-                      placeholder="Nhập tính năng (ví dụ: Wi-Fi, Âm thanh)"
+                      mode="multiple"
+                      placeholder="Chọn tính năng (ví dụ: Wi-Fi, Máy chiếu)"
                       value={searchParams.features}
                       onChange={(value) => setSearchParams({ ...searchParams, features: value })}
                       style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      options={[
+                        { value: 'Wi-Fi', label: 'Wi-Fi' },
+                        { value: 'Máy chiếu', label: 'Máy chiếu' },
+                        { value: 'Loa', label: 'Loa' },
+                        { value: 'Bảng trắng', label: 'Bảng trắng' },
+                      ]}
                     />
                   </Col>
                   <Col xs={24} sm={12} md={8}>
@@ -688,8 +768,9 @@ const RoomList = () => {
                     <DatePicker
                       value={searchParams.fromDate}
                       onChange={(date) => setSearchParams({ ...searchParams, fromDate: date })}
-                      format="YYYY-MM-DD"
+                      format="DD/MM/YYYY"
                       style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      placeholder="Chọn ngày bắt đầu"
                     />
                   </Col>
                   <Col xs={24} sm={12} md={8}>
@@ -697,8 +778,10 @@ const RoomList = () => {
                     <DatePicker
                       value={searchParams.toDate}
                       onChange={(date) => setSearchParams({ ...searchParams, toDate: date })}
-                      format="YYYY-MM-DD"
+                      format="DD/MM/YYYY"
                       style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      placeholder="Chọn ngày kết thúc"
+                      disabledDate={(current) => current && searchParams.fromDate && current < searchParams.fromDate}
                     />
                   </Col>
                   <Col xs={24} sm={12} md={8}>
@@ -708,15 +791,17 @@ const RoomList = () => {
                       value={searchParams.minCapacity}
                       onChange={(value) => setSearchParams({ ...searchParams, minCapacity: value })}
                       style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      placeholder="Nhập sức chứa tối thiểu"
                     />
                   </Col>
                   <Col xs={24} sm={12} md={8}>
                     <Text strong style={{ color: '#1d39c4', fontSize: '18px', marginBottom: '8px' }}>Sức chứa tối đa:</Text>
                     <InputNumber
-                      min={1}
+                      min={searchParams.minCapacity || 1}
                       value={searchParams.maxCapacity}
                       onChange={(value) => setSearchParams({ ...searchParams, maxCapacity: value })}
                       style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      placeholder="Nhập sức chứa tối đa"
                     />
                   </Col>
                   <Col xs={24} sm={12} md={8}>
@@ -743,13 +828,14 @@ const RoomList = () => {
           </Card>
           <Table
             columns={columns}
-            dataSource={rooms}
+            dataSource={filteredRooms}
             rowKey="_id"
             pagination={{
               current: pagination.page,
               pageSize: pagination.limit,
               total: pagination.total,
               onChange: handlePageChange,
+              onShowSizeChange: handlePageChange,
               showSizeChanger: true,
               pageSizeOptions: ['10', '20', '50'],
               style: { marginTop: '16px' },
@@ -757,8 +843,12 @@ const RoomList = () => {
             style={{ marginTop: '32px' }}
             onRow={(record) => ({
               onClick: () => handleRoomClick(record._id),
+              style: { cursor: 'pointer' },
             })}
             scroll={{ x: 'max-content' }}
+            locale={{
+              emptyText: <Text style={{ fontSize: '18px', color: '#1d39c4' }}>Không tìm thấy phòng phù hợp</Text>,
+            }}
           />
         </>
       )}
@@ -770,7 +860,7 @@ const RoomList = () => {
         width="90vw"
         style={{ top: 20, maxWidth: '1200px' }}
       >
-        <AddRoom onClose={handleModalClose} fetchRooms={fetchRooms} />
+        <AddRoom />
       </Modal>
       <Modal
         title="Sửa thông tin phòng"
