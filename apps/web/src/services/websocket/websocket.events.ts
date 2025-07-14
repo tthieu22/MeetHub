@@ -67,18 +67,28 @@ export class WebSocketEventHandlers {
       addMessage(roomId, data.data);
 
       // Cập nhật lastMessage cho room
-      updateRoom(roomId, {
-        lastMessage: {
-          messageId: data.data._id,
-          conversationId: data.data.conversationId,
-          senderId:
-            typeof data.data.senderId === "string"
-              ? data.data.senderId
-              : data.data.senderId._id,
-          text: data.data.text,
-          createdAt: data.data.createdAt,
-        },
-      });
+      const lastMessage = {
+        messageId: data.data._id,
+        conversationId: data.data.conversationId,
+        senderId:
+          typeof data.data.senderId === "object" && data.data.senderId !== null
+            ? data.data.senderId._id
+            : data.data.senderId,
+        senderEmail:
+          typeof data.data.senderId === "object" && data.data.senderId !== null
+            ? data.data.senderId.email
+            : undefined,
+        senderName:
+          typeof data.data.senderId === "object" && data.data.senderId !== null
+            ? data.data.senderId.name || data.data.senderId.username
+            : undefined,
+        text: data.data.text,
+        createdAt: data.data.createdAt,
+        fileUrl: data.data.fileUrl || undefined,
+        fileName: data.data.fileName || undefined,
+        fileType: data.data.fileType || undefined,
+      };
+      updateRoom(roomId, { lastMessage });
 
       // Nếu đang ở room này, mark as read
       if (currentRoomId === roomId) {

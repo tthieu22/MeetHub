@@ -9,27 +9,35 @@ import {
 } from "@ant-design/icons";
 
 const { TextArea } = Input;
-
 interface ChatInputProps {
   disabled?: boolean;
-  onSendMessage?: (message: string) => void;
+  onSendMessage?: (message: string, file?: File) => void;
+  replyMessage?: {
+    id: string;
+    text: string;
+    sender?: { id: string; name: string; avatar?: string, email?: string };
+    fileName?: string;
+  } | null;
+  onCancelReply?: () => void;
 }
 
 function ChatInput({
   disabled = false,
   onSendMessage = () => {},
+  replyMessage = null,
+  onCancelReply,
 }: ChatInputProps) {
   const [message, setMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = useCallback(() => {
-    if (message.trim() && !disabled) {
-      onSendMessage(message.trim());
-      setMessage("");
-      setSelectedFile(null); // reset file nếu cần
-    }
-  }, [message, disabled, onSendMessage]);
+  if ((message.trim() || selectedFile) && !disabled) {
+    onSendMessage(message.trim(), selectedFile || undefined);
+    setMessage("");
+    setSelectedFile(null);
+  }
+}, [message, disabled, onSendMessage, selectedFile]);
 
   const handleKeyPress = useCallback(
     (e: React.KeyboardEvent) => {
@@ -71,6 +79,45 @@ function ChatInput({
         backgroundColor: "white",
       }}
     >
+      {/* Hiển thị reply nếu có */}
+      {replyMessage && (
+        <div
+          style={{
+            background: "#f0f5ff",
+            borderLeft: "4px solid #1890ff",
+            padding: "8px 12px",
+            marginBottom: 8,
+            borderRadius: 4,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 600, color: "#1890ff" }}>
+              Reply to: {replyMessage.sender?.name || replyMessage.sender?.email || "Unknown"}
+            </div>
+            <div style={{ color: "#595959", fontSize: 13, maxWidth: 220, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {replyMessage.text || replyMessage.fileName || "Tin nhắn đính kèm"}
+            </div>
+          </div>
+          <button
+            onClick={onCancelReply}
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "#ff4d4f",
+              fontWeight: "bold",
+              fontSize: 16,
+              cursor: "pointer",
+              marginLeft: 8,
+            }}
+            title="Huỷ trả lời"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div
         style={{
           display: "flex",

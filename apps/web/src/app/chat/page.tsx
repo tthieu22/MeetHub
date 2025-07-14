@@ -10,11 +10,15 @@ import ChatHeader from "@web/components/chat/ChatHeader";
 import OnlineUsersList from "@web/components/OnlineUsersList";
 import { useSearchParams } from "next/navigation";
 import { WS_EVENTS } from "@web/constants/websocket.events";
+import type { Message } from "@web/types/chat";
 
 export default function ChatPage() {
   const rooms = useChatStore((state) => state.rooms);
   const messages = useChatStore((state) => state.messages);
   const unreadCounts = useChatStore((state) => state.unreadCounts);
+
+  // State quản lý tin nhắn đang reply
+  const [replyMessage, setReplyMessage] = useState<Message | null>(null);
 
   const searchParams = useSearchParams();
   const roomId = searchParams.get("roomId");
@@ -90,17 +94,55 @@ export default function ChatPage() {
   );
 
   const sendMessage = useCallback(
-    (roomId: string, text: string) => {
+    async (roomId: string, text: string, file?: File) => {
       if (isConnected && socket) {
-        socket.emit(WS_EVENTS.CREATE_MESSAGE, { roomId, text });
+        if (file) {
+          // Đọc file thành base64
+          const fileData = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve((reader.result as string).split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          if(replyMessage) {
+            socket.emit(WS_EVENTS.CREATE_MESSAGE, {
+              roomId,
+              text,
+              fileData,
+              fileName: file.name,
+              fileType: file.type,
+              replyTo: replyMessage._id
+            });
+          } else {
+            socket.emit(WS_EVENTS.CREATE_MESSAGE, {
+              roomId,
+              text,
+              fileData,
+              fileName: file.name,
+              fileType: file.type,
+            });
+          }
+          
+        } else {
+          if(replyMessage) {
+            socket.emit(WS_EVENTS.CREATE_MESSAGE, {
+              roomId,
+              text, 
+              replyTo: replyMessage._id
+            });
+          } else {
+            socket.emit(WS_EVENTS.CREATE_MESSAGE, { roomId, text }); 
+          }
+        }
       }
     },
-    [isConnected, socket]
+    [isConnected, socket, replyMessage]
   );
 
   // State quản lý loading, hasMore
   const [loadingMessages, setLoadingMessages] = useState(false);
   const hasMoreMessages = true;
+
 
   // Auto load rooms khi component mount
   useEffect(() => {
@@ -149,9 +191,10 @@ export default function ChatPage() {
 
   // Memo hóa function gửi tin nhắn
   const handleSendMessage = useCallback(
-    (messageText: string) => {
+    async (messageText: string, file?: File) => {
       if (roomId) {
-        sendMessage(roomId, messageText);
+        await sendMessage(roomId, messageText, file);
+        setReplyMessage(null);
       }
     },
     [roomId, sendMessage]
@@ -229,9 +272,40 @@ export default function ChatPage() {
                 loading={loadingMessages}
                 hasMore={hasMoreMessages}
                 onLoadMore={handleLoadMore}
+                onReply={(id, message) => setReplyMessage(message)}
               />
             </div>
-            <ChatInput disabled={!roomId} onSendMessage={handleSendMessage} />
+            <ChatInput
+              disabled={!roomId}
+              onSendMessage={handleSendMessage}
+              replyMessage={
+                replyMessage
+                  ? {
+                      id: replyMessage._id,
+                      text: replyMessage.text,
+                      sender: {
+                        id: typeof replyMessage.senderId === "object" && replyMessage.senderId !== null
+                          ? replyMessage.senderId._id
+                          : replyMessage.senderId,
+                        name:
+                          typeof replyMessage.senderId === "object" && replyMessage.senderId !== null
+                            ? replyMessage.senderId.name || replyMessage.senderId.username || replyMessage.senderId.email || "Unknown"
+                            : "Unknown",
+                        avatar:
+                          typeof replyMessage.senderId === "object" && replyMessage.senderId !== null
+                            ? replyMessage.senderId.avatar
+                            : undefined,
+                        email:
+                          typeof replyMessage.senderId === "object" && replyMessage.senderId !== null
+                            ? replyMessage.senderId.email
+                            : undefined,
+                      },
+                      fileName: replyMessage.fileName,
+                    }
+                  : null
+              }
+              onCancelReply={() => setReplyMessage(null)}
+            />
           </>
         ) : (
           <div

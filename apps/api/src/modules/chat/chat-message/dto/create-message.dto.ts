@@ -16,4 +16,10 @@ export class CreateMessageDto {
   @IsArray()
   @IsOptional()
   mentions?: string[];
+
+  @IsOptional()
+  fileData?: string;
+
+  fileName?: string;
+  fileType?: string;
 }

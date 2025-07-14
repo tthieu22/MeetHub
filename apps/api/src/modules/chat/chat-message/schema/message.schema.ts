@@ -11,11 +11,17 @@ export class Message {
   @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
   senderId: Types.ObjectId;
 
-  @Prop({ type: String, required: true })
-  text: string;
+  @Prop({ type: String, required: false, default: '' })
+  text?: string;
 
   @Prop({ type: String, default: null })
   fileUrl?: string;
+
+  @Prop({ type: String, default: null })
+  fileName?: string;
+
+  @Prop({ type: String, default: null })
+  fileType?: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Message', default: null })
   replyTo?: Types.ObjectId;

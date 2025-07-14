@@ -8,10 +8,11 @@ import { MessageStatus, MessageStatusDocument } from '@api/modules/chat/chat-mes
 import { User, UserDocument } from '@api/modules/users/schema/user.schema';
 import { CreateMessageDto } from '@api/modules/chat/chat-message/dto/create-message.dto';
 import { MessagesResponse, SuccessResponse, FileResponse } from '@api/modules/chat/chat-message/interfaces/response.interface';
-import { UploadedFile } from '@api/modules/chat/chat-message/interfaces/file.interface';
+import { Express } from 'express';
 import { Inject } from '@nestjs/common';
 import { REDIS_CLIENT } from '@api/modules/redis';
 import type Redis from 'ioredis';
+import { UploadService } from '@api/modules/upload/upload.service';
 
 export interface MessageInfo {
   messageId: string;
@@ -35,6 +36,7 @@ export class MessageService {
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
     @Inject(REDIS_CLIENT) private readonly redisClient: Redis,
+    private readonly uploadService: UploadService,
   ) {}
 
   // Helper: get user by id
@@ -124,8 +126,12 @@ export class MessageService {
       console.error('[MessageService] Lỗi tạo unread:', err);
       throw new Error(errorMsg);
     }
-
-    return savedMessage;
+    const populatedMessage = await this.messageModel.findById(savedMessage._id).populate('senderId', 'name avatar email').exec();
+    if (!populatedMessage) {
+      throw new Error('Message not found');
+    }
+    console.log(populatedMessage);
+    return populatedMessage;
   }
 
   // 2. Lấy danh sách tin nhắn trong phòng
@@ -256,19 +262,14 @@ export class MessageService {
   }
 
   // 8. Upload file cho tin nhắn
-  async uploadFile(messageId: string, file: UploadedFile, userId: string): Promise<Message> {
+  async uploadFile(messageId: string, file: Express.Multer.File, userId: string): Promise<Message> {
     const message = await this.messageModel.findById(messageId).exec();
     if (!message) throw new NotFoundException('Message not found');
+    if (message.senderId.toString() !== userId) throw new ForbiddenException('You can only upload files to your own messages');
+    const uploadResult = await this.uploadService.uploadFileToChatFolder(file);
 
-    if (message.senderId.toString() !== userId) {
-      throw new ForbiddenException('You can only upload files to your own messages');
-    }
-
-    if (!file.path) {
-      throw new BadRequestException('File path is required');
-    }
-
-    message.fileUrl = file.path;
+    if (!uploadResult.success || !uploadResult.data) throw new BadRequestException(uploadResult.message || 'Upload failed');
+    message.fileUrl = uploadResult.data.savedFile.url;
     return await message.save();
   }
 
@@ -387,7 +388,7 @@ export class MessageService {
       messageId: messageId,
       conversationId: message.conversationId.toString(),
       senderId: message.senderId.toString(),
-      text: message.text,
+      text: message.text || '',
       createdAt: new Date(),
     };
   }

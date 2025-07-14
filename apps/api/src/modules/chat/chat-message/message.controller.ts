@@ -7,7 +7,7 @@ import { CreateMessageDto } from '@api/modules/chat/chat-message/dto/create-mess
 import { GetMessagesDto } from '@api/modules/chat/chat-message/dto/get-messages.dto';
 import { DeleteMessageDto } from '@api/modules/chat/chat-message/dto/delete-message.dto';
 import { MarkReadDto } from '@api/modules/chat/chat-message/dto/mark-read.dto';
-import { UploadedFile } from '@api/modules/chat/chat-message/interfaces/file.interface';
+import { Express } from 'express';
 
 @Controller('messages')
 @UseGuards(AuthGuard)
@@ -47,15 +47,15 @@ export class MessageController {
   }
 
   // 8. Upload file cho tin nhắn
+
   @Post(':id/upload')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(@Param('id') id: string, @NestUploadedFile() file: UploadedFile, @Query('userId') userId: string) {
+  async uploadFile(@Param('id') id: string, @NestUploadedFile() file: Express.Multer.File, @Query('userId') userId: string) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
     return await this.messageService.uploadFile(id, file, userId);
   }
-
   // 9. Lấy danh sách file đính kèm
   @Get(':id/files')
   async getMessageFiles(@Param('id') id: string) {
