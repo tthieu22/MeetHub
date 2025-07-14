@@ -34,6 +34,24 @@ export class Conversation {
     createdAt: Date;
     senderId: Types.ObjectId;
   };
+
+  @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
+  memberIds: Types.ObjectId[];
+
+  @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
+  assignedAdmins: Types.ObjectId[];
+
+  @Prop({ type: Types.ObjectId, ref: 'User', default: null })
+  currentAdminId: Types.ObjectId;
+
+  @Prop({ type: Date, default: null })
+  lastAdminReplyAt?: Date;
+
+  @Prop({ default: false })
+  isTemporary: boolean;
+
+  @Prop({ default: true })
+  isActive: boolean;
 }
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);

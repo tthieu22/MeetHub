@@ -130,7 +130,6 @@ export class MessageService {
     if (!populatedMessage) {
       throw new Error('Message not found');
     }
-    console.log(populatedMessage);
     return populatedMessage;
   }
 

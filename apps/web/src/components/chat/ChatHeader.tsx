@@ -6,7 +6,7 @@ import {
   Typography,
   Space,
   Button,
-  Tooltip,
+  // Tooltip,
   Popover,
   Modal,
   List,
@@ -14,8 +14,8 @@ import {
 } from "antd";
 import {
   UserOutlined,
-  PhoneOutlined,
-  VideoCameraOutlined,
+  // PhoneOutlined,
+  // VideoCameraOutlined,
   MoreOutlined,
 } from "@ant-design/icons";
 
@@ -133,7 +133,7 @@ function ChatHeader({ room }: ChatHeaderProps) {
         </div>
       </Space>
       <Space style={{ flexShrink: 0 }}>
-        <Tooltip title="Gọi thoại">
+        {/* <Tooltip title="Gọi thoại">
           <Button
             type="text"
             icon={<PhoneOutlined />}
@@ -148,7 +148,7 @@ function ChatHeader({ room }: ChatHeaderProps) {
             size="large"
             disabled={!room}
           />
-        </Tooltip>
+        </Tooltip> */}
         <Popover
           content={room ? <ChatMenu onMenuClick={handleMenuClick} /> : null}
           trigger="click"
