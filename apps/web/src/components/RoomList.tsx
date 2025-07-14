@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { DeleteOutlined, SearchOutlined, DownOutlined, UpOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons';
+import { DeleteOutlined, SearchOutlined, DownOutlined, UpOutlined, PlusOutlined, EditOutlined, CalendarOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@web/store/user.store';
@@ -342,6 +342,10 @@ const RoomList = () => {
     router.push(`/rooms/${id}`);
   }, [router]);
 
+  const handleViewBookings = useCallback((id: string) => {
+    router.push(`/bookings/${id}`);
+  }, [router]);
+
   const handlePageChange = useCallback((newPage: number, pageSize?: number) => {
     setPagination((prev) => ({
       ...prev,
@@ -419,7 +423,7 @@ const RoomList = () => {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      hidden: !isAdmin && searchParams.status === 'deleted', // Ẩn cột trạng thái nếu là user và trạng thái là 'deleted'
+      hidden: !isAdmin && searchParams.status === 'deleted',
       render: (status: string) => (
         <Tag
           color={
@@ -442,20 +446,19 @@ const RoomList = () => {
     {
       title: 'Hành động',
       key: 'action',
-      hidden: !isAdmin,
       render: (_: any, record: Room) => (
         <Space size={16}>
           <Button
             type="primary"
-            icon={<EditOutlined />}
+            icon={<CalendarOutlined />}
             onClick={(e) => {
               e.stopPropagation();
-              handleUpdateClick(record);
+              handleViewBookings(record._id);
             }}
             size="large"
             style={{
               borderRadius: '20px',
-              background: 'linear-gradient(90deg, #1890ff, #40a9ff)',
+              background: 'linear-gradient(90deg, #722ed1, #9254de)',
               border: 'none',
               padding: '12px 24px',
               fontSize: '16px',
@@ -465,52 +468,89 @@ const RoomList = () => {
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.3s ease',
-              boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
+              boxShadow: '0 4px 12px rgba(114, 46, 209, 0.3)',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'scale(1.05)';
-              e.currentTarget.style.boxShadow = '0 6px 16px rgba(24, 144, 255, 0.4)';
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(114, 46, 209, 0.4)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(24, 144, 255, 0.3)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(114, 46, 209, 0.3)';
             }}
           >
-            Sửa
+            Xem lịch
           </Button>
-          <Button
-            danger
-            icon={<DeleteOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleSoftDelete(record._id);
-            }}
-            size="large"
-            style={{
-              borderRadius: '20px',
-              background: 'linear-gradient(90deg, #ff4d4f, #ff7875)',
-              border: 'none',
-              padding: '12px 24px',
-              fontSize: '16px',
-              color: '#ffffff',
-              fontWeight: 500,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 4px 12px rgba(255, 77, 79, 0.3)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.05)';
-              e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 77, 79, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 77, 79, 0.3)';
-            }}
-          >
-            Xóa
-          </Button>
+          {isAdmin && (
+            <>
+              <Button
+                type="primary"
+                icon={<EditOutlined />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUpdateClick(record);
+                }}
+                size="large"
+                style={{
+                  borderRadius: '20px',
+                  background: 'linear-gradient(90deg, #1890ff, #40a9ff)',
+                  border: 'none',
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  color: '#ffffff',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(24, 144, 255, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(24, 144, 255, 0.3)';
+                }}
+              >
+                Sửa
+              </Button>
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSoftDelete(record._id);
+                }}
+                size="large"
+                style={{
+                  borderRadius: '20px',
+                  background: 'linear-gradient(90deg, #ff4d4f, #ff7875)',
+                  border: 'none',
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  color: '#ffffff',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 12px rgba(255, 77, 79, 0.3)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 77, 79, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 77, 79, 0.3)';
+                }}
+              >
+                Xóa
+              </Button>
+            </>
+          )}
         </Space>
       ),
     },
