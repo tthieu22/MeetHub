@@ -11,7 +11,6 @@ import {
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
 import CustomButton from "@web/components/CustomButton";
-import RoomList from "@web/components/RoomList";
 
 const { Title, Paragraph } = Typography;
 
@@ -25,6 +24,10 @@ export default function Home() {
 
   const handleLogin = () => {
     router.push("/login");
+  };
+
+  const handleViewRooms = () => {
+    router.push("/rooms"); // Nút chuyển hướng đến /rooms
   };
 
   return (
@@ -96,18 +99,26 @@ export default function Home() {
         </Col>
       </Row>
 
-      <RoomList />
-
       <div style={{ textAlign: "center", marginTop: "60px" }}>
         {currentUser ? (
-          <CustomButton
-            type="primary"
-            size="large"
-            onClick={handleStartChat}
-            style={{ fontSize: "16px", fontWeight: 500 }}
-          >
-            Bắt đầu chat
-          </CustomButton>
+          <Space>
+            <CustomButton
+              type="primary"
+              size="large"
+              onClick={handleStartChat}
+              style={{ fontSize: "16px", fontWeight: 500 }}
+            >
+              Bắt đầu chat
+            </CustomButton>
+            <CustomButton
+              type="default"
+              size="large"
+              onClick={handleViewRooms}
+              style={{ fontSize: "16px", fontWeight: 500 }}
+            >
+              Xem danh sách phòng
+            </CustomButton>
+          </Space>
         ) : (
           <Space>
             <CustomButton
@@ -125,6 +136,14 @@ export default function Home() {
               style={{ fontSize: "16px", fontWeight: 500 }}
             >
               Xem demo
+            </CustomButton>
+            <CustomButton
+              type="default"
+              size="large"
+              onClick={handleViewRooms}
+              style={{ fontSize: "16px", fontWeight: 500 }}
+            >
+              Xem danh sách phòng
             </CustomButton>
           </Space>
         )}
