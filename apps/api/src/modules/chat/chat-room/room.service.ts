@@ -469,4 +469,92 @@ export class RoomService {
 
     return { removed: toRemove.length };
   }
+
+  async assignAdminToUser(userId: string) {
+    // Lấy tất cả admin active
+    const admins = await this.userModel.find({ role: 'admin', isActive: true });
+    // Kiểm tra online
+    const onlineChecks = await Promise.all(admins.map((a) => this.redisClient.get(`user:online:${a._id.toString()}`)));
+    const onlineAdmins = admins.filter((a, idx) => onlineChecks[idx] === '1');
+    if (onlineAdmins.length === 0) {
+      // Không có admin online, tạo phòng chờ
+      const user = await this.userModel.findById(userId);
+      const userName = user?.name || user?.email || userId;
+      const room = await this.conversationModel.create({
+        name: `Hỗ trợ: ${userName}`,
+        type: 'private',
+        creatorId: new Types.ObjectId(userId),
+        memberIds: [userId],
+        assignedAdmins: [],
+        currentAdminId: null,
+        isTemporary: true,
+        isActive: true,
+        pending: true, // nếu muốn
+      });
+      return { roomId: room._id, admin: null, pending: true };
+    }
+
+    const assignedAdmin = onlineAdmins[0];
+    // Tìm hoặc tạo phòng 1-1
+    let room = await this.conversationModel.findOne({
+      type: 'private',
+      memberIds: { $all: [userId, assignedAdmin._id], $size: 2 },
+    });
+    const user = await this.userModel.findById(userId);
+    const userName = user?.name || user?.email || userId;
+
+    if (!room) {
+      room = await this.conversationModel.create({
+        name: `Hỗ trợ: ${userName}`,
+        type: 'private',
+        creatorId: new Types.ObjectId(userId),
+        memberIds: [userId, assignedAdmin._id],
+        assignedAdmins: [assignedAdmin._id],
+        currentAdminId: assignedAdmin._id,
+        isTemporary: true,
+        isActive: true,
+      });
+    }
+    return { roomId: room._id, admin: assignedAdmin };
+  }
+
+  async assignPendingRoomsToAdmins() {
+    const pendingRooms = await this.conversationModel.find({
+      pending: true,
+      isActive: true,
+      isDeleted: false,
+    });
+
+    const admins = await this.userModel.find({ role: 'admin', isActive: true });
+    const onlineChecks = await Promise.all(admins.map((a) => this.redisClient.get(`user:online:${a._id.toString()}`)));
+    const onlineAdmins = admins.filter((a, idx) => onlineChecks[idx] === '1');
+
+    // Đếm số phòng đang xử lý của mỗi admin
+    const adminRoomCounts: Record<string, number> = {};
+    for (const admin of onlineAdmins) {
+      adminRoomCounts[admin._id.toString()] = await this.conversationModel.countDocuments({
+        currentAdminId: admin._id,
+        isActive: true,
+        isDeleted: false,
+        pending: false,
+      });
+    }
+
+    const assignedRooms: { roomId: string; admin: any; userId: string }[] = [];
+    for (const room of pendingRooms) {
+      const sortedAdmins = onlineAdmins.sort((a, b) => (adminRoomCounts[a._id.toString()] || 0) - (adminRoomCounts[b._id.toString()] || 0));
+      const selectedAdmin = sortedAdmins[0];
+      if (selectedAdmin && room) {
+        room.memberIds.push(selectedAdmin._id);
+        room.assignedAdmins.push(selectedAdmin._id);
+        room.currentAdminId = selectedAdmin._id;
+        room.pending = false;
+        await room.save();
+        // Lấy userId của phòng (giả sử chỉ có 1 user đầu tiên trong memberIds)
+        const userId = room.memberIds.find((id) => id.toString() !== selectedAdmin._id.toString());
+        assignedRooms.push({ roomId: String(room._id), admin: selectedAdmin, userId: userId?.toString() || '' });
+      }
+    }
+    return assignedRooms;
+  }
 }

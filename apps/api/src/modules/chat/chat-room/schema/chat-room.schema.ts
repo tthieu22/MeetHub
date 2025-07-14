@@ -52,6 +52,9 @@ export class Conversation {
 
   @Prop({ default: true })
   isActive: boolean;
+
+  @Prop({ default: false })
+  pending: boolean;
 }
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);

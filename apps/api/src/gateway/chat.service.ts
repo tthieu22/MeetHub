@@ -150,4 +150,11 @@ export class ChatService {
       return false;
     }
   }
+
+  async assignAdminToUser(userId: string) {
+    return await this.roomService.assignAdminToUser(userId);
+  }
+  async assignPendingRoomsToAdmins() {
+    return await this.roomService.assignPendingRoomsToAdmins();
+  }
 }

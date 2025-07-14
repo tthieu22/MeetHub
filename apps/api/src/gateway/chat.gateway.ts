@@ -95,6 +95,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data: { userId, rooms: roomIds },
     };
     client.emit(WebSocketEventName.CONNECTION_SUCCESS, response);
+    if (user.role === 'admin') {
+      const assignedRooms = await this.chatService.assignPendingRoomsToAdmins();
+      const assignedRoom = assignedRooms?.[0];
+      if (assignedRoom) {
+        this.server.to(`user:${assignedRoom.userId}`).emit('support_room_assigned', {
+          roomId: String(assignedRoom.roomId),
+          admin: {
+            _id: user._id,
+            name: user.name,
+          },
+        });
+        this.server.to(`user:${user._id}`).emit('support_ticket_assigned', {
+          roomId: String(assignedRoom.roomId),
+          userId: String(assignedRoom.userId),
+        });
+      }
+    }
   }
   // hành động disconnect
   async handleDisconnect(client: AuthenticatedSocket): Promise<void> {
@@ -280,6 +297,32 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const response = await this.chatEventsHandler.handleGetAllOnlineUsers();
     client.emit('all_online_users', response);
+  }
+
+  // Khi user click chat với admin
+  @SubscribeMessage('user_request_support')
+  async handleUserRequestSupport(@ConnectedSocket() client: AuthenticatedSocket) {
+    const userId = validateClient(client);
+    if (!userId) return;
+    try {
+      // Gán admin và tạo/tìm phòng
+      const { roomId, admin, pending } = await this.chatService.assignAdminToUser(userId);
+      // Join user vào phòng socket
+      await client.join(`room:${String(roomId)}`);
+      if (pending) {
+        // Nếu chưa có admin online, gửi event pending cho user
+        client.emit('support_room_pending', { roomId: String(roomId) });
+        return;
+      }
+      // Gửi notification cho admin (nếu online)
+      if (admin && admin._id) {
+        this.server.to(`user:${String(admin._id)}`).emit('support_ticket_assigned', { roomId: String(roomId), userId: String(userId) });
+      }
+      // Gửi về cho user roomId và thông tin admin
+      client.emit('support_room_assigned', { roomId: String(roomId), admin });
+    } catch (err) {
+      emitError(client, 'ASSIGN_ADMIN_ERROR', err instanceof Error ? err.message : String(err), 'support_room_assigned');
+    }
   }
 }
 
