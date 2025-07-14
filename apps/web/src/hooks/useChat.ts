@@ -84,7 +84,6 @@ export const useChat = () => {
   // Mark current room as read
   const markCurrentRoomAsRead = useCallback(() => {
     if (currentRoomId && isConnected) {
-      console.log(`[useChat] Marking current room ${currentRoomId} as read`);
       wsMarkRoomRead(currentRoomId);
     }
   }, [currentRoomId, isConnected, wsMarkRoomRead]);
@@ -153,9 +152,6 @@ export const useChat = () => {
   // Mark room as read when entering a room
   useEffect(() => {
     if (currentRoomId) {
-      console.log(
-        `[useChat] Marking room ${currentRoomId} as read when entering`
-      );
       markCurrentRoomAsRead();
     }
   }, [currentRoomId, markCurrentRoomAsRead]);

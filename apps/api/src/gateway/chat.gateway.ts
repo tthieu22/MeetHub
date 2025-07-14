@@ -11,6 +11,7 @@ import { WsResponse } from '@api/common/interfaces/ws-response.interface';
 import { CreateMessageDto } from '@api/modules/chat/chat-message/dto/create-message.dto';
 import { ChatEventsHandler } from './chat-events.handler';
 
+//
 export enum WebSocketEventName {
   ERROR = 'error',
   AUTH_ERROR = 'auth_error',
@@ -26,31 +27,15 @@ export enum WebSocketEventName {
   ROOM_JOINED = 'room_joined',
   USER_ONLINE = 'user_online',
   USER_OFFLINE = 'user_offline',
+  ALL_ONLINE = 'all_online_users',
 }
-
-function emitError(client: AuthenticatedSocket, code: string, message: string, event: string = 'error') {
-  const response: WsResponse = {
-    success: false,
-    message,
-    code,
-  };
-  client.emit(event, response);
-}
-
-function validateClient(client: AuthenticatedSocket, event: string = 'error'): string | undefined {
-  const userId = client.user?._id as string | undefined;
-  if (!userId) {
-    emitError(client, 'USER_INVALID', 'User không xác thực', event);
-    return undefined;
-  }
-  return userId;
-}
-
+// CORS
 @WebSocketGateway({
   cors: { origin: '*' },
   namespace: '/',
   transports: ['websocket'],
 })
+// Xác thực người dùng
 @UseGuards(WsAuthGuard)
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
@@ -60,7 +45,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private wsAuthService: WsAuthService,
     private chatEventsHandler: ChatEventsHandler,
   ) {}
-
+  // hành động connect
   async handleConnection(client: AuthenticatedSocket): Promise<void> {
     try {
       const payload = await this.wsAuthService.validateToken(client);
@@ -111,26 +96,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
     client.emit(WebSocketEventName.CONNECTION_SUCCESS, response);
   }
-
+  // hành động disconnect
   async handleDisconnect(client: AuthenticatedSocket): Promise<void> {
     const userId = client.user?._id as string | undefined;
     if (!userId) return;
-
-    // Chỉ xóa Redis, không emit USER_OFFLINE ngay lập tức
-    // Frontend sẽ emit user_offline event nếu cần
     if (this.chatService['redisClient']) {
       await this.chatService['redisClient'].del(`user:online:${userId}`);
     }
-
-    // Không emit USER_OFFLINE ở đây nữa
-    // Để frontend xử lý logic delay 30 giây
   }
 
   // Emit realtime online cho tất cả client trong phòng khi có user online
   async emitRoomOnlineMembers(roomId: string) {
     const onlineMemberIds = await this.chatService.getOnlineMemberIds(roomId);
-    this.logger.log(`Room ${roomId} online members:`, onlineMemberIds);
-
     const response: WsResponse = {
       success: true,
       data: { roomId, onlineMemberIds },
@@ -138,19 +115,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(`room:${roomId}`).emit('room_online_members', response);
   }
 
+  // Hành động lấy người online cho từng room
   async emitUserOnline(userId: string, roomIds: string[]): Promise<void> {
-    this.logger.log(`Emitting user online for user ${userId} in rooms:`, roomIds);
     for (const roomId of roomIds) {
       const response: WsResponse = {
         success: true,
         data: { userId, roomId },
       };
       this.server.to(`room:${roomId}`).emit(WebSocketEventName.USER_ONLINE, response);
-      // Emit realtime online cho phòng này
       await this.emitRoomOnlineMembers(roomId);
     }
+
+    // Emit all_online_users để cập nhật danh sách tổng thể
+    const allOnlineResponse = await this.chatEventsHandler.handleGetAllOnlineUsers();
+    this.server.emit('all_online_users', allOnlineResponse);
   }
 
+  // lấy tất cả các phòng
   @SubscribeMessage('get_rooms')
   async handleGetRooms(@ConnectedSocket() client: AuthenticatedSocket) {
     const userId = validateClient(client);
@@ -159,6 +140,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit(WebSocketEventName.ROOMS, response);
   }
 
+  // Lấy tin nhắn khi vào 1 phòng
   @SubscribeMessage('get_messages')
   @UsePipes(new ValidationPipe({ transform: true }))
   async handleGetMessages(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: GetMessagesDto) {
@@ -169,6 +151,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit(WebSocketEventName.MESSAGES, response);
   }
 
+  // Đánh dấu đọc tin nhắn
   @SubscribeMessage('mark_room_read')
   @UsePipes(new ValidationPipe({ transform: true }))
   async handleMarkRoomRead(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: MarkRoomReadDto) {
@@ -185,6 +168,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  // lấy tin nhắn chưa đọc của người dùng đăng nhập
   @SubscribeMessage('get_unread_count')
   @UsePipes(new ValidationPipe({ transform: true }))
   async handleGetUnreadCount(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: GetUnreadCountDto) {
@@ -195,6 +179,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit(WebSocketEventName.UNREAD_COUNT, response);
   }
 
+  // gửi 1 tin nhắn sẽ gửi tới tất cả từng người 1 trong phòng và đánh dấu chưa đọc
   @SubscribeMessage('create_message')
   @UsePipes(new ValidationPipe({ transform: true }))
   async handleCreateMessage(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: CreateMessageDto & { roomId: string }) {
@@ -221,6 +206,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  // Khi tham gia tham gia vào 1 phòng
   @SubscribeMessage('join_room')
   @UsePipes(new ValidationPipe({ transform: true }))
   async handleJoinRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { roomId: string }) {
@@ -240,6 +226,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit(WebSocketEventName.ROOM_JOINED, response);
   }
 
+  // Lấy số người online cho từng phòng
   @SubscribeMessage('get_room_online_members')
   async handleGetRoomOnlineMembers(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { roomId: string }) {
     const userId = validateClient(client);
@@ -256,21 +243,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  // Khi offline sẽ xoá khỏi redis lấy lại thông tin các phòng tổng số thành viên online của từng phòng cập nhật lại
   @SubscribeMessage('user_offline')
   async handleUserOffline(@ConnectedSocket() client: AuthenticatedSocket) {
     const userId = validateClient(client);
     if (!userId) return;
 
-    // Xóa user khỏi Redis online status
     if (this.chatService['redisClient']) {
       await this.chatService['redisClient'].del(`user:online:${userId}`);
     }
 
-    // Lấy danh sách phòng của user
     const rooms: { roomId: string }[] = await this.chatService.getRooms(userId);
     const roomIds = rooms.map((r) => r.roomId);
 
-    // Emit user_offline cho tất cả phòng
     await Promise.all(
       roomIds.map(async (roomId) => {
         const response: WsResponse = {
@@ -279,9 +264,40 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         };
         this.server.to(`room:${roomId}`).emit(WebSocketEventName.USER_OFFLINE, response);
 
-        // Cập nhật online members cho phòng này
         await this.emitRoomOnlineMembers(roomId);
       }),
     );
+
+    // Emit all_online_users để cập nhật danh sách tổng thể
+    const allOnlineResponse = await this.chatEventsHandler.handleGetAllOnlineUsers();
+    this.server.emit('all_online_users', allOnlineResponse);
   }
+
+  @SubscribeMessage('get_all_online_users')
+  async handlerUserOnline(@ConnectedSocket() client: AuthenticatedSocket) {
+    const userId = validateClient(client);
+    if (!userId) return;
+
+    const response = await this.chatEventsHandler.handleGetAllOnlineUsers();
+    client.emit('all_online_users', response);
+  }
+}
+
+function emitError(client: AuthenticatedSocket, code: string, message: string, event: string = 'error') {
+  const response: WsResponse = {
+    success: false,
+    message,
+    code,
+  };
+  client.emit(event, response);
+}
+
+// Validate người dùng
+function validateClient(client: AuthenticatedSocket, event: string = 'error'): string | undefined {
+  const userId = client.user?._id as string | undefined;
+  if (!userId) {
+    emitError(client, 'USER_INVALID', 'User không xác thực', event);
+    return undefined;
+  }
+  return userId;
 }

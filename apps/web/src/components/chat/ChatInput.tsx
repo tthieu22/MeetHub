@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { Input, Tooltip } from "antd";
 import {
   SendOutlined,
@@ -20,11 +20,14 @@ function ChatInput({
   onSendMessage = () => {},
 }: ChatInputProps) {
   const [message, setMessage] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = useCallback(() => {
     if (message.trim() && !disabled) {
       onSendMessage(message.trim());
       setMessage("");
+      setSelectedFile(null); // reset file nếu cần
     }
   }, [message, disabled, onSendMessage]);
 
@@ -45,7 +48,20 @@ function ChatInput({
     []
   );
 
-  const isSendDisabled = disabled || !message.trim();
+  const handleFileClick = () => {
+    if (!disabled && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const isSendDisabled = disabled || (!message.trim() && !selectedFile);
 
   return (
     <div
@@ -69,6 +85,7 @@ function ChatInput({
           <button
             type="button"
             disabled={disabled}
+            onClick={handleFileClick}
             style={{
               border: "none",
               background: "#fafafa",
@@ -81,6 +98,12 @@ function ChatInput({
             }}
           >
             <PaperClipOutlined />
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={handleFileChange}
+            />
           </button>
         </Tooltip>
 
@@ -98,7 +121,6 @@ function ChatInput({
               alignItems: "center",
               justifyContent: "center",
               borderRight: "1px solid #d9d9d9",
-              position: "relative",
             }}
           >
             <SmileOutlined />
@@ -140,6 +162,13 @@ function ChatInput({
           <SendOutlined />
         </button>
       </div>
+
+      {/* Hiển thị file đã chọn */}
+      {selectedFile && (
+        <div style={{ marginTop: 8, fontSize: 13, color: "#595959" }}>
+          📎 <strong>{selectedFile.name}</strong> ({(selectedFile.size / 1024).toFixed(1)} KB)
+        </div>
+      )}
     </div>
   );
 }

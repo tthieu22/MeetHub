@@ -39,8 +39,7 @@ export default function ChatMessage({
   isSenderOnline = false,
   currentUserId,
 }: ChatMessageProps) {
-  const currentUser = useUserStore((state) => state.currentUser);
-
+  const currentUser = useUserStore((state) => state.currentUser); 
   // Xác định tin nhắn có phải của mình không
   // Ưu tiên currentUserId prop nếu có, fallback về currentUser từ store
   const actualCurrentUserId = currentUserId || currentUser?._id;

@@ -2,7 +2,7 @@ import { Socket } from "socket.io-client";
 import { useChatStore } from "@web/store/chat.store";
 import { useUserStore } from "@web/store/user.store";
 import { WsResponse } from "@web/types/websocket";
-import { Message, ChatRoom } from "@web/types/chat";
+import { Message, ChatRoom, UsersOnline } from "@web/types/chat";
 import { WS_RESPONSE_EVENTS } from "@web/constants/websocket.events";
 
 // WebSocket event handlers - xử lý các events từ backend
@@ -14,6 +14,8 @@ export class WebSocketEventHandlers {
   ) {
     if (data.success && data.data) {
       socket.emit("get_rooms");
+      // Lấy danh sách tất cả người online
+      socket.emit("get_all_online_users");
     }
   }
 
@@ -112,6 +114,31 @@ export class WebSocketEventHandlers {
     }
   }
 
+  // Xử lý nhận danh sách tất cả người online
+  static handleAllOnlineUsers(data: WsResponse<UsersOnline[]>) {
+    if (data.success && data.data) {
+      const { setAllOnline, setOnlineUsers } = useChatStore.getState();
+
+      // Cập nhật danh sách allOnline
+      setAllOnline(
+        data.data.map((user) => ({
+          userId: user.userId,
+          name: user.name,
+          email: user.email,
+          avatarURL: user.avatarURL,
+          isOnline: user.isOnline,
+        }))
+      );
+
+      // Cập nhật onlineUsers object để tương thích với OnlineUsersList component
+      const onlineUsersMap: Record<string, boolean> = {};
+      data.data.forEach((user) => {
+        onlineUsersMap[user.userId] = user.isOnline;
+      });
+      setOnlineUsers(onlineUsersMap);
+    }
+  }
+
   // Xử lý user online
   static handleUserOnline(
     data: WsResponse<{ userId: string; roomId: string }>
@@ -188,14 +215,9 @@ export class WebSocketEventHandlers {
   static handleRoomOnlineMembers(
     data: WsResponse<{ roomId: string; onlineMemberIds: string[] }>
   ) {
-    console.log("[WebSocket] Received room_online_members event:", data);
     if (data.success && data.data) {
       const { setRoomOnlineMembers } = useChatStore.getState();
       setRoomOnlineMembers(data.data.roomId, data.data.onlineMemberIds);
-      console.log(
-        `[WebSocket] Updated online members for room ${data.data.roomId}:`,
-        data.data.onlineMemberIds
-      );
     }
   }
 
@@ -266,6 +288,10 @@ export class WebSocketEventHandlers {
         this.handleUserOffline(data);
       }
     );
+
+    socket.on("all_online_users", (data: WsResponse<UsersOnline[]>) => {
+      this.handleAllOnlineUsers(data);
+    });
 
     socket.on(
       "room_online_members",

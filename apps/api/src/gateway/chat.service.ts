@@ -133,27 +133,9 @@ export class ChatService {
     }
   }
 
-  /**
-   * Debug: Lấy tất cả users online trong Redis
-   */
-  async debugAllOnlineUsers(): Promise<string[]> {
-    const keys = await this.redisClient.keys('user:online:*');
-    const onlineUsers: string[] = [];
-
-    for (const key of keys) {
-      const value = await this.redisClient.get(key);
-      if (value === '1') {
-        const userId = key.replace('user:online:', '');
-        onlineUsers.push(userId);
-      }
-    }
-
-    return onlineUsers;
-  }
-
   // User info methods
   async getUser(userId: string) {
-    return await this.usersService.findOne(userId);
+    return await this.usersService.findById(userId);
   }
 
   async getUsers() {
