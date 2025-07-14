@@ -10,31 +10,49 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
+  // CORS configuration for development
+  const corsOrigins = configService.get<string>('CORS_ORIGINS')?.split(',') || ['http://localhost:3000'];
+  const corsCredentials = configService.get<boolean>('CORS_CREDENTIALS') ?? true;
+  const corsMethods = configService.get<string>('CORS_METHODS')?.split(',') || ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'];
+  const corsAllowedHeaders = configService.get<string>('CORS_ALLOWED_HEADERS')?.split(',') || ['Content-Type', 'Authorization', 'X-Requested-With'];
+
+  app.enableCors({
+    origin: corsOrigins,
+    credentials: corsCredentials,
+    methods: corsMethods,
+    allowedHeaders: corsAllowedHeaders,
+  });
+
   const port = configService.get<number>('PORT', 8000);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api');
+  const sessionSecret = configService.get<string>('SESSION_SECRET');
+
+  if (!sessionSecret) {
+    console.warn('⚠️  SESSION_SECRET is not set! Using default secret for development only.');
+  }
+
   app.setGlobalPrefix(apiPrefix);
   app.useGlobalPipes(new ValidationPipe());
   app.useGlobalFilters(new AllExceptionsFilter());
   app.use(cookieParser());
   app.use(
     session({
-      secret: process.env.SESSION_SECRET, // nên để vào .env
+      secret: sessionSecret || 'default-secret-for-development',
       resave: false,
       saveUninitialized: false,
       cookie: {
-        maxAge: 1000 * 60 * 60, // 1 giờ
+        maxAge: 1000 * 60 * 60,
       },
     }),
   );
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // <-- tự động loại field không có trong DTO
-      forbidNonWhitelisted: true, // <-- nếu có field thừa thì báo lỗi
+      whitelist: true,
+      forbidNonWhitelisted: true,
       transform: true,
     }),
   );
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}/${apiPrefix}`);
 }
 bootstrap().catch((error) => {
   console.error('Failed to start application:', error);

@@ -54,8 +54,6 @@ export class UsersController {
   @UseGuards(AuthGuard)
   @Get('/me')
   async getMe(@Req() req: Request) {
-    console.log('hello');
-    console.log(req.user);
     if (!req.user) return { success: false, messege: 'vui lòng đăng nhập' };
     return this.usersService.findById(req.user._id);
   }

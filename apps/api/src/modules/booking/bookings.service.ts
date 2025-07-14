@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException, forwardRef, Inject } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ForbiddenException, forwardRef, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Document, PipelineStage } from 'mongoose';
+import { Model, Document, PipelineStage, Types } from 'mongoose';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import { Booking, BookingStatus } from './booking.schema';
@@ -12,6 +12,7 @@ import { User } from '../users/schema/user.schema';
 import { SearchBookingsDto } from './dto/search-bookings.dto';
 import { SearchBookingsDetailedDto } from './dto/search-bookings-detailed.dto';
 import { NotificationService } from '../notification/notification.service';
+import { log } from 'console';
 
 @Injectable()
 export class BookingsService implements IBookingService {
@@ -21,7 +22,7 @@ export class BookingsService implements IBookingService {
     @Inject(forwardRef(() => ROOM_SERVICE_TOKEN))
     private roomService: IRoomService,
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async create(createBookingDto: CreateBookingDto): Promise<IBooking> {
     try {
@@ -55,18 +56,18 @@ export class BookingsService implements IBookingService {
       // VALIDATION: Kiểm tra participants
       const participants: (User & Document)[] = createBookingDto.participants?.length
         ? await Promise.all(
-            createBookingDto.participants.map(async (id) => {
-              const participant = await this.userModel.findById(id);
-              if (!participant) {
-                throw new NotFoundException({
-                  success: false,
-                  message: `Không tìm thấy người tham gia với ID ${id}`,
-                  errorCode: 'PARTICIPANT_NOT_FOUND',
-                });
-              }
-              return participant;
-            }),
-          )
+          createBookingDto.participants.map(async (id) => {
+            const participant = await this.userModel.findById(id);
+            if (!participant) {
+              throw new NotFoundException({
+                success: false,
+                message: `Không tìm thấy người tham gia với ID ${id}`,
+                errorCode: 'PARTICIPANT_NOT_FOUND',
+              });
+            }
+            return participant;
+          }),
+        )
         : [];
 
       // VALIDATION: Kiểm tra sức chứa
@@ -219,7 +220,13 @@ export class BookingsService implements IBookingService {
     const finalFilter = { ...filter, ...timeFilter };
 
     const [data, total] = await Promise.all([
-      this.bookingModel.find(finalFilter).skip(skip).limit(limit).populate('room user participants').lean().exec(),
+      this.bookingModel
+        .find(finalFilter)
+        .skip(skip)
+        .limit(limit)
+        .populate('room user participants')
+        .lean()
+        .exec(),
       this.bookingModel.countDocuments(finalFilter),
     ]);
 
@@ -402,34 +409,34 @@ export class BookingsService implements IBookingService {
     }
   }
 
-  async cancelBooking(id: string): Promise<IBooking> {
-    const booking = await this.bookingModel.findById(id).populate('room').lean().exec();
-    if (!booking) {
-      throw new NotFoundException({
-        success: false,
-        message: `Không tìm thấy đặt phòng với ID ${id}`,
-        errorCode: 'BOOKING_NOT_FOUND',
-      });
-    }
-    const updatedBooking = await this.bookingModel.findByIdAndUpdate(id, { status: BookingStatus.CANCELLED }, { new: true }).populate('room user participants').exec();
-    if (updatedBooking) {
-      for (const participant of updatedBooking.participants || []) {
-        const p = participant as any;
-        try {
-          await this.notificationService.notify(
-            p._id.toString(),
-            `Phòng "${updatedBooking.room.name}" bắt đầu lúc ${updatedBooking.startTime.toLocaleString()} kết thúc lúc ${updatedBooking.endTime.toLocaleString()} do ${updatedBooking.user.name} tạo đã bị huỷ`,
-            'booking',
-          );
-        } catch (err) {
-          console.error(`Không thể gửi noti cho ${p._id}:`, err.message);
-        }
-      }
-    }
+async cancelBooking(id: string, userId: string): Promise<IBooking> {
+  // 1. Kiểm tra booking tồn tại
+  const booking = await this.bookingModel.findById(id)
+    .populate('user', '_id') // Chỉ lấy _id của user
+    .exec();
 
-    return updatedBooking as IBooking;
+  if (!booking) {
+    throw new NotFoundException('Booking không tồn tại');
   }
 
+  // 2. Kiểm tra user có quyền hủy
+  const isCreator = (booking.user as any)._id.toString() == userId.toString();
+  log(`User ID: ${typeof booking.user === 'object' && booking.user !== null && '_id' in booking.user ? (booking.user as any)._id.toString() : booking.user.toString()}`);
+ log(`Is creator: ${isCreator}`);
+ log(`User ID from booking: ${userId}`);
+  if (isCreator === false) {
+    throw new ForbiddenException('Không có quyền hủy booking này');
+  }
+
+  // 3. Kiểm tra trạng thái hợp lệ để hủy
+  if ([BookingStatus.CANCELLED, BookingStatus.DELETED].includes(booking.status)) {
+    throw new BadRequestException(`Booking đã ở trạng thái ${booking.status}`);
+  }
+
+  // 4. Cập nhật và trả về kết quả
+  booking.status = BookingStatus.CANCELLED;
+  return booking.save();
+}
   async searchBookings(dto: SearchBookingsDto): Promise<any> {
     const { page = 1, limit = 10, roomName, userName, date } = dto;
 
@@ -646,16 +653,16 @@ export class BookingsService implements IBookingService {
               ...(userName ? [{ $cond: [{ $regexMatch: { input: '$user.name', regex: userName, options: 'i' } }, 1, 0] }] : []),
               ...(date
                 ? [
-                    {
-                      $cond: [
-                        {
-                          $and: [{ $gte: ['$startTime', filter.startTime.$gte] }, { $lte: ['$startTime', filter.startTime.$lte] }],
-                        },
-                        1,
-                        0,
-                      ],
-                    },
-                  ]
+                  {
+                    $cond: [
+                      {
+                        $and: [{ $gte: ['$startTime', filter.startTime.$gte] }, { $lte: ['$startTime', filter.startTime.$lte] }],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                ]
                 : []),
               ...(title ? [{ $cond: [{ $regexMatch: { input: '$title', regex: title, options: 'i' } }, 1, 0] }] : []),
               ...(description ? [{ $cond: [{ $regexMatch: { input: '$description', regex: description, options: 'i' } }, 1, 0] }] : []),
@@ -709,7 +716,16 @@ export class BookingsService implements IBookingService {
     const skip = (page - 1) * limit;
     const filter = { status: { $ne: BookingStatus.DELETED } };
 
-    const [data, total] = await Promise.all([this.bookingModel.find(filter).skip(skip).limit(limit).populate('room user participants').lean().exec(), this.bookingModel.countDocuments(filter)]);
+    const [data, total] = await Promise.all([
+      this.bookingModel
+        .find(filter)
+        .skip(skip)
+        .limit(limit)
+        .populate('room user participants')
+        .lean()
+        .exec(),
+      this.bookingModel.countDocuments(filter),
+    ]);
 
     const totalPages = Math.ceil(total / limit);
     return {
@@ -722,4 +738,304 @@ export class BookingsService implements IBookingService {
       data,
     };
   }
+
+  async addParticipant(bookingId: string, userId: string, requesterId: string): Promise<IBooking> {
+    try {
+      // VALIDATION: Kiểm tra bookingId hợp lệ
+      if (!Types.ObjectId.isValid(bookingId)) {
+        throw new BadRequestException({
+          success: false,
+          message: 'ID đặt phòng không hợp lệ',
+          errorCode: 'INVALID_BOOKING_ID',
+        });
+      }
+
+      // VALIDATION: Kiểm tra userId hợp lệ
+      if (!Types.ObjectId.isValid(userId)) {
+        throw new BadRequestException({
+          success: false,
+          message: 'ID người dùng không hợp lệ',
+          errorCode: 'INVALID_USER_ID',
+        });
+      }
+
+      // VALIDATION: Kiểm tra requesterId hợp lệ
+      if (!Types.ObjectId.isValid(requesterId)) {
+        throw new BadRequestException({
+          success: false,
+          message: 'ID người yêu cầu không hợp lệ',
+          errorCode: 'INVALID_REQUESTER_ID',
+        });
+      }
+
+      // VALIDATION: Kiểm tra booking tồn tại và không bị xóa
+      const booking = await this.bookingModel
+        .findById(bookingId)
+        .populate('room')
+        .exec();
+      if (!booking || booking.status === BookingStatus.DELETED) {
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy đặt phòng với ID ${bookingId}`,
+          errorCode: 'BOOKING_NOT_FOUND',
+        });
+      }
+
+      // VALIDATION: Kiểm tra user tồn tại
+      const user = await this.userModel.findById(userId).exec();
+      if (!user) {
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy người dùng với ID ${userId}`,
+          errorCode: 'USER_NOT_FOUND',
+        });
+      }
+
+      // VALIDATION: Kiểm tra requester tồn tại và là người tạo booking
+      const requester = await this.userModel.findById(requesterId).exec();
+      if (!requester) {
+        throw new NotFoundException({
+          success: false,
+          message: `Không tìm thấy người yêu cầu với ID ${requesterId}`,
+          errorCode: 'REQUESTER_NOT_FOUND',
+        });
+      }
+      if (booking.user.toString() !== requesterId) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Chỉ người tạo đặt phòng mới có thể thêm người tham gia',
+          errorCode: 'UNAUTHORIZED_REQUESTER',
+        });
+      }
+
+      // VALIDATION: Kiểm tra user đã có trong participants chưa
+      if (booking.participants.some((p) => p.toString() === userId)) {
+        throw new BadRequestException({
+          success: false,
+          message: `Người dùng với ID ${userId} đã có trong danh sách tham gia`,
+          errorCode: 'USER_ALREADY_PARTICIPANT',
+        });
+      }
+
+      // VALIDATION: Kiểm tra sức chứa phòng
+      const room = await this.roomService.getRoomById(booking.room.toString()) as Document & { _id: string; capacity: number; status: string };
+      const totalParticipants = booking.participants.length + 1 + 1; // +1 cho người tạo, +1 cho người mới
+      if (totalParticipants > room.capacity) {
+        throw new BadRequestException({
+          success: false,
+          message: `Số lượng người tham gia (${totalParticipants}) vượt quá sức chứa phòng (${room.capacity})`,
+          errorCode: 'EXCEEDED_CAPACITY',
+        });
+      }
+
+      // VALIDATION: Kiểm tra trạng thái booking
+      if (booking.status !== BookingStatus.PENDING && booking.status !== BookingStatus.CONFIRMED) {
+        throw new BadRequestException({
+          success: false,
+          message: `Không thể thêm người tham gia vào đặt phòng có trạng thái ${booking.status}`,
+          errorCode: 'INVALID_BOOKING_STATUS',
+        });
+      }
+
+      // Thêm user vào participants
+      booking.participants.push(userId as any);
+      const updatedBooking = await booking.save();
+
+      // Populate dữ liệu trả về
+      const populatedBooking = await this.bookingModel
+        .findById(updatedBooking._id)
+        .populate('room user participants')
+        .lean()
+        .exec();
+
+      if (!populatedBooking) {
+        throw new NotFoundException({
+          success: false,
+          message: 'Đặt phòng không tìm thấy sau khi thêm người tham gia',
+          errorCode: 'BOOKING_NOT_FOUND',
+        });
+      }
+
+      return populatedBooking as IBooking;
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException({
+        success: false,
+        message: 'Không thể thêm người tham gia vào đặt phòng',
+        errorCode: 'ADD_PARTICIPANT_FAILED',
+      });
+    }
+  }
+
+  async searchBookingsExcludeDeleted(dto: SearchBookingsDetailedDto): Promise<any> {
+    const { page = 1, limit = 10, roomName, userName, date, title, description } = dto;
+
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Số trang và giới hạn bản ghi phải lớn hơn 0',
+        errorCode: 'INVALID_PAGINATION',
+      });
+    }
+
+    const filter: any = { status: { $ne: BookingStatus.DELETED } };
+
+    if (roomName) {
+      if (typeof roomName !== 'string' || roomName.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Tên phòng phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_ROOM_NAME',
+        });
+      }
+      filter['room.name'] = { $regex: roomName.trim(), $options: 'i' };
+    }
+
+    if (userName) {
+      if (typeof userName !== 'string' || userName.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Tên người dùng phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_USER_NAME',
+        });
+      }
+      filter['user.name'] = { $regex: userName.trim(), $options: 'i' };
+    }
+
+    if (date) {
+      const dateRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
+      if (!dateRegex.test(date)) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Định dạng ngày không hợp lệ, phải là YYYY-MM-DD (ví dụ: 2025-07-10)',
+          errorCode: 'INVALID_DATE_FORMAT',
+        });
+      }
+      const [year, month, day] = date.split('-').map(Number);
+      const parsedDate = new Date(year, month - 1, day);
+      if (isNaN(parsedDate.getTime()) || parsedDate.getFullYear() !== year || parsedDate.getMonth() + 1 !== month || parsedDate.getDate() !== day) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Ngày không hợp lệ',
+          errorCode: 'INVALID_DATE',
+        });
+      }
+      const startOfDay = new Date(parsedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(parsedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      filter.startTime = {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      };
+    }
+
+    if (title) {
+      if (typeof title !== 'string' || title.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Tiêu đề phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_TITLE',
+        });
+      }
+      filter.title = { $regex: title.trim(), $options: 'i' };
+    }
+
+    if (description) {
+      if (typeof description !== 'string' || description.trim().length < 2) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Mô tả phải là chuỗi và có ít nhất 2 ký tự',
+          errorCode: 'INVALID_DESCRIPTION',
+        });
+      }
+      filter.description = { $regex: description.trim(), $options: 'i' };
+    }
+
+    if (!roomName && !userName && !date && !title && !description) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Phải cung cấp ít nhất một tiêu chí tìm kiếm',
+        errorCode: 'MISSING_SEARCH_CRITERIA',
+      });
+    }
+
+    const pipeline: PipelineStage[] = [
+      {
+        $lookup: {
+          from: 'rooms',
+          localField: 'room',
+          foreignField: '_id',
+          as: 'room',
+        },
+      },
+      { $unwind: '$room' },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      { $unwind: '$user' },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'participants',
+          foreignField: '_id',
+          as: 'participants',
+        },
+      },
+      { $match: filter },
+      {
+        $addFields: {
+          matchScore: {
+            $sum: [
+              ...(roomName ? [{ $cond: [{ $regexMatch: { input: '$room.name', regex: roomName, options: 'i' } }, 1, 0] }] : []),
+              ...(userName ? [{ $cond: [{ $regexMatch: { input: '$user.name', regex: userName, options: 'i' } }, 1, 0] }] : []),
+              ...(date
+                ? [
+                  {
+                    $cond: [
+                      {
+                        $and: [{ $gte: ['$startTime', filter.startTime.$gte] }, { $lte: ['$startTime', filter.startTime.$lte] }],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                ]
+                : []),
+              ...(title ? [{ $cond: [{ $regexMatch: { input: '$title', regex: title, options: 'i' } }, 1, 0] }] : []),
+              ...(description ? [{ $cond: [{ $regexMatch: { input: '$description', regex: description, options: 'i' } }, 1, 0] }] : []),
+            ],
+          },
+        },
+      },
+      { $sort: { matchScore: -1, startTime: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ];
+
+    const [data, total] = await Promise.all([
+      this.bookingModel.aggregate(pipeline).exec(),
+      this.bookingModel.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    const message = `Tìm thấy ${data.length} đặt phòng khớp với tiêu chí, không bao gồm trạng thái DELETED (trang ${page}/${totalPages})`;
+    return {
+      success: true,
+      message,
+      total,
+      page,
+      limit,
+      totalPages,
+      data,
+    };
+  }
+
 }

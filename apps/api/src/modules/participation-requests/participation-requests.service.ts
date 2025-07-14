@@ -7,6 +7,7 @@ import { ParticipationRequest, RequestStatus } from './schemas/participation-req
 import { IParticipationRequestService } from './interface/participation-request.service.interface';
 import { Booking } from '../booking/booking.schema';
 import { User } from '../users/schema/user.schema';
+import { SearchParticipationRequestsDto } from './dto/search-participation-requests.dto';
 
 @Injectable()
 export class ParticipationRequestsService implements IParticipationRequestService {
@@ -703,6 +704,130 @@ export class ParticipationRequestsService implements IParticipationRequestServic
         success: false,
         message: 'Không thể lấy danh sách yêu cầu tham gia không bị xóa',
         errorCode: 'FETCH_REQUESTS_EXCLUDE_DELETED_FAILED',
+      });
+    }
+  }
+   async searchParticipationRequestsExcludeDeleted(
+    dto: SearchParticipationRequestsDto,
+  ): Promise<{
+    data: ParticipationRequest[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    try {
+      // Kiểm tra tham số phân trang
+      if (dto.page && (dto.page < 1 || !Number.isInteger(dto.page))) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Số trang phải là số nguyên lớn hơn hoặc bằng 1',
+          errorCode: 'INVALID_PAGE',
+        });
+      }
+
+      if (dto.limit && (dto.limit < 1 || !Number.isInteger(dto.limit))) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Giới hạn bản ghi phải là số nguyên lớn hơn hoặc bằng 1',
+          errorCode: 'INVALID_LIMIT',
+        });
+      }
+
+      // Tạo bộ lọc, loại bỏ các yêu cầu có trạng thái DELETED
+      const filter: any = {
+        status: { $ne: RequestStatus.DELETED },
+      };
+
+      // Kiểm tra và thêm bộ lọc cho booking nếu có
+      if (dto.booking) {
+        if (!Types.ObjectId.isValid(dto.booking)) {
+          throw new BadRequestException({
+            success: false,
+            message: 'Mã đặt phòng không hợp lệ',
+            errorCode: 'INVALID_BOOKING_ID',
+          });
+        }
+        const booking = await this.bookingModel
+          .findOne({ _id: dto.booking, status: { $ne: 'DELETED' } })
+          .exec();
+        if (!booking) {
+          throw new NotFoundException({
+            success: false,
+            message: `Không tìm thấy đặt phòng với ID ${dto.booking}`,
+            errorCode: 'BOOKING_NOT_FOUND',
+          });
+        }
+        filter.booking = dto.booking;
+      }
+
+      // Kiểm tra và thêm bộ lọc cho user nếu có
+      if (dto.user) {
+        if (!Types.ObjectId.isValid(dto.user)) {
+          throw new BadRequestException({
+            success: false,
+            message: 'Mã người dùng không hợp lệ',
+            errorCode: 'INVALID_USER_ID',
+          });
+        }
+        const user = await this.userModel.findById(dto.user).exec();
+        if (!user) {
+          throw new NotFoundException({
+            success: false,
+            message: `Không tìm thấy người dùng với ID ${dto.user}`,
+            errorCode: 'USER_NOT_FOUND',
+          });
+        }
+        filter.user = dto.user;
+      }
+
+      // Thêm bộ lọc trạng thái nếu có
+      if (dto.status) {
+        if (!Object.values(RequestStatus).includes(dto.status)) {
+          throw new BadRequestException({
+            success: false,
+            message: `Trạng thái phải là một trong các giá trị: ${Object.values(RequestStatus).join(', ')}`,
+            errorCode: 'INVALID_STATUS',
+          });
+        }
+        filter.status = dto.status;
+      }
+
+      // Thiết lập phân trang
+      const page = dto.page || 1;
+      const limit = dto.limit || 10;
+      const skip = (page - 1) * limit;
+
+      // Thực hiện truy vấn với bộ lọc và phân trang
+      const [data, total] = await Promise.all([
+        this.participationRequestModel
+          .find(filter)
+          .skip(skip)
+          .limit(limit)
+          .populate('booking user approvedBy')
+          .lean()
+          .exec(),
+        this.participationRequestModel.countDocuments(filter).exec(),
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      // Trả về kết quả
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException({
+        success: false,
+        message: 'Không thể tìm kiếm yêu cầu tham gia',
+        errorCode: 'SEARCH_REQUESTS_FAILED',
       });
     }
   }
