@@ -246,6 +246,7 @@ const RoomList = () => {
     if (!authToken) {
       setError('Vui lòng đăng nhập để xóa phòng.');
       message.error('Vui lòng đăng nhập để tiếp tục.');
+
       router.push('/login');
       return;
     }
@@ -813,8 +814,8 @@ const RoomList = () => {
         open={isAddModalVisible}
         onCancel={handleModalClose}
         footer={null}
-        width={800}
-        style={{ top: 20 }}
+        width="90vw"
+        style={{ top: 20, maxWidth: '1200px' }}
       >
         <AddRoom onClose={handleModalClose} fetchRooms={fetchRooms} />
       </Modal>
