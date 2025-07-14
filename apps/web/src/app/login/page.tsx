@@ -1,7 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
-import { Form, Input, Card, Typography, message } from "antd";
+import React, { useEffect, useState } from "react";
+import {
+  Form,
+  Input,
+  Card,
+  Typography,
+  message,
+  notification,
+  Button,
+} from "antd";
 import { UserOutlined, LockOutlined, LoginOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
@@ -10,6 +18,8 @@ import authApiService, {
   LoginForm,
   LoginResponse,
 } from "@web/services/api/auth.api";
+import { toast, ToastContainer } from "react-toastify";
+import Link from "next/link";
 
 const { Title, Text } = Typography;
 
@@ -20,31 +30,28 @@ export default function LoginPage() {
   const [form] = Form.useForm();
 
   const onFinish = async (values: LoginForm) => {
-    setLoading(true);
     try {
-      const data: LoginResponse = await authApiService.login(values);
-
-      // Lưu token vào localStorage
-      localStorage.setItem("access_token", data.access_token);
-
-      // Decode token để lấy thông tin user
-      const payload = JSON.parse(atob(data.access_token.split(".")[1]));
-
-      // Set user vào store
-      setCurrentUser({
-        _id: payload._id,
-        email: payload.email || payload.name,
-        username: payload.name,
-        avatar: "",
-      });
-
-      message.success("Đăng nhập thành công!");
-
-      // Chuyển hướng về trang chủ
-      router.push("/");
+      setLoading(true);
+      const data: LoginResponse = await authApiService.loginAPI(values);
+      if (data.access_token) {
+        localStorage.setItem("access_token", data.access_token || "");
+        const payload = JSON.parse(atob(data.access_token!.split(".")[1]));
+        setCurrentUser({
+          _id: payload._id,
+          email: payload.email || payload.name,
+          username: payload.name,
+          avatar: "",
+        });
+        toast.success("Đăng nhập thành công");
+        router.push("/");
+      } else if (!data.success) {
+        toast.error("Sai email hoặc password");
+      }
     } catch (error) {
-      console.error("Login error:", error);
-      message.error("Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu.");
+      notification.error({
+        message: "Lỗi Đăng nhập",
+        description: `lỗi ${error}`,
+      });
     } finally {
       setLoading(false);
     }
@@ -134,7 +141,19 @@ export default function LoginPage() {
             </CustomButton>
           </Form.Item>
         </Form>
-
+        <div>
+          <Link href={"/register"}>Bạn chưa có tài khoản?</Link>
+        </div>
+        <div>
+          <Button>Quên mật khẩu?</Button>
+          <Button
+            onClick={() => {
+              router.push("http://localhost:8000/api/auth/google/redirect");
+            }}
+          >
+            Đăng nhập bằng google
+          </Button>
+        </div>
         <div style={{ textAlign: "center", marginTop: "16px" }}>
           <Text type="secondary">Demo: admin@gmail.com / 123456</Text>
           <br />
@@ -143,6 +162,7 @@ export default function LoginPage() {
           </Text>
         </div>
       </Card>
+      <ToastContainer />
     </div>
   );
 }
