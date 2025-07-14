@@ -61,7 +61,6 @@ export class RoomService {
     }
   }
 
-  // 10. Tạo phòng mới (1-1 hoặc group)
   async createRoom(createRoomDto: CreateRoomDto, userId: string) {
     const { name, type, members = [] } = createRoomDto;
     members.forEach((m, idx) => console.log(`Tạo phòng - member[${idx}]:`, m, typeof m));
@@ -348,6 +347,7 @@ export class RoomService {
     return { success: true };
   }
 
+  // Lấy tin nhắn cuối cùng của phòng
   async getLastMessage(roomId: string): Promise<LastMessageInfo | null> {
     const msg = await this.messageModel
       .findOne({ conversationId: new Types.ObjectId(roomId), isDeleted: false })
@@ -363,6 +363,7 @@ export class RoomService {
       createdAt: (msg as { createdAt?: Date | string }).createdAt ? new Date((msg as { createdAt?: Date | string }).createdAt!) : new Date(0),
     };
   }
+  // Lấy tin nhắn chưa đọc
   async getUnreadCount(roomId: string, userId: string): Promise<number> {
     const isMember = await this.isMemberOfConversation(userId, roomId);
     if (!isMember) throw new ForbiddenException('You are not a member of this conversation');
@@ -382,15 +383,13 @@ export class RoomService {
     });
     return totalMessages - readMessages;
   }
-
+  // Lấy người dùng online cho từng phòng
   async getOnlineMemberIds(roomId: string): Promise<string[]> {
-    // Đảm bảo roomId là ObjectId khi truy vấn
     const members = await this.conversationMemberModel
       .find({ conversationId: new Types.ObjectId(roomId) })
       .select('userId')
       .lean();
 
-    // Deduplicate members using Map (same logic as getRoomSidebarInfo)
     const uniqueMembersMap = new Map<string, string>();
     members.forEach((m) => {
       const userId = String(m.userId);
@@ -401,22 +400,13 @@ export class RoomService {
 
     const userIds = Array.from(uniqueMembersMap.values());
 
-    console.log(`[RoomService] Room ${roomId} has members:`, userIds);
-
     const onlineChecks = await Promise.all(userIds.map((uid) => this.redisClient.get(`user:online:${uid}`)));
-
-    console.log(
-      `[RoomService] Online checks for room ${roomId}:`,
-      userIds.map((uid, idx) => ({ userId: uid, online: onlineChecks[idx] })),
-    );
 
     const onlineMembers = userIds.filter((uid, idx) => onlineChecks[idx] === '1');
 
-    console.log(`[RoomService] Online members for room ${roomId}:`, onlineMembers);
-
     return onlineMembers;
   }
-
+  // Lấy tất các thông tin : tin nhắn cuối , người dùng online, tin nhắn chưa đọc
   async getRoomSidebarInfo(userId: string): Promise<RoomSidebarInfo[]> {
     const rooms = await this.getRooms(userId);
     const result: RoomSidebarInfo[] = [];

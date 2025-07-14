@@ -25,7 +25,7 @@ export default function UsersList({
   onChat,
 }: UsersListProps) {
   return (
-    <div style={{ maxHeight: "600px", overflowY: "auto" }}>
+    <div>
       {/* Online Users */}
       {onlineUsers.length > 0 && (
         <div style={{ marginBottom: 16 }}>

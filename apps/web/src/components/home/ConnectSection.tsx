@@ -53,7 +53,7 @@ export default function ConnectSection() {
       {contextHolder}
       <Row gutter={[16, 16]}>
         {/* Users Section */}
-        <Col xs={24} xl={16}>
+        <Col xs={24} xl={24}>
           <Card
             title={
               <div
@@ -88,7 +88,7 @@ export default function ConnectSection() {
         </Col>
 
         {/* Invitations Section */}
-        <Col xs={24} xl={8}>
+        <Col xs={24} xl={24}>
           <Card
             title={
               <Title level={4} style={{ margin: 0 }}>

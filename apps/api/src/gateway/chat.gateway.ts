@@ -114,6 +114,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
     this.server.to(`room:${roomId}`).emit('room_online_members', response);
   }
+
   // Hành động lấy người online cho từng room
   async emitUserOnline(userId: string, roomIds: string[]): Promise<void> {
     for (const roomId of roomIds) {
@@ -129,6 +130,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const allOnlineResponse = await this.chatEventsHandler.handleGetAllOnlineUsers();
     this.server.emit('all_online_users', allOnlineResponse);
   }
+
   // lấy tất cả các phòng
   @SubscribeMessage('get_rooms')
   async handleGetRooms(@ConnectedSocket() client: AuthenticatedSocket) {
@@ -137,6 +139,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const response = await this.chatEventsHandler.handleGetRooms(userId);
     client.emit(WebSocketEventName.ROOMS, response);
   }
+
   // Lấy tin nhắn khi vào 1 phòng
   @SubscribeMessage('get_messages')
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -147,6 +150,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const response = await this.chatEventsHandler.handleGetMessages(userId, data);
     client.emit(WebSocketEventName.MESSAGES, response);
   }
+
   // Đánh dấu đọc tin nhắn
   @SubscribeMessage('mark_room_read')
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -163,7 +167,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(`room:${data.roomId}`).emit(WebSocketEventName.ROOM_MARKED_READ, response);
     }
   }
-  // lấy tin nhứn chưa đọc của người dùng đăng nhập
+
+  // lấy tin nhắn chưa đọc của người dùng đăng nhập
   @SubscribeMessage('get_unread_count')
   @UsePipes(new ValidationPipe({ transform: true }))
   async handleGetUnreadCount(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: GetUnreadCountDto) {
@@ -173,6 +178,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const response = await this.chatEventsHandler.handleGetUnreadCount(userId, data);
     client.emit(WebSocketEventName.UNREAD_COUNT, response);
   }
+
   // gửi 1 tin nhắn sẽ gửi tới tất cả từng người 1 trong phòng và đánh dấu chưa đọc
   @SubscribeMessage('create_message')
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -199,6 +205,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
     }
   }
+
   // Khi tham gia tham gia vào 1 phòng
   @SubscribeMessage('join_room')
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -235,6 +242,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       emitError(client, 'GET_ONLINE_MEMBERS_ERROR', (err as Error).message, 'room_online_members');
     }
   }
+
   // Khi offline sẽ xoá khỏi redis lấy lại thông tin các phòng tổng số thành viên online của từng phòng cập nhật lại
   @SubscribeMessage('user_offline')
   async handleUserOffline(@ConnectedSocket() client: AuthenticatedSocket) {
@@ -264,6 +272,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const allOnlineResponse = await this.chatEventsHandler.handleGetAllOnlineUsers();
     this.server.emit('all_online_users', allOnlineResponse);
   }
+
   @SubscribeMessage('get_all_online_users')
   async handlerUserOnline(@ConnectedSocket() client: AuthenticatedSocket) {
     const userId = validateClient(client);
@@ -282,6 +291,7 @@ function emitError(client: AuthenticatedSocket, code: string, message: string, e
   };
   client.emit(event, response);
 }
+
 // Validate người dùng
 function validateClient(client: AuthenticatedSocket, event: string = 'error'): string | undefined {
   const userId = client.user?._id as string | undefined;
