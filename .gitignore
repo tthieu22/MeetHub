@@ -5,6 +5,7 @@ node_modules
 .pnp
 .pnp.js
 /apps/api/package-lock.json
+/apps/web/package-lock.json
 
 # /apps/api/package.json
 # Local env files
