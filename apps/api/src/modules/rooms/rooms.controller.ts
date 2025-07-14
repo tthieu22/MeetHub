@@ -114,8 +114,7 @@ export class RoomsController {
 
     // Lấy thông tin chi tiết của một phòng họp theo ID
     @Get(':id')
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN)
+    @UseGuards(AuthGuard)
     async findOne(@Param('id') id: string) {
         const room = await this.roomService.getRoomById(id);
         return {

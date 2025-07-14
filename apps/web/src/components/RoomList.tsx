@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useUserStore } from '@web/store/user.store';
 import { message, Card, Typography, Button, Input, Space, Tag, Select, DatePicker, InputNumber, Checkbox, Spin, Modal, Table, Row, Col } from 'antd';
 import moment from 'moment';
-import _ from 'lodash'; // Thêm lodash để sử dụng debounce
+import _ from 'lodash';
 import AddRoom from './AddRoom';
 import UpdateRoom from './UpdateRoom';
 
@@ -63,10 +63,13 @@ interface Room {
   __v?: number;
 }
 
+const validStatuses = ['available', 'occupied', 'maintenance', 'cleaning'];
+
 const RoomList = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [filteredRooms, setFilteredRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<string>('user');
   const [searchParams, setSearchParams] = useState({
@@ -101,12 +104,13 @@ const RoomList = () => {
     const authToken = token || localStorage.getItem('access_token');
     if (!authToken) {
       setError('Vui lòng đăng nhập để xem thông tin.');
-      message.error('Vui lòng đăng nhập để tiếp tục.');
+      message.error('Vui lòng đăng nhập để tiếp tục.', 2);
       router.push('/login');
       return;
     }
 
     try {
+      setLoading(true);
       const response = await axios.get(`${NESTJS_API_URL}/api/users/me`, {
         headers: {
           'Content-Type': 'application/json',
@@ -122,10 +126,12 @@ const RoomList = () => {
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || error.message;
       setError(`Lỗi khi lấy thông tin người dùng: ${errorMsg}`);
-      message.error(errorMsg);
+      message.error(errorMsg, 2);
       if (error.response?.status === 401) {
         router.push('/login');
       }
+    } finally {
+      setLoading(false);
     }
   }, [token, router]);
 
@@ -133,7 +139,7 @@ const RoomList = () => {
     const authToken = token || localStorage.getItem('access_token');
     if (!authToken) {
       setError('Vui lòng đăng nhập để xem danh sách phòng.');
-      message.error('Vui lòng đăng nhập để tiếp tục.');
+      message.error('Vui lòng đăng nhập để tiếp tục.', 2);
       router.push('/login');
       return;
     }
@@ -170,7 +176,7 @@ const RoomList = () => {
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || error.message;
       setError(`Lỗi khi lấy danh sách phòng: ${errorMsg}`);
-      message.error(errorMsg);
+      message.error(errorMsg, 2);
       if (error.response?.status === 401) {
         router.push('/login');
       }
@@ -183,13 +189,13 @@ const RoomList = () => {
     const authToken = token || localStorage.getItem('access_token');
     if (!authToken) {
       setError('Vui lòng đăng nhập để tìm kiếm phòng.');
-      message.error('Vui lòng đăng nhập để tiếp tục.');
+      message.error('Vui lòng đăng nhập để tiếp tục.', 2);
       router.push('/login');
       return;
     }
 
     try {
-      setLoading(true);
+      setSearchLoading(true);
       setError(null);
 
       const params: Record<string, any> = {
@@ -199,7 +205,7 @@ const RoomList = () => {
 
       if (searchParams.keyword?.trim()) params.keyword = searchParams.keyword.trim().toLowerCase();
       if (searchParams.location?.trim()) params.location = searchParams.location.trim();
-      if (searchParams.status) params.status = searchParams.status;
+      if (searchParams.status && validStatuses.includes(searchParams.status)) params.status = searchParams.status;
       if (searchParams.fromDate) params.fromDate = searchParams.fromDate.format('YYYY-MM-DD');
       if (searchParams.toDate) params.toDate = searchParams.toDate.format('YYYY-MM-DD');
       if (searchParams.minCapacity !== null) params.minCapacity = searchParams.minCapacity;
@@ -218,7 +224,6 @@ const RoomList = () => {
 
       if (response.data.success) {
         const fetchedRooms = response.data.data || [];
-        // Sắp xếp kết quả để ưu tiên khớp chính xác với từ khóa
         const sortedRooms = fetchedRooms.sort((a: Room, b: Room) => {
           const keyword = searchParams.keyword?.trim().toLowerCase() || '';
           const aMatch = a.name.toLowerCase().startsWith(keyword) ? 1 : 0;
@@ -232,7 +237,7 @@ const RoomList = () => {
           total: response.data.meta?.total || 0,
           totalPages: response.data.meta?.totalPages || 1,
         }));
-        message.success(`Tìm thấy ${sortedRooms.length} phòng phù hợp`);
+        message.success(`Tìm thấy ${sortedRooms.length} phòng phù hợp`, 2);
       } else {
         throw new Error(response.data.message || 'Không tìm thấy phòng phù hợp');
       }
@@ -241,38 +246,35 @@ const RoomList = () => {
         ? error.response.data.message.join('; ')
         : error.response?.data?.message || error.message;
       setError(`Lỗi khi tìm kiếm: ${errorMsg}`);
-      message.error(errorMsg);
+      message.error(errorMsg, 2);
       if (error.response?.status === 401) {
         router.push('/login');
       }
     } finally {
-      setLoading(false);
+      setSearchLoading(false);
     }
   }, [token, router, pagination.limit, searchParams]);
 
-  // Debounce search function to handle real-time filtering
   const debouncedSearch = useMemo(
-    () =>
-      _.debounce(() => {
-        handleSearch();
-      }, 500),
+    () => _.debounce(() => {
+      handleSearch();
+    }, 500),
     [handleSearch]
   );
 
-  // Tự động tìm kiếm khi thay đổi keyword
   useEffect(() => {
     if (searchParams.keyword?.trim()) {
       debouncedSearch();
     } else {
       setFilteredRooms(rooms);
     }
+    return () => debouncedSearch.cancel();
   }, [searchParams.keyword, rooms, debouncedSearch]);
 
-  // Tự động tìm kiếm khi thay đổi các tham số tìm kiếm chi tiết
   useEffect(() => {
     if (
       searchParams.location ||
-      searchParams.status ||
+      (searchParams.status && validStatuses.includes(searchParams.status)) ||
       searchParams.fromDate ||
       searchParams.toDate ||
       searchParams.minCapacity !== null ||
@@ -300,13 +302,13 @@ const RoomList = () => {
     const authToken = token || localStorage.getItem('access_token');
     if (!authToken) {
       setError('Vui lòng đăng nhập để xóa phòng.');
-      message.error('Vui lòng đăng nhập để tiếp tục.');
+      message.error('Vui lòng đăng nhập để tiếp tục.', 2);
       router.push('/login');
       return;
     }
 
     if (!isAdmin) {
-      message.error('Bạn không có quyền xóa phòng!');
+      message.error('Bạn không có quyền xóa phòng!', 2);
       return;
     }
 
@@ -321,7 +323,7 @@ const RoomList = () => {
 
       if (response.data.success) {
         await fetchRooms();
-        message.success('Phòng đã được xóa mềm thành công!');
+        message.success('Phòng đã được xóa mềm thành công!', 2);
       } else {
         throw new Error(response.data.message || 'Xóa phòng thất bại');
       }
@@ -330,7 +332,7 @@ const RoomList = () => {
         ? error.response.data.message.join('; ')
         : error.response?.data?.message || error.message;
       setError(`Lỗi khi xóa phòng: ${errorMsg}`);
-      message.error(errorMsg);
+      message.error(errorMsg, 2);
     } finally {
       setLoading(false);
     }
@@ -363,7 +365,7 @@ const RoomList = () => {
     });
     setPagination((prev) => ({ ...prev, page: 1 }));
     setFilteredRooms(rooms);
-    message.info('Đã đặt lại bộ lọc tìm kiếm');
+    message.info('Đã đặt lại bộ lọc tìm kiếm', 2);
   }, [rooms]);
 
   const showAddModal = useCallback(() => {
@@ -399,7 +401,7 @@ const RoomList = () => {
       title: 'Tên phòng',
       dataIndex: 'name',
       key: 'name',
-      render: (text: string) => <Text style={{ fontSize: '18px', color: '#1d39c4' }}>{text}</Text>,
+      render: (text: string) => <Text style={{ fontSize: '18px', color: '#1d39c4', transition: 'color 0.3s' }}>{text}</Text>,
     },
     {
       title: 'Sức chứa',
@@ -417,6 +419,7 @@ const RoomList = () => {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
+      hidden: !isAdmin && searchParams.status === 'deleted', // Ẩn cột trạng thái nếu là user và trạng thái là 'deleted'
       render: (status: string) => (
         <Tag
           color={
@@ -426,7 +429,7 @@ const RoomList = () => {
             status === 'deleted' ? '#ff4d4f' :
             status === 'cleaning' ? '#1890ff' : '#722ed1'
           }
-          style={{ fontSize: '18px', padding: '8px 16px', borderRadius: '12px' }}
+          style={{ fontSize: '18px', padding: '8px 16px', borderRadius: '12px', transition: 'all 0.3s' }}
         >
           {status === 'available' ? 'Sẵn sàng' :
            status === 'occupied' ? 'Đang sử dụng' :
@@ -464,8 +467,14 @@ const RoomList = () => {
               transition: 'all 0.3s ease',
               boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(24, 144, 255, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(24, 144, 255, 0.3)';
+            }}
           >
             Sửa
           </Button>
@@ -491,8 +500,14 @@ const RoomList = () => {
               transition: 'all 0.3s ease',
               boxShadow: '0 4px 12px rgba(255, 77, 79, 0.3)',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 77, 79, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 77, 79, 0.3)';
+            }}
           >
             Xóa
           </Button>
@@ -511,6 +526,20 @@ const RoomList = () => {
       position: 'relative',
       color: '#1d39c4',
     }}>
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+          0% { opacity: 1; }
+          50% { opacity: 0.6; }
+          100% { opacity: 1; }
+        }
+        .fade-in {
+          animation: fadeIn 0.5s ease-out;
+        }
+      `}</style>
       {loading ? (
         <Card 
           styles={{ 
@@ -541,13 +570,6 @@ const RoomList = () => {
           >
             Đang tải...
           </Text>
-          <style jsx>{`
-            @keyframes pulse {
-              0% { opacity: 1; }
-              50% { opacity: 0.6; }
-              100% { opacity: 1; }
-            }
-          `}</style>
         </Card>
       ) : error ? (
         <Card styles={{ 
@@ -573,6 +595,7 @@ const RoomList = () => {
             marginBottom: '32px',
             fontSize: '32px',
             fontWeight: 700,
+            animation: 'fadeIn 0.5s ease-out',
           }}>
             {isAdmin ? 'Quản Lý Phòng Họp' : 'Danh Sách Phòng Khả Dụng'}
           </Title>
@@ -584,6 +607,7 @@ const RoomList = () => {
               background: '#ffffff',
               padding: '24px',
               width: '100%',
+              animation: 'fadeIn 0.5s ease-out',
             },
           }}>
             <Space style={{ marginBottom: showAdvancedSearch ? '32px' : '0', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
@@ -593,6 +617,7 @@ const RoomList = () => {
                 onChange={(e) => setSearchParams({ ...searchParams, keyword: e.target.value })}
                 onPressEnter={handleSearch}
                 prefix={<SearchOutlined />}
+                suffix={searchLoading ? <Spin size="small" /> : null}
                 style={{
                   width: showAdvancedSearch ? '60%' : '70%',
                   minWidth: '300px',
@@ -604,16 +629,16 @@ const RoomList = () => {
                   fontSize: '18px',
                   color: '#1d39c4',
                   transition: 'all 0.3s ease',
-                  display: 'flex',
-                  alignItems: 'center',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.border = '2px solid #ff4d4f';
                   e.currentTarget.style.boxShadow = '0 10px 28px rgba(255, 77, 79, 0.3)';
+                  e.currentTarget.style.transform = 'scale(1.02)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.border = '2px solid #ff6f61';
                   e.currentTarget.style.boxShadow = '0 8px 24px rgba(255, 111, 97, 0.2)';
+                  e.currentTarget.style.transform = 'scale(1)';
                 }}
               />
               <Space size={16}>
@@ -622,6 +647,7 @@ const RoomList = () => {
                   icon={<SearchOutlined />}
                   onClick={handleSearch}
                   size="large"
+                  loading={searchLoading}
                   style={{
                     borderRadius: '20px',
                     background: 'linear-gradient(90deg, #1890ff, #40a9ff)',
@@ -636,8 +662,14 @@ const RoomList = () => {
                     transition: 'all 0.3s ease',
                     boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(24, 144, 255, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(24, 144, 255, 0.3)';
+                  }}
                 >
                   Tìm kiếm
                 </Button>
@@ -658,8 +690,14 @@ const RoomList = () => {
                     transition: 'all 0.3s ease',
                     boxShadow: '0 4px 12px rgba(255, 77, 79, 0.3)',
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 77, 79, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 77, 79, 0.3)';
+                  }}
                 >
                   {showAdvancedSearch ? <><UpOutlined /> Ẩn</> : <><DownOutlined /> Chi tiết</>}
                 </Button>
@@ -681,8 +719,14 @@ const RoomList = () => {
                     transition: 'all 0.3s ease',
                     boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(24, 144, 255, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(24, 144, 255, 0.3)';
+                  }}
                 >
                   Đặt lại
                 </Button>
@@ -706,8 +750,14 @@ const RoomList = () => {
                       transition: 'all 0.3s ease',
                       boxShadow: '0 4px 12px rgba(82, 196, 26, 0.3)',
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(82, 196, 26, 0.4)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(82, 196, 26, 0.3)';
+                    }}
                   >
                     Tạo phòng
                   </Button>
@@ -715,7 +765,7 @@ const RoomList = () => {
               </Space>
             </Space>
             {showAdvancedSearch && (
-              <Space direction="vertical" size="large" style={{ width: '100%', marginTop: '32px' }}>
+              <Space direction="vertical" size="large" style={{ width: '100%', marginTop: '32px', animation: 'fadeIn 0.5s ease-out' }}>
                 <Row gutter={[24, 24]}>
                   <Col xs={24} sm={12} md={8}>
                     <Text strong style={{ color: '#1d39c4', fontSize: '18px', marginBottom: '8px' }}>Vị trí:</Text>
@@ -723,7 +773,18 @@ const RoomList = () => {
                       placeholder="Chọn vị trí"
                       value={searchParams.location || undefined}
                       onChange={(value) => setSearchParams({ ...searchParams, location: value || '' })}
-                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      style={{ 
+                        width: '100%', 
+                        borderRadius: '12px', 
+                        fontSize: '16px',
+                        transition: 'all 0.3s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
                       allowClear
                     >
                       <Option value="phòng 1901 - tầng 19 - 19 Tố Hữu">Phòng 1901 - Tầng 19</Option>
@@ -737,7 +798,18 @@ const RoomList = () => {
                       placeholder="Chọn trạng thái"
                       value={searchParams.status || undefined}
                       onChange={(value) => setSearchParams({ ...searchParams, status: value || '' })}
-                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      style={{ 
+                        width: '100%', 
+                        borderRadius: '12px', 
+                        fontSize: '16px',
+                        transition: 'all 0.3s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
                       allowClear
                     >
                       <Option value="available">Sẵn sàng</Option>
@@ -754,7 +826,18 @@ const RoomList = () => {
                       placeholder="Chọn tính năng (ví dụ: Wi-Fi, Máy chiếu)"
                       value={searchParams.features}
                       onChange={(value) => setSearchParams({ ...searchParams, features: value })}
-                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      style={{ 
+                        width: '100%', 
+                        borderRadius: '12px', 
+                        fontSize: '16px',
+                        transition: 'all 0.3s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
                       options={[
                         { value: 'Wi-Fi', label: 'Wi-Fi' },
                         { value: 'Máy chiếu', label: 'Máy chiếu' },
@@ -769,7 +852,18 @@ const RoomList = () => {
                       value={searchParams.fromDate}
                       onChange={(date) => setSearchParams({ ...searchParams, fromDate: date })}
                       format="DD/MM/YYYY"
-                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      style={{ 
+                        width: '100%', 
+                        borderRadius: '12px', 
+                        fontSize: '16px',
+                        transition: 'all 0.3s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
                       placeholder="Chọn ngày bắt đầu"
                     />
                   </Col>
@@ -779,7 +873,18 @@ const RoomList = () => {
                       value={searchParams.toDate}
                       onChange={(date) => setSearchParams({ ...searchParams, toDate: date })}
                       format="DD/MM/YYYY"
-                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      style={{ 
+                        width: '100%', 
+                        borderRadius: '12px', 
+                        fontSize: '16px',
+                        transition: 'all 0.3s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
                       placeholder="Chọn ngày kết thúc"
                       disabledDate={(current) => current && searchParams.fromDate && current < searchParams.fromDate}
                     />
@@ -790,7 +895,18 @@ const RoomList = () => {
                       min={1}
                       value={searchParams.minCapacity}
                       onChange={(value) => setSearchParams({ ...searchParams, minCapacity: value })}
-                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      style={{ 
+                        width: '100%', 
+                        borderRadius: '12px', 
+                        fontSize: '16px',
+                        transition: 'all 0.3s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
                       placeholder="Nhập sức chứa tối thiểu"
                     />
                   </Col>
@@ -800,7 +916,18 @@ const RoomList = () => {
                       min={searchParams.minCapacity || 1}
                       value={searchParams.maxCapacity}
                       onChange={(value) => setSearchParams({ ...searchParams, maxCapacity: value })}
-                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
+                      style={{ 
+                        width: '100%', 
+                        borderRadius: '12px', 
+                        fontSize: '16px',
+                        transition: 'all 0.3s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
                       placeholder="Nhập sức chứa tối đa"
                     />
                   </Col>
@@ -827,6 +954,7 @@ const RoomList = () => {
             )}
           </Card>
           <Table
+            className="fade-in"
             columns={columns}
             dataSource={filteredRooms}
             rowKey="_id"
@@ -843,7 +971,16 @@ const RoomList = () => {
             style={{ marginTop: '32px' }}
             onRow={(record) => ({
               onClick: () => handleRoomClick(record._id),
-              style: { cursor: 'pointer' },
+              style: { 
+                cursor: 'pointer',
+                transition: 'background-color 0.3s',
+              },
+              onMouseEnter: (e) => {
+                e.currentTarget.style.backgroundColor = '#e6f7ff';
+              },
+              onMouseLeave: (e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              },
             })}
             scroll={{ x: 'max-content' }}
             locale={{
