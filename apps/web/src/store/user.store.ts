@@ -5,6 +5,7 @@ interface User {
   email: string;
   username?: string;
   avatar?: string;
+  role?: string; // thêm dòng này
 }
 
 interface UserState {

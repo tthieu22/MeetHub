@@ -36,6 +36,7 @@ export default function LoginPage() {
         email: payload.email || payload.name,
         username: payload.name,
         avatar: "",
+        role: payload.role, // thêm dòng này
       });
 
       message.success("Đăng nhập thành công!");

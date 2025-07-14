@@ -11,8 +11,8 @@ import OnlineUsersList from "@web/components/OnlineUsersList";
 import { useSearchParams } from "next/navigation";
 import { WS_EVENTS, WS_RESPONSE_EVENTS } from "@web/constants/websocket.events";
 import type { Message } from "@web/types/chat";
-import { Button, notification } from "antd";
 import { useRouter } from "next/navigation";
+import { notification } from "antd";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -356,23 +356,12 @@ export default function ChatPage() {
         <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
           {contextHolder}
           {/* Header phòng chat */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "8px 16px",
-              borderBottom: "1px solid #e8e8e8",
-              background: "#fff",
-            }}
-          >
-            <ChatHeader room={selectedRoom} />
-            {/* Nút đóng phòng */}
-            {roomId && !chatClosed && (
-              <Button danger onClick={handleCloseRoom} size="small">
-                Đóng phòng
-              </Button>
-            )}
+          <div>
+            <ChatHeader
+              room={selectedRoom}
+              onCloseRoom={handleCloseRoom}
+              chatClosed={chatClosed}
+            />
           </div>
           {/* Nội dung chat */}
           <div style={{ flex: 1, overflow: "auto" }}>

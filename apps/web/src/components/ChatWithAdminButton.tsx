@@ -6,6 +6,9 @@ import { WebSocketEventHandlers } from "@web/services/websocket/websocket.events
 import type { SupportRoomEvent } from "@web/services/websocket/websocket.events";
 import { useUserStore } from "@web/store/user.store";
 import { useRouter } from "next/navigation";
+import { CustomerServiceOutlined } from "@ant-design/icons";
+import { Tooltip } from "antd";
+import { usePathname } from "next/navigation";
 
 const NOTIF_KEY = "chat-with-admin";
 
@@ -14,6 +17,7 @@ const ChatWithAdminButton: React.FC = () => {
   const socket = useWebSocketStore((state) => state.socket);
   const currentUser = useUserStore((state) => state.currentUser);
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleClick = useCallback(() => {
     if (socket) {
@@ -50,9 +54,9 @@ const ChatWithAdminButton: React.FC = () => {
         api.success({
           key: NOTIF_KEY,
           message: "Yêu cầu hỗ trợ mới",
-          description: "Bạn có người cần yêu cầu hỗ trợ.",
+          description: "Có người cần yêu cầu hỗ trợ.",
           placement: "topRight",
-          duration: 3,
+          duration: 0,
           onClick: () => {
             if (socket) {
               socket.emit("admin_join_support_room", { roomId: data.roomId });
@@ -64,7 +68,7 @@ const ChatWithAdminButton: React.FC = () => {
         api.success({
           key: NOTIF_KEY,
           message: "Đã kết nối admin",
-          description: `Admin ${data.admin?.name || ""} vừa được kết nối. Vui lòng đợi xác nhận.`,
+          description: `Admin (${data.admin?.name || ""}) vừa được kết nối. Vui lòng đợi xác nhận.`,
           placement: "topRight",
           duration: 3,
         });
@@ -87,29 +91,41 @@ const ChatWithAdminButton: React.FC = () => {
     };
   }, [api, socket, currentUser, router]);
 
+  // Ẩn nút nếu đang ở trang chat
+  if (pathname.startsWith("/chat") || currentUser?.role === "admin")
+    return null;
+
   return (
     <>
       {contextHolder}
-      <button
-        style={{
-          position: "fixed",
-          bottom: 32,
-          right: 32,
-          zIndex: 1000,
-          background: "#1677ff",
-          color: "white",
-          border: "none",
-          borderRadius: 24,
-          padding: "12px 24px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-          fontWeight: 600,
-          fontSize: 16,
-          cursor: "pointer",
-        }}
-        onClick={handleClick}
-      >
-        Chat với admin
-      </button>
+      <Tooltip title="Chat với admin" placement="left">
+        <button
+          style={{
+            position: "fixed",
+            bottom: 32,
+            right: 32,
+            zIndex: 1000,
+            background: "#1677ff",
+            color: "white",
+            border: "none",
+            borderRadius: "50%",
+            padding: 0,
+            width: 56,
+            height: 56,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            fontWeight: 600,
+            fontSize: 28,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "width 0.2s, background 0.2s",
+          }}
+          onClick={handleClick}
+        >
+          <CustomerServiceOutlined />
+        </button>
+      </Tooltip>
     </>
   );
 };

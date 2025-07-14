@@ -26,6 +26,7 @@ export function UserProvider() {
             email: payload.email || payload.name || "user@example.com",
             username: payload.name || payload.email || "user",
             avatar: "",
+            role: payload.role, // thêm dòng này
           };
 
           setCurrentUser(user);

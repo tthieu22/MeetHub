@@ -469,14 +469,16 @@ export class RoomService {
   }
 
   async assignAdminToUser(userId: string) {
-    // Kiểm tra nếu user đã có phòng support chưa bị xóa
-    const existingSupportRoom = await this.conversationModel.findOne({
+    // 1. Chặn tạo nhiều phòng chờ (pending)
+    const existingPendingRoom = await this.conversationModel.findOne({
       type: 'private',
-      memberIds: { $all: [userId] },
+      memberIds: [userId],
       isDeleted: false,
+      isActive: true,
+      pending: true,
     });
-    if (existingSupportRoom) {
-      throw new BadRequestException('Bạn đã có phòng hỗ trợ với admin. Vui lòng sử dụng phòng hiện tại!');
+    if (existingPendingRoom) {
+      throw new BadRequestException('Bạn đã có yêu cầu hỗ trợ đang chờ admin. Vui lòng chờ!');
     }
     // Lấy tất cả admin active
     const admins = await this.userModel.find({ role: 'admin', isActive: true });
@@ -516,6 +518,17 @@ export class RoomService {
     }
 
     const assignedAdmin = onlineAdmins[0];
+    // 2. Chặn tạo nhiều phòng active với cùng admin
+    const existingActiveRoom = await this.conversationModel.findOne({
+      type: 'private',
+      memberIds: { $all: [userId, assignedAdmin._id], $size: 2 },
+      isDeleted: false,
+      isActive: true,
+      pending: false,
+    });
+    if (existingActiveRoom) {
+      throw new BadRequestException('Bạn đã có phòng hỗ trợ với admin này. Vui lòng sử dụng phòng hiện tại!');
+    }
     // Tìm hoặc tạo phòng 1-1
     let room = await this.conversationModel.findOne({
       type: 'private',
