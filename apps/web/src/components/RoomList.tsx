@@ -5,11 +5,11 @@ import { DeleteOutlined, SearchOutlined, DownOutlined, UpOutlined, PlusOutlined,
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@web/store/user.store';
-import { message, Card, Typography, Button, Row, Col, Input, Space, Tag, Select, DatePicker, InputNumber, Checkbox, Spin, Modal } from 'antd';
-import { StarFilled } from '@ant-design/icons';
+import { message, Card, Typography, Button, Input, Space, Tag, Select, DatePicker, InputNumber, Checkbox, Spin, Modal, Table, Row, Col } from 'antd';
 import moment from 'moment';
+
 import AddRoom from './AddRoom';
-import UpdateRoom from './UpdateRoom'; // Giả định component UpdateRoom đã được tạo
+import UpdateRoom from './UpdateRoom';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -62,12 +62,6 @@ interface Room {
   updatedAt?: Date;
   __v?: number;
 }
-
-const fieldStyles = [
-  { bg: 'linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)', border: '#1890ff', hoverBg: '#bae7ff', hoverText: '#1d39c4' },
-  { bg: 'linear-gradient(135deg, #fff0f6 0%, #ffadd2 100%)', border: '#eb2f96', hoverBg: '#ffadd2', hoverText: '#9e1068' },
-  { bg: 'linear-gradient(135deg, #e6fffb 0%, #87e8de 100%)', border: '#13c2c2', hoverBg: '#87e8de', hoverText: '#08979c' },
-];
 
 const RoomList = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -324,36 +318,145 @@ const RoomList = () => {
     }
   }, [pagination.page, pagination.limit, role]);
 
+  const columns = [
+    {
+      title: 'Tên phòng',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text: string) => <Text style={{ fontSize: '18px', color: '#1d39c4' }}>{text}</Text>,
+    },
+    {
+      title: 'Sức chứa',
+      dataIndex: 'capacity',
+      key: 'capacity',
+      render: (capacity: number) => <Text style={{ fontSize: '18px', color: '#595959' }}>{capacity} người</Text>,
+    },
+    {
+      title: 'Vị trí',
+      dataIndex: 'location',
+      key: 'location',
+      render: (text: string) => <Text style={{ fontSize: '18px', color: '#595959' }}>{text}</Text>,
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => (
+        <Tag
+          color={
+            status === 'available' ? '#52c41a' :
+            status === 'occupied' ? '#fa8c16' :
+            status === 'maintenance' ? '#faad14' :
+            status === 'deleted' ? '#ff4d4f' : '#722ed1'
+          }
+          style={{ fontSize: '18px', padding: '8px 16px', borderRadius: '12px' }}
+        >
+          {status === 'available' ? 'Sẵn sàng' :
+           status === 'occupied' ? 'Đang sử dụng' :
+           status === 'maintenance' ? 'Bảo trì' :
+           status === 'deleted' ? 'Đã xóa' : status}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Hành động',
+      key: 'action',
+      render: (_: any, record: Room) => (
+        <Space size={16}>
+          <Button
+            type="primary"
+            icon={<EditOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleUpdateClick(record);
+            }}
+            size="large"
+            style={{
+              borderRadius: '20px',
+              background: 'linear-gradient(90deg, #1890ff, #40a9ff)',
+              border: 'none',
+              padding: '12px 24px',
+              fontSize: '16px',
+              color: '#ffffff',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            Sửa
+          </Button>
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSoftDelete(record._id);
+            }}
+            size="large"
+            style={{
+              borderRadius: '20px',
+              background: 'linear-gradient(90deg, #ff4d4f, #ff7875)',
+              border: 'none',
+              padding: '12px 24px',
+              fontSize: '16px',
+              color: '#ffffff',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 4px 12px rgba(255, 77, 79, 0.3)',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            Xóa
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+
   return (
     <div style={{ 
       padding: '24px', 
       width: '100vw', 
-      height: '100vh', 
-      background: 'linear-gradient(135deg, #e6f7ff 0%, #f0f2f5 100%)',
+      minHeight: '100vh', 
+      background: 'linear-gradient(135deg, #f0f2f5, #e6f7ff)',
       overflow: 'auto',
       position: 'relative',
+      color: '#1d39c4',
     }}>
       {loading ? (
         <Card 
           styles={{ 
             body: { 
-              borderRadius: '12px', 
-              boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
-              border: '2px solid #1890ff',
-              background: 'linear-gradient(135deg, #e6f7ff 0%, #f0f2f5 100%)',
+              borderRadius: '16px', 
+              boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
+              border: '1px solid #1890ff',
+              background: '#ffffff',
               textAlign: 'center',
               padding: '40px',
               width: '100%',
               height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
             },
           }}
         >
-          <Spin size="large" style={{ marginBottom: '16px' }} />
+          <Spin size="large" style={{ marginBottom: '24px' }} />
           <Text 
             style={{ 
-              fontSize: '24px', 
+              fontSize: '28px', 
               color: '#1d39c4', 
-              fontWeight: 500,
+              fontWeight: 600,
               animation: 'pulse 1.5s infinite',
             }}
           >
@@ -362,7 +465,7 @@ const RoomList = () => {
           <style jsx>{`
             @keyframes pulse {
               0% { opacity: 1; }
-              50% { opacity: 0.5; }
+              50% { opacity: 0.6; }
               100% { opacity: 1; }
             }
           `}</style>
@@ -370,9 +473,9 @@ const RoomList = () => {
       ) : error ? (
         <Card styles={{ 
           body: { 
-            borderRadius: '12px', 
-            boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
-            border: '2px solid #ff4d4f',
+            borderRadius: '16px', 
+            boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
+            border: '1px solid #ff4d4f',
             textAlign: 'center',
             width: '100%',
             height: '100vh',
@@ -381,58 +484,77 @@ const RoomList = () => {
             justifyContent: 'center',
           },
         }}>
-          <Text type="danger" style={{ fontSize: '24px', fontWeight: 500 }}>{error}</Text>
+          <Text type="danger" style={{ fontSize: '28px', fontWeight: 600, color: '#ff4d4f' }}>{error}</Text>
         </Card>
       ) : (
         <>
           <Title level={2} style={{ 
-            color: '#1d39c4', 
-            textShadow: '1px 1px 2px rgba(0,0,0,0.1)', 
-            marginBottom: '24px',
+            color: '#1d39c4',
+            textShadow: '2px 2px 4px rgba(0,0,0,0.1)', 
+            marginBottom: '32px',
             fontSize: '32px',
+            fontWeight: 700,
           }}>
             {isAdmin ? 'Quản Lý Phòng Họp' : 'Danh Sách Phòng Khả Dụng'}
           </Title>
           <Card styles={{ 
             body: { 
-              borderRadius: '12px', 
-              boxShadow: '0 6px 16px rgba(0,0,0,0.15)', 
-              marginBottom: '24px',
-              background: 'linear-gradient(180deg, #ffffff, #f0faff)',
+              borderRadius: '16px', 
+              boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
+              marginBottom: '32px',
+              background: '#ffffff',
+              padding: '24px',
               width: '100%',
             },
           }}>
-            <Space style={{ marginBottom: showAdvancedSearch ? '16px' : '0', justifyContent: 'space-between', width: '100%' }}>
+            <Space style={{ marginBottom: showAdvancedSearch ? '32px' : '0', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
               <Input
                 placeholder="Tìm kiếm theo tên phòng"
                 value={searchParams.keyword}
                 onChange={(e) => setSearchParams({ ...searchParams, keyword: e.target.value })}
                 onPressEnter={handleSearch}
                 style={{
-                  width: showAdvancedSearch ? '40%' : '50%',
-                  borderRadius: '8px',
-                  border: '1px solid #1890ff',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  padding: '12px 16px',
-                  fontSize: '16px',
-                  marginRight: '16px',
+                  width: showAdvancedSearch ? '60%' : '70%',
+                  minWidth: '300px',
+                  borderRadius: '20px',
+                  border: '2px solid #ff6f61',
+                  background: 'linear-gradient(135deg, #fff5f5, #ffe7e6)',
+                  boxShadow: '0 8px 24px rgba(255, 111, 97, 0.2)',
+                  padding: '16px 32px',
+                  fontSize: '18px',
+                  color: '#1d39c4',
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  alignItems: 'center',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.border = '1px solid #40c4ff'}
-                onMouseLeave={(e) => e.currentTarget.style.border = '1px solid #1890ff'}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.border = '2px solid #ff4d4f';
+                  e.currentTarget.style.boxShadow = '0 10px 28px rgba(255, 77, 79, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.border = '2px solid #ff6f61';
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(255, 111, 97, 0.2)';
+                }}
               />
-              <Space>
+              <Space size={16}>
                 <Button
                   type="primary"
                   icon={<SearchOutlined />}
                   onClick={handleSearch}
+                  size="large"
                   style={{
-                    borderRadius: '8px',
-                    background: 'linear-gradient(90deg, #1890ff, #40c4ff)',
+                    borderRadius: '20px',
+                    background: 'linear-gradient(90deg, #1890ff, #40a9ff)',
                     border: 'none',
                     padding: '12px 24px',
                     fontSize: '16px',
+                    color: '#ffffff',
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     transition: 'all 0.3s ease',
-                    marginRight: '16px',
+                    boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                   onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
@@ -441,15 +563,20 @@ const RoomList = () => {
                 </Button>
                 <Button
                   onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+                  size="large"
                   style={{
-                    borderRadius: '8px',
+                    borderRadius: '20px',
                     background: 'linear-gradient(90deg, #ff4d4f, #ff7875)',
                     border: 'none',
-                    color: '#fff',
+                    color: '#ffffff',
                     padding: '12px 24px',
                     fontSize: '16px',
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     transition: 'all 0.3s ease',
-                    marginRight: '16px',
+                    boxShadow: '0 4px 12px rgba(255, 77, 79, 0.3)',
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                   onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
@@ -460,15 +587,20 @@ const RoomList = () => {
                   type="default"
                   icon={<HomeOutlined />}
                   onClick={handleBackToHome}
+                  size="large"
                   style={{
-                    borderRadius: '8px',
-                    background: 'linear-gradient(90deg, #1890ff, #40c4ff)',
+                    borderRadius: '20px',
+                    background: 'linear-gradient(90deg, #1890ff, #40a9ff)',
                     border: 'none',
-                    color: '#fff',
+                    color: '#ffffff',
                     padding: '12px 24px',
                     fontSize: '16px',
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     transition: 'all 0.3s ease',
-                    marginRight: '16px',
+                    boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                   onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
@@ -480,14 +612,20 @@ const RoomList = () => {
                     type="primary"
                     icon={<PlusOutlined />}
                     onClick={showAddModal}
+                    size="large"
                     style={{
-                      borderRadius: '8px',
+                      borderRadius: '20px',
                       background: 'linear-gradient(90deg, #52c41a, #73d13d)',
                       border: 'none',
-                      color: '#fff',
+                      color: '#ffffff',
                       padding: '12px 24px',
                       fontSize: '16px',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                       transition: 'all 0.3s ease',
+                      boxShadow: '0 4px 12px rgba(82, 196, 26, 0.3)',
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                     onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
@@ -498,33 +636,35 @@ const RoomList = () => {
               </Space>
             </Space>
             {showAdvancedSearch && (
-              <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: '16px' }}>
-                <Row gutter={[16, 16]}>
+              <Space direction="vertical" size="large" style={{ width: '100%', marginTop: '32px' }}>
+                <Row gutter={[24, 24]}>
                   <Col xs={24} sm={12} md={8}>
-                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Vị trí:</Text>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '18px', marginBottom: '8px' }}>Vị trí:</Text>
                     <Input
                       placeholder="Nhập vị trí (ví dụ: phòng 1901 - tầng 19)"
                       value={searchParams.location}
                       onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
                       style={{
-                        borderRadius: '8px',
-                        border: '1px solid #1890ff',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                        borderRadius: '12px',
+                        border: '1px solid #d9d9d9',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
                         padding: '12px 16px',
                         fontSize: '16px',
                         width: '100%',
+                        color: '#1d39c4',
+                        transition: 'all 0.3s ease',
                       }}
-                      onMouseEnter={(e) => e.currentTarget.style.border = '1px solid #40c4ff'}
-                      onMouseLeave={(e) => e.currentTarget.style.border = '1px solid #1890ff'}
+                      onMouseEnter={(e) => e.currentTarget.style.border = '1px solid #40a9ff'}
+                      onMouseLeave={(e) => e.currentTarget.style.border = '1px solid #d9d9d9'}
                     />
                   </Col>
                   <Col xs={24} sm={12} md={8}>
-                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Trạng thái:</Text>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '18px', marginBottom: '8px' }}>Trạng thái:</Text>
                     <Select
                       placeholder="Chọn trạng thái"
                       value={searchParams.status || undefined}
                       onChange={(value) => setSearchParams({ ...searchParams, status: value })}
-                      style={{ width: '100%', borderRadius: '8px', fontSize: '16px' }}
+                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
                       allowClear
                     >
                       <Option value="available">Sẵn sàng</Option>
@@ -534,56 +674,56 @@ const RoomList = () => {
                     </Select>
                   </Col>
                   <Col xs={24} sm={12} md={8}>
-                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Tính năng:</Text>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '18px', marginBottom: '8px' }}>Tính năng:</Text>
                     <Select
                       mode="tags"
                       placeholder="Nhập tính năng (ví dụ: Wi-Fi, Âm thanh)"
                       value={searchParams.features}
                       onChange={(value) => setSearchParams({ ...searchParams, features: value })}
-                      style={{ width: '100%', borderRadius: '8px', fontSize: '16px' }}
+                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
                     />
                   </Col>
                   <Col xs={24} sm={12} md={8}>
-                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Từ ngày:</Text>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '18px', marginBottom: '8px' }}>Từ ngày:</Text>
                     <DatePicker
                       value={searchParams.fromDate}
                       onChange={(date) => setSearchParams({ ...searchParams, fromDate: date })}
                       format="YYYY-MM-DD"
-                      style={{ width: '100%', borderRadius: '8px', fontSize: '16px' }}
+                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
                     />
                   </Col>
                   <Col xs={24} sm={12} md={8}>
-                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Đến ngày:</Text>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '18px', marginBottom: '8px' }}>Đến ngày:</Text>
                     <DatePicker
                       value={searchParams.toDate}
                       onChange={(date) => setSearchParams({ ...searchParams, toDate: date })}
                       format="YYYY-MM-DD"
-                      style={{ width: '100%', borderRadius: '8px', fontSize: '16px' }}
+                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
                     />
                   </Col>
                   <Col xs={24} sm={12} md={8}>
-                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Sức chứa tối thiểu:</Text>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '18px', marginBottom: '8px' }}>Sức chứa tối thiểu:</Text>
                     <InputNumber
                       min={1}
                       value={searchParams.minCapacity}
                       onChange={(value) => setSearchParams({ ...searchParams, minCapacity: value })}
-                      style={{ width: '100%', borderRadius: '8px', fontSize: '16px' }}
+                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
                     />
                   </Col>
                   <Col xs={24} sm={12} md={8}>
-                    <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Sức chứa tối đa:</Text>
+                    <Text strong style={{ color: '#1d39c4', fontSize: '18px', marginBottom: '8px' }}>Sức chứa tối đa:</Text>
                     <InputNumber
                       min={1}
                       value={searchParams.maxCapacity}
                       onChange={(value) => setSearchParams({ ...searchParams, maxCapacity: value })}
-                      style={{ width: '100%', borderRadius: '8px', fontSize: '16px' }}
+                      style={{ width: '100%', borderRadius: '12px', fontSize: '16px' }}
                     />
                   </Col>
                   <Col xs={24} sm={12} md={8}>
                     <Checkbox
                       checked={searchParams.hasProjector}
                       onChange={(e) => setSearchParams({ ...searchParams, hasProjector: e.target.checked })}
-                      style={{ fontSize: '16px' }}
+                      style={{ fontSize: '16px', marginBottom: '8px' }}
                     >
                       <Text style={{ color: '#1d39c4', fontSize: '16px' }}>Có máy chiếu</Text>
                     </Checkbox>
@@ -592,7 +732,7 @@ const RoomList = () => {
                     <Checkbox
                       checked={searchParams.allowFood}
                       onChange={(e) => setSearchParams({ ...searchParams, allowFood: e.target.checked })}
-                      style={{ fontSize: '16px' }}
+                      style={{ fontSize: '16px', marginBottom: '8px' }}
                     >
                       <Text style={{ color: '#1d39c4', fontSize: '16px' }}>Cho phép đồ ăn</Text>
                     </Checkbox>
@@ -601,245 +741,25 @@ const RoomList = () => {
               </Space>
             )}
           </Card>
-          <Row gutter={[16, 16]} style={{ marginBottom: '24px', width: '100%' }}>
-            {rooms.length > 0 ? (
-              rooms.map((room) => (
-                <Col xs={24} sm={12} md={8} lg={6} key={room._id} style={{ padding: '16px' }}>
-                  <Card
-                    hoverable
-                    onClick={() => handleRoomClick(room._id)}
-                    styles={{ 
-                      body: { 
-                        padding: '16px',
-                        height: '100%',
-                      },
-                    }}
-                    style={{
-                      borderRadius: '12px',
-                      boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
-                      border: '2px solid #1890ff',
-                      background: 'linear-gradient(180deg, #ffffff, #f0faff)',
-                      transition: 'all 0.3s ease',
-                      cursor: 'pointer',
-                      position: 'relative',
-                      height: '100%',
-                      minHeight: '300px',
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                  >
-                    <div
-                      style={{
-                        background: fieldStyles[0].bg,
-                        border: `1px solid ${fieldStyles[0].border}`,
-                        borderRadius: '8px',
-                        padding: '12px',
-                        marginBottom: '16px',
-                        transition: 'all 0.3s ease',
-                        fontSize: '18px',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = fieldStyles[0].hoverBg;
-                        e.currentTarget.style.color = fieldStyles[0].hoverText;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = fieldStyles[0].bg;
-                        e.currentTarget.style.color = '#1d39c4';
-                      }}
-                    >
-                      <Title level={4} style={{ margin: 0, color: '#1d39c4', fontSize: '20px' }}>
-                        {room.name}
-                      </Title>
-                    </div>
-                    <div
-                      style={{
-                        background: fieldStyles[1].bg,
-                        border: `1px solid ${fieldStyles[1].border}`,
-                        borderRadius: '8px',
-                        padding: '12px',
-                        marginBottom: '16px',
-                        transition: 'all 0.3s ease',
-                        fontSize: '16px',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = fieldStyles[1].hoverBg;
-                        e.currentTarget.style.color = fieldStyles[1].hoverText;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = fieldStyles[1].bg;
-                        e.currentTarget.style.color = '#595959';
-                      }}
-                    >
-                      <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Sức chứa: </Text>
-                      <Text style={{ fontSize: '16px', color: '#595959' }}>{room.capacity} người</Text>
-                    </div>
-                    <div
-                      style={{
-                        background: fieldStyles[2].bg,
-                        border: `1px solid ${fieldStyles[2].border}`,
-                        borderRadius: '8px',
-                        padding: '12px',
-                        marginBottom: '16px',
-                        transition: 'all 0.3s ease',
-                        fontSize: '16px',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = fieldStyles[2].hoverBg;
-                        e.currentTarget.style.color = fieldStyles[2].hoverText;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = fieldStyles[2].bg;
-                        e.currentTarget.style.color = '#595959';
-                      }}
-                    >
-                      <Text strong style={{ color: '#1d39c4', fontSize: '16px' }}>Vị trí: </Text>
-                      <Text style={{ fontSize: '16px', color: '#595959' }}>{room.location}</Text>
-                    </div>
-                    <Tag
-                      color={
-                        room.status === 'available' ? '#52c41a' :
-                        room.status === 'occupied' ? '#fa8c16' :
-                        room.status === 'maintenance' ? '#faad14' :
-                        room.status === 'deleted' ? '#ff4d4f' : '#722ed1'
-                      }
-                      style={{
-                        fontSize: '16px',
-                        padding: '8px 16px',
-                        borderRadius: '12px',
-                        transition: 'all 0.3s ease',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'scale(1.1)';
-                        if (room.status === 'available') {
-                          e.currentTarget.title = 'Sẵn sàng: Phòng này bạn có thể dùng được';
-                        } else if (room.status === 'deleted') {
-                          e.currentTarget.title = 'Đã xóa: Phòng này không còn khả dụng';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'scale(1)';
-                        e.currentTarget.title = '';
-                      }}
-                    >
-                      <StarFilled style={{ marginRight: '6px' }} />
-                      {room.status === 'available' ? 'Sẵn sàng' :
-                       room.status === 'occupied' ? 'Đang sử dụng' :
-                       room.status === 'maintenance' ? 'Bảo trì' :
-                       room.status === 'deleted' ? 'Đã xóa' : room.status}
-                    </Tag>
-                    {isAdmin && (
-                      <Space style={{ marginTop: '16px' }}>
-                        <Button
-                          type="primary"
-                          danger
-                          icon={<DeleteOutlined />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSoftDelete(room._id);
-                          }}
-                          style={{
-                            borderRadius: '8px',
-                            background: 'linear-gradient(90deg, #ff4d4f, #ff7875)',
-                            border: 'none',
-                            transition: 'all 0.3s ease',
-                            width: '120px',
-                            height: '48px',
-                            fontSize: '16px',
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                        >
-                          Xóa
-                        </Button>
-                        <Button
-                          type="default"
-                          icon={<EditOutlined />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUpdateClick(room);
-                          }}
-                          style={{
-                            borderRadius: '8px',
-                            background: 'linear-gradient(90deg, #1890ff, #40c4ff)',
-                            border: 'none',
-                            color: '#fff',
-                            padding: '12px 24px',
-                            fontSize: '16px',
-                            transition: 'all 0.3s ease',
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                        >
-                          Sửa
-                        </Button>
-                      </Space>
-                    )}
-                  </Card>
-                </Col>
-              ))
-            ) : (
-              <Col span={24}>
-                <Card styles={{ 
-                  body: { 
-                    borderRadius: '12px', 
-                    boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
-                    border: '2px solid #ff4d4f',
-                    textAlign: 'center',
-                    width: '100%',
-                    height: '80vh',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  },
-                }}>
-                  <Text style={{ fontSize: '24px', color: '#8c8c8c' }}>Không tìm thấy phòng nào</Text>
-                </Card>
-              </Col>
-            )}
-          </Row>
-          {pagination.totalPages > 1 && (
-            <Space style={{ marginTop: '24px', justifyContent: 'center', width: '100%' }}>
-              <Button
-                disabled={pagination.page === 1}
-                onClick={() => handlePageChange(pagination.page - 1)}
-                style={{
-                  borderRadius: '8px',
-                  background: pagination.page > 1 ? 'linear-gradient(90deg, #1890ff, #40c4ff)' : '#f5f5f5',
-                  border: 'none',
-                  color: pagination.page > 1 ? '#fff' : '#8c8c8c',
-                  transition: 'all 0.3s ease',
-                  padding: '12px 24px',
-                  fontSize: '16px',
-                  marginRight: '16px',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                Trước
-              </Button>
-              <Text style={{ fontSize: '18px', color: '#1d39c4' }}>
-                Trang {pagination.page} / {pagination.totalPages}
-              </Text>
-              <Button
-                disabled={pagination.page >= pagination.totalPages}
-                onClick={() => handlePageChange(pagination.page + 1)}
-                style={{
-                  borderRadius: '8px',
-                  background: pagination.page < pagination.totalPages ? 'linear-gradient(90deg, #1890ff, #40c4ff)' : '#f5f5f5',
-                  border: 'none',
-                  color: pagination.page < pagination.totalPages ? '#fff' : '#8c8c8c',
-                  transition: 'all 0.3s ease',
-                  padding: '12px 24px',
-                  fontSize: '16px',
-                  marginLeft: '16px',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                Sau
-              </Button>
-            </Space>
-          )}
+          <Table
+            columns={columns}
+            dataSource={rooms}
+            rowKey="_id"
+            pagination={{
+              current: pagination.page,
+              pageSize: pagination.limit,
+              total: pagination.total,
+              onChange: handlePageChange,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50'],
+              style: { marginTop: '16px' },
+            }}
+            style={{ marginTop: '32px' }}
+            onRow={(record) => ({
+              onClick: () => handleRoomClick(record._id),
+            })}
+            scroll={{ x: 'max-content' }}
+          />
         </>
       )}
       <Modal
