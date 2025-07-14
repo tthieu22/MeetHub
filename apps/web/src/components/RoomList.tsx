@@ -56,17 +56,17 @@ const RoomList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { token, currentUser } = useUserStore(); // Lấy token và user từ store
+  const { token, currentUser } = useUserStore();
 
-  const isAdmin = currentUser?.role === 'admin'; // Giả lập kiểm tra quyền admin
-  const NESTJS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const isAdmin = currentUser?.role === 'admin';
+  const NESTJS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'; // Cập nhật port nếu cần
 
   useEffect(() => {
     fetchRooms();
   }, []);
 
   const fetchRooms = async () => {
-    const authToken = token || localStorage.getItem('token'); // Lấy token từ store hoặc localStorage
+    const authToken = token || localStorage.getItem('access_token'); // Sử dụng access_token
     if (!authToken) {
       setError('Vui lòng đăng nhập để xem danh sách phòng.');
       router.push('/login');
@@ -76,12 +76,12 @@ const RoomList = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('Gọi API:', `${NESTJS_API_URL}/rooms/active`);
-      const response = await axios.get(`${NESTJS_API_URL}/rooms/active`, {
+      console.log('Gọi API:', `${NESTJS_API_URL}/api/rooms/active`, { authToken });
+      const response = await axios.get(`${NESTJS_API_URL}/api/rooms/active`, {
         params: { page: 1, limit: 10 },
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`, // Thêm token vào header
+          'Authorization': `Bearer ${authToken}`,
         },
       });
       console.log('Response từ API:', response.data);
@@ -104,7 +104,7 @@ const RoomList = () => {
   };
 
   const handleSearch = async () => {
-    const authToken = token || localStorage.getItem('token');
+    const authToken = token || localStorage.getItem('access_token');
     if (!authToken) {
       setError('Vui lòng đăng nhập để tìm kiếm phòng.');
       router.push('/login');
@@ -114,7 +114,7 @@ const RoomList = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`${NESTJS_API_URL}/rooms/search`, {
+      const response = await axios.get(`${NESTJS_API_URL}/api/rooms/search`, {
         params: { keyword: searchTerm },
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -139,7 +139,7 @@ const RoomList = () => {
   };
 
   const handleSoftDelete = async (id: string) => {
-    const authToken = token || localStorage.getItem('token');
+    const authToken = token || localStorage.getItem('access_token');
     if (!authToken) {
       setError('Vui lòng đăng nhập để xóa phòng.');
       router.push('/login');
@@ -154,7 +154,7 @@ const RoomList = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.patch(`${NESTJS_API_URL}/rooms/${id}/soft-delete`, {}, {
+      const response = await axios.patch(`${NESTJS_API_URL}/api/rooms/${id}/soft-delete`, {}, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
         },
