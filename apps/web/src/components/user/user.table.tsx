@@ -87,29 +87,17 @@ const UserTableComponent: React.FC = () => {
     }
   };
   const handleUpdate = async (values: any, imageFormData?: FormData) => {
+    if (!imageFormData) {
+      console.log("No new image selected, keeping existing avatarURL");
+    }
     try {
-      let avatarURL = editingUser?.avatarURL;
-      if (imageFormData) {
-        const res = await userApiService.uploadImage(imageFormData);
-        avatarURL = res.data.savedImage.url;
-      }
-
-      await userApiService.updateUser(editingUser!.key, {
-        ...values,
-        avatarURL,
-      });
-
-      api.success({
-        message: "Cập nhật người dùng thành công",
-      });
-
+      await userApiService.updateUser(editingUser!.key, values, imageFormData);
+      api.success({ message: "Cập nhật người dùng thành công" });
       fetchUsers();
       setIsModalOpen(false);
       setEditingUser(null);
     } catch (err) {
-      api.error({
-        message: "Cập nhật thất bại",
-      });
+      api.error({ message: "Cập nhật thất bại" });
     }
   };
   const columns: TableProps<DataType>["columns"] = [
@@ -154,39 +142,41 @@ const UserTableComponent: React.FC = () => {
     {
       title: "Hành động",
       key: "action",
-      render: (_, record) => (
-        <Space size="middle">
-          <EditOutlined
-            className="text-lg"
-            style={{ cursor: "pointer", color: "#faad14" }}
-            onClick={() => {
-              setEditingUser(record);
-              setIsModalOpen(true);
-            }}
-          />
-          <Popconfirm
-            title="Xác nhận xoá"
-            description="Bạn chắc chắn muốn xoá người dùng này?"
-            onConfirm={() => deleteUser(record.key)}
-            okText="Có"
-            cancelText="Không"
-          >
-            <DeleteOutlined style={{ cursor: "pointer", color: "#ff4d4f" }} />
-          </Popconfirm>
-          <Popconfirm
-            title="Xác nhận chặn"
-            description="Bạn muốn chặn người dùng này?"
-            onConfirm={() => {
-              // gọi API chặn nếu có
-              deleteUser(record.key); // ví dụ demo
-            }}
-            okText="Chặn"
-            cancelText="Huỷ"
-          >
-            <StopOutlined style={{ cursor: "pointer", color: "#d46b08" }} />
-          </Popconfirm>
-        </Space>
-      ),
+      render: (_, record) => {
+        return (
+          <Space size="middle">
+            <EditOutlined
+              className="text-lg"
+              style={{ cursor: "pointer", color: "#faad14" }}
+              onClick={() => {
+                setEditingUser(record);
+                setIsModalOpen(true);
+              }}
+            />
+            <Popconfirm
+              title="Xác nhận xoá"
+              description="Bạn chắc chắn muốn xoá người dùng này?"
+              onConfirm={() => deleteUser(record.key)}
+              okText="Có"
+              cancelText="Không"
+            >
+              <DeleteOutlined style={{ cursor: "pointer", color: "#ff4d4f" }} />
+            </Popconfirm>
+            <Popconfirm
+              title="Xác nhận chặn"
+              description="Bạn muốn chặn người dùng này?"
+              onConfirm={() => {
+                // gọi API chặn nếu có
+                deleteUser(record.key); // ví dụ demo
+              }}
+              okText="Chặn"
+              cancelText="Huỷ"
+            >
+              <StopOutlined style={{ cursor: "pointer", color: "#d46b08" }} />
+            </Popconfirm>
+          </Space>
+        );
+      },
     },
   ];
 

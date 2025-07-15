@@ -7,6 +7,7 @@ import {
   Upload,
   Avatar,
   Button,
+  Typography,
 } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import React, { useEffect } from "react";
@@ -42,12 +43,23 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
         isActive: user.isActive,
       });
       setPreviewImage(user.avatarURL || "");
+      if (!imageFormData) {
+        setImageFormData(null);
+      }
     }
-  }, [user]);
+  }, [user, form]);
 
   const handleUploadChange = (info: UploadChangeParam) => {
-    const file = info.file.originFileObj as RcFile;
-    if (file) {
+    const file = info.file;
+    if (file && file.originFileObj) {
+      // Kiểm tra cả originFileObj để an toàn
+      const formData = new FormData();
+      formData.append("image", file.originFileObj); // Sử dụng originFileObj nếu có
+      setImageFormData(formData);
+      const url = URL.createObjectURL(file.originFileObj);
+      setPreviewImage(url);
+    } else if (file) {
+      // Nếu không có originFileObj, dùng file trực tiếp
       const formData = new FormData();
       formData.append("image", file);
       setImageFormData(formData);
@@ -100,15 +112,19 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
             <Avatar src={previewImage} size={64} />
             <Upload
+              name="avatar"
               showUploadList={false}
               maxCount={1}
-              beforeUpload={() => false} // chặn upload auto
+              beforeUpload={() => false}
               onChange={handleUploadChange}
               accept="image/*"
             >
               <Button icon={<UploadOutlined />}>Chọn ảnh</Button>
             </Upload>
           </div>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            * Nếu không chọn ảnh mới thì ảnh cũ sẽ được giữ nguyên
+          </Typography.Text>
         </Form.Item>
       </Form>
     </Modal>

@@ -35,6 +35,7 @@ export class UsersController {
   @Patch('/update/:id')
   @UseInterceptors(FileInterceptor('avatar'))
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @UploadedFile() file: Express.Multer.File) {
+    console.log('Received file:', file);
     if (file) {
       const avatarURL = await this.uploadService.uploadImage(file);
       updateUserDto.avatarURL = avatarURL.data.savedImage.url;
