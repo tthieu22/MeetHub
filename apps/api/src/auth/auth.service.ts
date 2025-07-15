@@ -87,6 +87,8 @@ export class AuthService {
     });
 
     // Có thể redirect về FE và đính access_token
-    return res.json({ access_token });
+    // return res.json({ access_token });
+    const FE_REDIRECT = `http://localhost:3000/login?access_token=${access_token}`;
+    return res.redirect(FE_REDIRECT);
   }
 }

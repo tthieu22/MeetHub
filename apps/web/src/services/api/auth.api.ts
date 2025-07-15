@@ -66,6 +66,11 @@ class AuthApiService {
     const response = await axios.post(URL_BACKEND, payload);
     return response;
   }
+  async loginGG() {
+    const URL_BACKEND = `/api/auth/google/redirect`;
+    return await axios.get(URL_BACKEND);
+  }
+
   // async logout(): Promise<void> {
   //   return this.request<void>("/api/auth/logout", {
   //     method: "POST",

@@ -28,7 +28,22 @@ export default function LoginPage() {
   const router = useRouter();
   const setCurrentUser = useUserStore((state) => state.setCurrentUser);
   const [form] = Form.useForm();
-
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get("access_token");
+    if (token) {
+      localStorage.setItem("access_token", token);
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      setCurrentUser({
+        _id: payload._id,
+        email: payload.email || payload.name,
+        username: payload.name,
+        avatar: "",
+      });
+      toast.success("Đăng nhập Google thành công");
+      router.push("/");
+    }
+  }, []);
   const onFinish = async (values: LoginForm) => {
     try {
       setLoading(true);
