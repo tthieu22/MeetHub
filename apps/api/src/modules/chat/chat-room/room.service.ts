@@ -478,7 +478,7 @@ export class RoomService {
       pending: true,
     });
     if (existingPendingRoom) {
-      throw new BadRequestException('Bạn đã có yêu cầu hỗ trợ đang chờ admin. Vui lòng chờ!');
+      return 'Bạn đã có yêu cầu hỗ trợ đang chờ admin. Vui lòng chờ!';
     }
     // Lấy tất cả admin active
     const admins = await this.userModel.find({ role: 'admin', isActive: true });

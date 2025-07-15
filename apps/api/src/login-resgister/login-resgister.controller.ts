@@ -21,7 +21,8 @@ export class LoginResgisterController {
   }
 
   @Post('verify-code')
-  verifyCode(@Body() dto: VerifyCodeDto, type: VerifyCodeType, dtopass: PasswordResetDto) {
-    return this.loginResgisterService.verifyCode(dto, type, dtopass);
+  verifyCode(@Body() dto: VerifyCodeDto) {
+    const type = VerifyCodeType.VERIFY_ACCOUNT;
+    return this.loginResgisterService.verifyCode(dto, type);
   }
 }

@@ -1,10 +1,12 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* config options here */
-  images: {
-    domains: ["res.cloudinary.com"],
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  webpack(config) {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': __dirname + '/src',
+    };
+    return config;
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
