@@ -34,15 +34,75 @@ const ChatWithAdminButton: React.FC = () => {
 
   useEffect(() => {
     if (!socket) return;
-    // Handler cho sự kiện từ server
+
+    // Lắng nghe ticket hỗ trợ mới và phòng bị đóng cho cả admin và user
+    const handleSupportTicketAssigned = (data: { roomId: string | null; userId: string; userName?: string; adminId?: string; adminName?: string; message?: string; code?: string }) => {
+      if (data.code === "ASSIGN_ADMIN_ERROR") {
+        if (currentUser?.role === "admin") {
+          api.warning({
+            key: NOTIF_KEY,
+            message: "Người dùng đã cố tạo yêu cầu hỗ trợ trùng",
+            description: `User: ${data.userName || data.userId} đã cố gắng tạo phòng hỗ trợ trùng với bạn (Admin: ${data.adminName || data.adminId}).\nPhòng hiện tại: ${data.roomId}`,
+            placement: "topRight",
+            duration: 0,
+            onClick: () => {
+              api.destroy(NOTIF_KEY);  
+              if (socket) {
+                socket.emit("admin_join_support_room", { roomId: data.roomId });
+                router.push(`/chat?roomId=${data.roomId}`);
+              }
+            },
+          });
+        } else {
+          api.warning({
+            key: NOTIF_KEY,
+            message: "Yêu cầu hỗ trợ trùng",
+            description: data.message || "Bạn đã có phòng hỗ trợ với admin này. Vui lòng sử dụng phòng hiện tại!",
+            placement: "topRight",
+            duration: 5,
+          });
+        }
+        return;
+      }
+      // Ticket mới cho admin
+      if (currentUser?.role === "admin") {
+        api.info({
+          key: NOTIF_KEY,
+          message: "Ticket hỗ trợ mới",
+          description: `Bạn vừa nhận một yêu cầu hỗ trợ mới (roomId: ${data.roomId})`,
+          placement: "topRight",
+          duration: 0,
+          onClick: () => {
+            api.destroy(NOTIF_KEY);  
+            if (socket) {
+              socket.emit("admin_join_support_room", { roomId: data.roomId });
+              router.push(`/chat?roomId=${data.roomId}`);
+            }
+          }
+        });
+      }
+    };
+    const handleSupportRoomClosed = (data: { roomId: string; closedBy: string }) => {
+      api.info({
+        key: NOTIF_KEY,
+        message: "Phòng hỗ trợ đã đóng",
+        description: `Phòng hỗ trợ đã được đóng. roomId: ${data.roomId}`,
+        placement: "topRight",
+        duration: 5,
+      });
+    };
+    socket.on("support_ticket_assigned", handleSupportTicketAssigned);
+    socket.on("support_room_closed", handleSupportRoomClosed);
+
+    // Handler cho sự kiện từ server (user)
     const handleSupportRoomPending = () => {
       api.info({
         key: NOTIF_KEY,
         message: "Yêu cầu hỗ trợ",
         description:
-          "Bạn đã gửi yêu cầu chat với admin. Vui lòng chờ admin phản hồi!",
+          "Bạn đã gửi yêu cầu chat với admin. Hiện không có admin nào online!",
         placement: "topRight",
-        duration: 3,
+        duration: 10,
       });
     };
     const handleSupportRoomAssigned = (data: SupportRoomEvent) => {
@@ -58,6 +118,7 @@ const ChatWithAdminButton: React.FC = () => {
           placement: "topRight",
           duration: 0,
           onClick: () => {
+            api.destroy(NOTIF_KEY);  
             if (socket) {
               socket.emit("admin_join_support_room", { roomId: data.roomId });
               router.push(`/chat?roomId=${data.roomId}`);
@@ -65,13 +126,24 @@ const ChatWithAdminButton: React.FC = () => {
           },
         });
       } else {
-        api.success({
+        if(!data.admin?.name ){
+            api.info({
+            key: NOTIF_KEY,
+            message: "Đang đợi xác nhận",
+            description: `Vui lòng chờ xác nhận.`,
+            placement: "topRight",
+            duration: 3,
+          });
+        }else{
+          api.success({
           key: NOTIF_KEY,
           message: "Đã kết nối admin",
           description: `Admin (${data.admin?.name || ""}) vừa được kết nối. Vui lòng đợi xác nhận.`,
           placement: "topRight",
           duration: 3,
         });
+        }
+        
       }
     };
 
@@ -85,15 +157,17 @@ const ChatWithAdminButton: React.FC = () => {
     socket.on("support_room_assigned", handleSupportRoomAssigned);
     socket.on("support_admin_joined", handleSupportAdminJoined);
     return () => {
+      socket.off("support_ticket_assigned", handleSupportTicketAssigned);
+      socket.off("support_room_closed", handleSupportRoomClosed);
       socket.off("support_room_pending", handleSupportRoomPending);
       socket.off("support_room_assigned", handleSupportRoomAssigned);
       socket.off("support_admin_joined", handleSupportAdminJoined);
     };
   }, [api, socket, currentUser, router]);
 
-  // Ẩn nút nếu đang ở trang chat
-  if (pathname.startsWith("/chat") || currentUser?.role === "admin")
-    return null;
+  // Ẩn nút nếu đang ở trang chat hoặc là admin
+  if (pathname.startsWith("/chat") || currentUser?.role === "admin" || pathname.startsWith("/login"))
+    return <>{contextHolder}</>;
 
   return (
     <>

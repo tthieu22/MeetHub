@@ -2,6 +2,10 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res, UseGuards,
 import { AuthService } from './auth.service';
 import { Response, Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
+interface GoogleUserProfile {
+  email: string;
+  name: string;
+}
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
@@ -31,7 +35,7 @@ export class AuthController {
   @Get('google/redirect')
   @UseGuards(AuthGuard('google'))
   googleRedirect(@Req() req: Request, @Res() res: Response) {
-    const userProfile = (req as any).user;
+    const userProfile = (req as unknown as { user: GoogleUserProfile }).user;
     console.log(userProfile);
     return this.authService.googleLogin(userProfile, res);
   }

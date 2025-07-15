@@ -1,27 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Row, Col, message } from "antd";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
 import WelcomeSection from "@web/components/home/WelcomeSection";
 import ConnectSection from "@web/components/home/ConnectSection";
-import RightSidebar from "@web/components/home/RightSidebar";
-import PageLoading from "@web/components/home/PageLoading";
+import RightSidebar from "@web/components/home/RightSidebar"; 
 
 export default function Home() {
   const router = useRouter();
-  const currentUser = useUserStore((state) => state.currentUser);
-  const [pageLoading, setPageLoading] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPageLoading(false);
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
+  const currentUser = useUserStore((state) => state.currentUser); 
+  console.log(currentUser)
   const handleStartChat = () => {
     router.push("/chat");
   };
@@ -32,11 +22,7 @@ export default function Home() {
 
   const handleFindPeople = () => {
     message.info("Find people functionality coming soon!");
-  };
-
-  if (pageLoading) {
-    return <PageLoading message="Đang tải dashboard..." />;
-  }
+  }; 
 
   return (
     <div

@@ -323,6 +323,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('support_room_assigned', { roomId: String(roomId), admin });
     } catch (err) {
       emitError(client, 'ASSIGN_ADMIN_ERROR', err instanceof Error ? err.message : String(err), 'support_room_assigned');
+      // Tìm adminId từ phòng active nếu có lỗi trùng phòng
+      // Gọi service lấy danh sách các cặp adminId, adminName, roomId, userId, userName
+      const adminRoomPairs = await this.chatService.getActiveAdminRoomPairsByUserId(userId);
+      for (const { adminId, adminName, roomId, userId: uId, userName } of adminRoomPairs) {
+        this.server.to(`user:${adminId}`).emit('support_ticket_assigned', {
+          roomId,
+          adminId,
+          adminName,
+          userId: uId,
+          userName,
+          message: err instanceof Error ? err.message : String(err),
+          code: 'ASSIGN_ADMIN_ERROR',
+        });
+      }
     }
   }
 

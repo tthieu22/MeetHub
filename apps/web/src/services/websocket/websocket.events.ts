@@ -191,8 +191,6 @@ export class WebSocketEventHandlers {
 
   // Xử lý lỗi authentication
   static handleAuthError(data: WsResponse) {
-    console.error("WebSocket auth error:", data);
-
     // Logout user nếu token không hợp lệ
     if (data.code === "TOKEN_INVALID" || data.code === "USER_INVALID") {
       const { logout } = useUserStore.getState();
@@ -251,7 +249,6 @@ export class WebSocketEventHandlers {
 
   // Thông báo khi phòng đang pending (chưa có admin)
   static handleSupportRoomPending(onSupportRoomPending?: () => void) {
-    console.debug("[FE] handleSupportRoomPending");
     if (onSupportRoomPending) onSupportRoomPending();
   }
 
@@ -260,7 +257,6 @@ export class WebSocketEventHandlers {
     data: SupportRoomEvent,
     onSupportRoomAssigned?: (data: SupportRoomEvent) => void
   ) {
-    console.debug("[FE] handleSupportRoomAssigned", data);
     if (onSupportRoomAssigned) onSupportRoomAssigned(data);
   }
 
@@ -269,7 +265,6 @@ export class WebSocketEventHandlers {
     data: SupportRoomEvent,
     onSupportAdminJoined?: (data: SupportRoomEvent) => void
   ) {
-    console.debug("[FE] handleSupportAdminJoined", data);
     if (onSupportAdminJoined) onSupportAdminJoined(data);
     // Sau khi admin join, reload lại danh sách phòng và load messages cho phòng support
     try {
@@ -293,14 +288,12 @@ export class WebSocketEventHandlers {
     data: { roomId: string; userId: string },
     onSupportTicketAssigned?: (data: { roomId: string; userId: string }) => void
   ) {
-    console.debug("[FE] handleSupportTicketAssigned", data);
     if (onSupportTicketAssigned) onSupportTicketAssigned(data);
   }
 
   // Hàm emit yêu cầu chat với admin từ FE
   static emitUserRequestSupport(socket: Socket) {
     if (socket && socket.connected) {
-      console.debug("[WebSocketEventHandlers] Emit user_request_support");
       socket.emit("user_request_support");
     } else {
       console.error("[WebSocketEventHandlers] Socket not connected");

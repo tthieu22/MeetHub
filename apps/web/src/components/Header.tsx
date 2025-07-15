@@ -8,7 +8,7 @@ import {
   Form,
   Input,
   Upload,
-  message,
+  // message,
 } from "antd";
 import {
   UserOutlined,
@@ -16,12 +16,12 @@ import {
   SaveOutlined,
   EditOutlined,
   UploadOutlined,
-  CloseOutlined,
+  // CloseOutlined,
 } from "@ant-design/icons";
 import { useUserStore } from "@web/store/user.store";
 import { useWebSocketStore } from "@web/store/websocket.store";
 import { useRouter } from "next/navigation";
-import ConnectionStatus from "@web/app/ConnectionStatus";
+// import ConnectionStatus from "@web/app/ConnectionStatus";
 import UnreadCountBadge from "./UnreadCountBadge";
 import userApiService, { Me } from "@web/services/api/user.api";
 import { toast, ToastContainer } from "react-toastify";
@@ -85,7 +85,7 @@ const UserAvatar = memo(() => {
       setPreviewAvatarURL(updated.avatarURL || "");
       form.setFieldsValue(updated);
       toast.success("Cập nhật thành công!");
-    } catch (err) {
+    } catch {
       toast.error("Lỗi khi cập nhật thông tin!");
     } finally {
       setIsSaving(false);
@@ -236,7 +236,7 @@ const Header = memo(() => {
       </div>
       <Space>
         {currentUser && <UnreadCountBadge />}
-        {currentUser && <ConnectionStatus />}
+        {/* {currentUser && <ConnectionStatus />} */}
         {currentUser && <UserAvatar />}
       </Space>
     </header>

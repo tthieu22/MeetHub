@@ -166,4 +166,12 @@ export class ChatService {
   async assignPendingRoomsToAdmins() {
     return await this.roomService.assignPendingRoomsToAdmins();
   }
+
+  async getActiveAdminIdsByUserId(userId: string) {
+    return await this.roomService.getActiveAdminIdsByUserId(userId);
+  }
+
+  public getActiveAdminRoomPairsByUserId(userId: string) {
+    return this.roomService.getActiveAdminRoomPairsByUserId(userId);
+  }
 }
