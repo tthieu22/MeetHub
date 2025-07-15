@@ -46,7 +46,7 @@ export default function LoginPage() {
       setLoading(true);
       const response = await authApiService.loginAPI(values);
       const data: LoginResponse | undefined = response?.data;
-      if (data && data.access_token) {
+      if (data?.success && data.access_token) {
         localStorage.setItem("access_token", data.access_token || "");
         const payload = JSON.parse(atob(data.access_token!.split(".")[1]));
         setCurrentUser({
@@ -65,7 +65,7 @@ export default function LoginPage() {
         } else {
           router.push("/");
         }
-      } else if (data && !data.success) {
+      } else if (!data?.success) {
         api.error({
           message: "Sai email hoặc password",
           placement: "topRight",
@@ -191,19 +191,9 @@ export default function LoginPage() {
           <Link href="/register" style={{ color: "#1677ff" }}>
             Bạn chưa có tài khoản?
           </Link>
-          <button
-            type="button"
-            style={{
-              background: "none",
-              border: "none",
-              color: "#1677ff",
-              cursor: "pointer",
-              padding: 0,
-              fontSize: 14,
-            }}
-          >
+          <Link href="/forgetPass" style={{ color: "#1677ff" }}>
             Quên mật khẩu?
-          </button>
+          </Link>
         </div>
 
         <button

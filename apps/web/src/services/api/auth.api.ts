@@ -70,6 +70,16 @@ class AuthApiService {
     const URL_BACKEND = `/api/auth/google/redirect`;
     return await axios.get(URL_BACKEND);
   }
+  async resetPasswordAPI(payload: { email: string; code: string; newPass: string; newPassAgain: string }) {
+    const URL_BACKEND = `/api/password-reset/verify`;
+    // const params = new URLSearchParams();
+    // params.append("email", payload.email);
+    // params.append("code", payload.code);
+    // params.append("newPass", payload.newPass);
+    // params.append("newPassAgain", payload.newPassAgain);
+    const response = await axios.post(URL_BACKEND, payload);
+    return response;
+  }
 
   // async logout(): Promise<void> {
   //   return this.request<void>("/api/auth/logout", {
