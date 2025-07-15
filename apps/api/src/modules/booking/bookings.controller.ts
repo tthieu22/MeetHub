@@ -40,9 +40,9 @@ export class BookingsController {
     };
   }
 
-  @Get("")
+  @Get("findAll")
   @UseGuards(AuthGuard , RolesGuard)
-  @Roles(UserRole.ADMIN)
+  // @Roles(UserRole.ADMIN)
   async findAll(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
@@ -77,7 +77,7 @@ export class BookingsController {
 
   @Delete(':id')
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  // @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string) {
     await this.bookingService.remove(id);
@@ -147,7 +147,7 @@ async cancel(
   }
 
   @Get('search-exclude-deleted')
-  @UseGuards(AuthGuard)
+  // @UseGuards(AuthGuard)
   async searchBookingsExcludeDeleted(@Query() dto: SearchBookingsDetailedDto) {
     const result = await this.bookingService.searchBookingsExcludeDeleted(dto);
     return result;

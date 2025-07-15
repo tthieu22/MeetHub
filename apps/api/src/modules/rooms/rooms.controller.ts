@@ -54,7 +54,7 @@ export class RoomsController {
     // Tìm kiếm phòng họp theo các tiêu chí như tên, địa điểm, số lượng người tối đa, trạng thái, có máy chiếu, cho phép mang đồ ăn, các tính năng khác chi tiết cho Admin
     @Get('/search')
     @UseGuards(AuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN)
+    // @Roles(UserRole.ADMIN)
     async searchRooms(@Query() query: Record<string, string>) {
         const filters: any = {};
         if (query.keyword) filters.keyword = query.keyword;
@@ -114,8 +114,7 @@ export class RoomsController {
 
     // Lấy thông tin chi tiết của một phòng họp theo ID
     @Get(':id')
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN)
+    @UseGuards(AuthGuard)
     async findOne(@Param('id') id: string) {
         const room = await this.roomService.getRoomById(id);
         return {
