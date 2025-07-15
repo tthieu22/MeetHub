@@ -134,7 +134,7 @@ const Bookings = () => {
 
       const response = await api.get(`${NESTJS_API_URL}/api/bookings/findAll`, {
         params: {
-          roomId: room._id, // Sử dụng room._id để lọc booking của phòng hiện tại
+          roomId: room._id, // Lọc booking theo roomId của phòng hiện tại
           userId: userId || '',
           startTimeFrom: startDate.toISOString(),
           startTimeTo: endDate.toISOString(),
@@ -304,7 +304,7 @@ const Bookings = () => {
   };
 
   const roomBookings = bookings.filter((booking) =>
-    moment(booking.startTime).isSame(selectedWeek, 'week')
+    moment(booking.startTime).isSame(selectedWeek, 'week') && booking.room._id === room?._id
   );
 
   return (
@@ -480,21 +480,7 @@ const Bookings = () => {
                 icon={<LeftOutlined />}
                 onClick={() => router.push('/rooms')}
                 size="large"
-                style={{
-                  borderRadius: '20px',
-                  background: 'linear-gradient(90deg, #1890ff, #40a9ff)',
-                  border: 'none',
-                  color: '#ffffff',
-                  padding: '12px 24px',
-                  fontSize: '16px',
-                  fontWeight: 500,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.3s ease',
-                  boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
-                }}
-                className="back-button"
+                className="back-button" // Sử dụng class thay vì style inline để tránh lỗi ref
               >
                 Quay lại danh sách phòng
               </Button>
@@ -517,7 +503,7 @@ const Bookings = () => {
                 <Select
                   value={selectedYear}
                   onChange={handleYearChange}
-                  style={{ width: '100%', borderRadius: '12px', fontSize: '16px', transition: 'all 0.3s ease' }}
+                  className="year-select" // Sử dụng class thay vì style inline
                 >
                   {Array.from({ length: 10 }, (_, i) => moment().year() - 5 + i).map((year) => (
                     <Option key={year} value={year}>{year}</Option>
@@ -529,7 +515,7 @@ const Bookings = () => {
                 <Select
                   value={selectedMonth}
                   onChange={handleMonthChange}
-                  style={{ width: '100%', borderRadius: '12px', fontSize: '16px', transition: 'all 0.3s ease' }}
+                  className="month-select" // Sử dụng class thay vì style inline
                 >
                   {Array.from({ length: 12 }, (_, i) => i).map((month) => (
                     <Option key={month} value={month}>{moment().month(month).format('MMMM')}</Option>
@@ -608,6 +594,7 @@ const Bookings = () => {
             onCancel={() => setIsBookingModalVisible(false)}
             onSubmit={handleBookingSubmit}
             initialValues={bookingForm}
+            formProps={{}} // Truyền form prop để fix warning useForm
           />
         </>
       ) : null}
