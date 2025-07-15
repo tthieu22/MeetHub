@@ -97,6 +97,32 @@ class UserApiService {
 
     return res;
   }
+  async createUser(data: Partial<Me>, imageFormData?: FormData): Promise<any> {
+    const URL_BACKEND = `/api/users`;
+    const formData = new FormData();
+
+    // Gộp text fields vào formData
+    for (const key in data) {
+      if (data[key] !== undefined) {
+        formData.append(key, data[key] as string);
+      }
+    }
+
+    // Gắn thêm file nếu có
+    if (imageFormData) {
+      const imageFile = imageFormData.get("image");
+      console.log("Image file from FormData:", imageFile); // vì Upload bạn đang dùng key là 'image'
+      if (imageFile) {
+        formData.append("avatar", imageFile);
+      }
+    }
+
+    const res = await axios.post(URL_BACKEND, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return res;
+  }
 }
 // Create singleton instance
 const userApiService = new UserApiService();

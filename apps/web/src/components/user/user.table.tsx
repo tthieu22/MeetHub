@@ -34,17 +34,33 @@ export interface DataType {
   avatarURL?: string;
   isActive: boolean;
 }
+interface UserTableComponentProps {
+  modalMode: "edit" | "create";
+  setModalMode: React.Dispatch<React.SetStateAction<"edit" | "create">>;
+  setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setEditingUser: React.Dispatch<React.SetStateAction<DataType | null>>;
+  isModalOpen: boolean;
+  editingUser: DataType | null;
+}
 
-const UserTableComponent: React.FC = () => {
+const UserTableComponent: React.FC<UserTableComponentProps> = ({
+  modalMode,
+  setModalMode,
+  setIsModalOpen,
+  setEditingUser,
+  isModalOpen,
+  editingUser,
+}) => {
   const [data, setData] = useState<DataType[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [editingUser, setEditingUser] = useState<DataType | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
   const [api, contextHolder] = notification.useNotification();
 
   const fetchUsers = async () => {
     try {
+      setLoading(true);
       const res = await userApiService.getUsers({
         page,
         limit: 10,
@@ -60,7 +76,9 @@ const UserTableComponent: React.FC = () => {
       }));
       setData(transformed);
       setTotal(res.total);
+      setLoading(false);
     } catch (err) {
+      setLoading(false);
       console.error("Fetch user lỗi", err);
     }
   };
@@ -90,14 +108,39 @@ const UserTableComponent: React.FC = () => {
     if (!imageFormData) {
       console.log("No new image selected, keeping existing avatarURL");
     }
+    setModalLoading(true);
     try {
-      await userApiService.updateUser(editingUser!.key, values, imageFormData);
-      api.success({ message: "Cập nhật người dùng thành công" });
-      fetchUsers();
-      setIsModalOpen(false);
-      setEditingUser(null);
+      const res = await userApiService.updateUser(editingUser!.key, values, imageFormData);
+      console.log("res", res);
+      if (res.success) {
+        api.success({ message: "Cập nhật người dùng thành công", });
+        fetchUsers();
+        setIsModalOpen(false);
+        setEditingUser(null);
+      }
+      else {
+        api.error({ message: "Cập nhật người dùng thất bại", description: res.message[0] });
+      }
     } catch (err) {
       api.error({ message: "Cập nhật thất bại" });
+    } finally {
+      setModalLoading(false);
+    }
+  };
+  const handleCreate = async (values: any, imageFormData?: FormData) => {
+    if (!imageFormData) {
+      console.log("No new image selected, keeping existing avatarURL");
+    }
+    setModalLoading(true);
+    try {
+      await userApiService.createUser(values, imageFormData);
+      api.success({ message: "Thêm người dùng thành công" });
+      fetchUsers();
+      setIsModalOpen(false);
+    } catch (err) {
+      api.error({ message: "Thêm người dùng thất bại" });
+    } finally {
+      setModalLoading(false);
     }
   };
   const columns: TableProps<DataType>["columns"] = [
@@ -150,6 +193,7 @@ const UserTableComponent: React.FC = () => {
               style={{ cursor: "pointer", color: "#faad14" }}
               onClick={() => {
                 setEditingUser(record);
+                setModalMode("edit");
                 setIsModalOpen(true);
               }}
             />
@@ -196,13 +240,16 @@ const UserTableComponent: React.FC = () => {
             pageSize: 10,
             onChange: (p) => setPage(p),
           }}
-          rowKey="key"
+          rowKey="key"  
+          loading={loading}
         />
         <EditUserModal
+         loading={modalLoading}  
           open={isModalOpen}
-          onCancel={() => setIsModalOpen(false)}
-          onSubmit={handleUpdate}
+          mode={modalMode}
           user={editingUser}
+          onCancel={() => setIsModalOpen(false)}
+          onSubmit={modalMode === "edit" ? handleUpdate : handleCreate}
         />
       </Card>
     </div>

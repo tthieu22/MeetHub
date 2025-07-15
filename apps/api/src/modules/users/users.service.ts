@@ -31,7 +31,11 @@ export class UsersService {
         password: passwordBr,
       });
 
-      return await user.save();
+      const res = await user.save();
+      return {
+        success: true,
+        data: res,
+      };
     } catch (error) {
       if (isMongoDuplicateEmailError(error)) {
         throw new BadRequestException('Email đã được sử dụng');

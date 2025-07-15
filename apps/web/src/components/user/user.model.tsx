@@ -18,14 +18,17 @@ interface EditUserModalProps {
   open: boolean;
   onCancel: () => void;
   onSubmit: (data: any, image?: FormData) => void;
-  user: any; // có thể là DataType hoặc Me
+  user?: any; // optional vì tạo mới không có user
+  mode: "edit" | "create";
+  loading: boolean;
 }
-
 const EditUserModal: React.FC<EditUserModalProps> = ({
   open,
   onCancel,
   onSubmit,
   user,
+  mode,
+  loading,
 }) => {
   const [form] = Form.useForm();
   const [previewImage, setPreviewImage] = React.useState<string>(
@@ -34,7 +37,19 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   const [imageFormData, setImageFormData] = React.useState<FormData | null>(
     null
   );
-
+  useEffect(() => {
+    if (open) {
+      form.resetFields(); // reset khi mở
+      if (user && mode === "edit") {
+        form.setFieldsValue({
+          name: user.name,
+          role: user.role,
+          isActive: user.isActive,
+        });
+        setPreviewImage(user.avatarURL || "");
+      }
+    }
+  }, [open, user]);
   useEffect(() => {
     if (user) {
       form.setFieldsValue({
@@ -73,16 +88,17 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
       onSubmit(values, imageFormData || undefined);
     });
   };
-
+  const title = mode === "create" ? "Thêm người dùng" : "Chỉnh sửa người dùng";
   return (
     <Modal
       open={open}
-      title="Chỉnh sửa người dùng"
+      title={title}
       onCancel={onCancel}
       onOk={handleSubmit}
       okText="Lưu"
       cancelText="Hủy"
       destroyOnClose
+      confirmLoading={loading}
     >
       <Form layout="vertical" form={form}>
         <Form.Item
@@ -92,7 +108,25 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
         >
           <Input />
         </Form.Item>
+        {mode === "create" && (
+          <>
+            <Form.Item
+              label="Email"
+              name="email"
+              rules={[{ required: true, message: "Vui lòng nhập email" }]}
+            >
+              <Input type="email" />
+            </Form.Item>
 
+            <Form.Item
+              label="Mật khẩu"
+              name="password"
+              rules={[{ required: true, message: "Vui lòng nhập mật khẩu" }]}
+            >
+              <Input.Password />
+            </Form.Item>
+          </>
+        )}
         <Form.Item label="Vai trò" name="role">
           <Select>
             <Select.Option value="admin">Quản trị viên</Select.Option>
