@@ -118,6 +118,16 @@ export default function Home() {
             >
               Xem danh sách phòng
             </CustomButton>
+            <CustomButton
+              type="default"
+              size="large"
+              onClick={() => {
+                router.push("/users");
+              }}
+              style={{ fontSize: "16px", fontWeight: 500 }}
+            >
+              Xem danh sách người dùng
+            </CustomButton>
           </Space>
         ) : (
           <Space>
