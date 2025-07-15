@@ -14,6 +14,8 @@ interface ChatMessagesProps {
   hasMore?: boolean;
   onLoadMore?: () => void;
   onlineMemberIds?: string[];
+  onReply?: (id: string, message: Message) => void;
+
 }
 
 function ChatMessages({
@@ -22,6 +24,7 @@ function ChatMessages({
   hasMore = false,
   onLoadMore = () => {},
   onlineMemberIds = [],
+  onReply = () => {}
 }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -134,6 +137,8 @@ function ChatMessages({
                 key={message._id}
                 message={message}
                 isSenderOnline={isSenderOnline}
+                onReply={onReply}
+                allMessages={messages} 
               />
             );
           })

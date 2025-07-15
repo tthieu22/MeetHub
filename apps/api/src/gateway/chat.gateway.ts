@@ -182,7 +182,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // gửi 1 tin nhắn sẽ gửi tới tất cả từng người 1 trong phòng và đánh dấu chưa đọc
   @SubscribeMessage('create_message')
   @UsePipes(new ValidationPipe({ transform: true }))
-  async handleCreateMessage(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: CreateMessageDto & { roomId: string }) {
+  async handleCreateMessage(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: CreateMessageDto & { roomId: string; fileData?: string }) {
     const userId = validateClient(client);
     if (!userId) return;
 

@@ -128,7 +128,7 @@ function ChatRoomItem({
               type="secondary"
               style={{ fontSize: "12px", display: "block", lineHeight: "1.4" }}
             >
-              {room.lastMessage?.text || "Chưa có tin nhắn"}
+              {room.lastMessage?.text ||room.lastMessage?.fileUrl  || "Chưa có tin nhắn"}
             </Text>
           </div>
         }

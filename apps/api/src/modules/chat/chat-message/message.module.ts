@@ -7,7 +7,7 @@ import { MessageService } from '@api/modules/chat/chat-message/message.service';
 import { Message, MessageSchema } from '@api/modules/chat/chat-message/schema/message.schema';
 import { MessageStatus, MessageStatusSchema } from '@api/modules/chat/chat-message/schema/message-status.schema';
 import { User, UserSchema } from '@api/modules/users/schema/user.schema';
-
+import { UploadImageModule } from '@api/modules/upload/upload.module';
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -17,6 +17,7 @@ import { User, UserSchema } from '@api/modules/users/schema/user.schema';
       { name: MessageStatus.name, schema: MessageStatusSchema },
       { name: User.name, schema: UserSchema },
     ]),
+    UploadImageModule,
   ],
   controllers: [MessageController],
   providers: [MessageService],

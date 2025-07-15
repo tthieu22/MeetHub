@@ -7,9 +7,11 @@ import { Message } from "@web/types/chat";
 interface MessageItemProps {
   message: Message;
   isSenderOnline: boolean;
+  onReply?: (id: string, message: Message) => void;
+  allMessages: Message[];
 }
 
-function MessageItem({ message, isSenderOnline }: MessageItemProps) {
+function MessageItem({ message, isSenderOnline, onReply, allMessages }: MessageItemProps) {
   // Chuẩn hóa sender object cho ChatMessage
   const sender = React.useMemo(() => {
     if (typeof message.senderId === "object" && message.senderId !== null) {
@@ -36,11 +38,20 @@ function MessageItem({ message, isSenderOnline }: MessageItemProps) {
       text: message.text,
       sender,
       createdAt: new Date(message.createdAt),
+      fileUrl: message.fileUrl || "",
+      fileName: message.fileName,    
+      fileType: message.fileType, 
     }),
-    [message._id, message.text, sender, message.createdAt]
+    [message._id, message.text, sender, message.createdAt, message.fileUrl, message.fileName, message.fileType]
   );
-
-  return <ChatMessage message={messageData} isSenderOnline={isSenderOnline} />;
+  const repliedMsg = message.replyTo
+    ? allMessages.find((msg) => msg._id === message.replyTo)
+    : undefined;
+  return <ChatMessage 
+    message={messageData} 
+    isSenderOnline={isSenderOnline} 
+    onReply={onReply ? () => onReply(message._id, message) : undefined} 
+    repliedMsg={repliedMsg}/>;
 }
 
 export default React.memo(MessageItem);

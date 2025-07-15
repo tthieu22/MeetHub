@@ -15,10 +15,15 @@ export interface Message {
         email: string;
         username?: string;
         avatar?: string;
+        name?: string;
       }
     | string;
   text: string;
   fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  senderEmail?: string;
+  senderName?: string;
   replyTo?: unknown;
   mentions: string[];
   isPinned: boolean;
@@ -40,7 +45,12 @@ export interface LastMessageInfo {
   conversationId: string;
   senderId: string;
   text: string;
+  senderEmail?: string;
+  senderName?: string;
   createdAt: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
 }
 
 export interface ChatRoom {
