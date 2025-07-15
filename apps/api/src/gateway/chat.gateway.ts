@@ -1,5 +1,5 @@
 import { WebSocketGateway, OnGatewayConnection, OnGatewayDisconnect, WebSocketServer, SubscribeMessage, ConnectedSocket, MessageBody } from '@nestjs/websockets';
-import { UseGuards, UsePipes, ValidationPipe, Logger } from '@nestjs/common';
+import { UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ChatService } from '@api/gateway/chat.service';
 import { WsAuthGuard, AuthenticatedSocket } from '@api/common/guards/ws-auth.guard';
 import { Server } from 'socket.io';
@@ -39,7 +39,6 @@ export enum WebSocketEventName {
 @UseGuards(WsAuthGuard)
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
-  private readonly logger = new Logger(ChatGateway.name);
   constructor(
     private chatService: ChatService,
     private wsAuthService: WsAuthService,
@@ -177,12 +176,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = validateClient(client);
     if (!userId) return;
 
-    this.logger.log(`Marking room ${data.roomId} as read for user ${userId}`);
     const response = await this.chatEventsHandler.handleMarkRoomRead(userId, data);
     client.emit(WebSocketEventName.MARK_ROOM_READ_SUCCESS, response);
 
     if (response.success) {
-      this.logger.log(`Emitting ROOM_MARKED_READ to room ${data.roomId}`);
       this.server.to(`room:${data.roomId}`).emit(WebSocketEventName.ROOM_MARKED_READ, response);
     }
   }
@@ -307,26 +304,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = validateClient(client);
     if (!userId) return;
     try {
-      console.log('[Gateway] Received user_request_support from', userId);
       // Gán admin và tạo/tìm phòng
       const { roomId, admin, pending } = await this.chatService.assignAdminToUser(userId);
       // Join user vào phòng socket
       await client.join(`room:${String(roomId)}`);
       if (pending) {
-        console.log('[Gateway] Emit support_room_pending to', userId, roomId);
         // Nếu chưa có admin online, gửi event pending cho user
         client.emit('support_room_pending', { roomId: String(roomId) });
         return;
       }
       // Gửi notification cho admin (nếu online)
       if (admin && admin._id) {
-        console.log('[Gateway] Emit support_ticket_assigned to admin', admin._id, roomId, userId);
         this.server.to(`user:${String(admin._id)}`).emit('support_ticket_assigned', { roomId: String(roomId), userId: String(userId) });
         // Emit support_room_assigned cho admin luôn
         this.server.to(`user:${String(admin._id)}`).emit('support_room_assigned', { roomId: String(roomId), admin });
       }
       // Gửi về cho user roomId và thông tin admin
-      console.log('[Gateway] Emit support_room_assigned to', userId, roomId, admin);
       client.emit('support_room_assigned', { roomId: String(roomId), admin });
     } catch (err) {
       emitError(client, 'ASSIGN_ADMIN_ERROR', err instanceof Error ? err.message : String(err), 'support_room_assigned');
