@@ -6,7 +6,7 @@ import {
   UserOutlined,
   MailOutlined,
 } from "@ant-design/icons";
-import { Card, Form, Input, Modal, Typography } from "antd";
+import { Button, Card, Form, Input, Modal, Typography } from "antd";
 import CustomButton from "@web/components/CustomButton";
 import authApiService from "@web/services/api/auth.api";
 import { useRouter } from "next/navigation";
@@ -167,6 +167,7 @@ export default function RegisterPage() {
         onOk={() => codeForm.submit()}
         okText="Xác minh"
         cancelText="Hủy"
+        maskClosable={false}
       >
         <p>
           Mã xác minh đã gửi tới email: <b>{email}</b>
@@ -180,6 +181,13 @@ export default function RegisterPage() {
             <Input className="w-full" placeholder="Nhập mã xác minh" />
           </Form.Item>
         </Form>
+        <Button
+          onClick={async () => {
+            await authApiService.sendVerificationCodeAPI({ email: email });
+          }}
+        >
+          Gửi lại mã
+        </Button>
       </Modal>
       <ToastContainer />
     </div>
