@@ -13,9 +13,9 @@ interface UserState {
   isAuthenticated: boolean;
   isLoading: boolean;
   token: string | null; // Thêm trường token
-  setCurrentUser: (user: User | null) => void;
-  setAuthenticated: (authenticated: boolean) => void;
-  setLoading: (loading: boolean) => void;
+  setCurrentUser: (user: User | null) => void; // Người dùng hiện tại
+  setAuthenticated: (authenticated: boolean) => void; // Xác thực người dùng
+  setLoading: (loading: boolean) => void; // Loading
   setToken: (token: string | null) => void; // Thêm action setToken
   logout: () => void;
 }

@@ -10,8 +10,7 @@ import RightSidebar from "@web/components/home/RightSidebar";
 
 export default function Home() {
   const router = useRouter();
-  const currentUser = useUserStore((state) => state.currentUser);
-  console.log(currentUser);
+  const currentUser = useUserStore((state) => state.currentUser); 
   const handleStartChat = () => {
     router.push("/chat");
   };
@@ -47,8 +46,7 @@ export default function Home() {
           )}
           <ConnectSection />
         </Col>
-
-        {/* Right Sidebar */}
+ 
         <Col xs={24} lg={6}>
           <RightSidebar
             onBookRoom={handleBookRoom}

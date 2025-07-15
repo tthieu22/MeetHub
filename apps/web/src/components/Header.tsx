@@ -21,7 +21,7 @@ import {
 import { useUserStore } from "@web/store/user.store";
 import { useWebSocketStore } from "@web/store/websocket.store";
 import { useRouter } from "next/navigation";
-// import ConnectionStatus from "@web/app/ConnectionStatus";
+import ConnectionStatus from "@web/app/ConnectionStatus";
 import UnreadCountBadge from "./UnreadCountBadge";
 import userApiService, { Me } from "@web/services/api/user.api";
 import { toast, ToastContainer } from "react-toastify";
@@ -234,9 +234,9 @@ const Header = memo(() => {
           MeetHub
         </h1>
       </div>
-      <Space>
+      <Space  size="middle">
         {currentUser && <UnreadCountBadge />}
-        {/* {currentUser && <ConnectionStatus />} */}
+        {currentUser && <ConnectionStatus />}
         {currentUser && <UserAvatar />}
       </Space>
     </header>

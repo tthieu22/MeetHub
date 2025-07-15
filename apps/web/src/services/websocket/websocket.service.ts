@@ -78,6 +78,20 @@ class WebSocketService implements WebSocketServiceInterface {
     this.socket?.emit(WS_EVENTS.JOIN_ROOM, { roomId });
   }
 
+  // ===== Support/Admin event emitters =====
+  /** Emit yêu cầu hỗ trợ tới admin */
+  emitUserRequestSupport(): void {
+    this.socket?.emit(WS_EVENTS.USER_REQUEST_SUPPORT);
+  }
+  /** Admin join vào phòng support */
+  emitAdminJoinSupportRoom(roomId: string): void {
+    this.socket?.emit(WS_EVENTS.ADMIN_JOIN_SUPPORT_ROOM, { roomId });
+  }
+  /** Đóng phòng support */
+  emitCloseSupportRoom(roomId: string): void {
+    this.socket?.emit(WS_EVENTS.CLOSE_SUPPORT_ROOM, { roomId });
+  }
+
   // Event listeners
   onConnectionSuccess(
     callback: (data: WsResponse<{ userId: string; rooms: string[] }>) => void
@@ -135,6 +149,46 @@ class WebSocketService implements WebSocketServiceInterface {
 
   offAll(): void {
     this.socket?.removeAllListeners();
+  }
+
+  // ===== Support/Admin event listeners =====
+  /** Khi phòng support đang pending (chưa có admin) */
+  onSupportRoomPending(callback: () => void): void {
+    this.eventHandlers.onSupportRoomPending = callback;
+  }
+  /** Khi user được gán admin */
+  onSupportRoomAssigned(
+    callback: (data: {
+      roomId: string;
+      admin?: { name?: string; _id?: string };
+    }) => void
+  ): void {
+    this.eventHandlers.onSupportRoomAssigned = callback;
+  }
+  /** Khi admin join vào phòng */
+  onSupportAdminJoined(
+    callback: (data: {
+      roomId: string;
+      admin?: { name?: string; _id?: string };
+    }) => void
+  ): void {
+    this.eventHandlers.onSupportAdminJoined = callback;
+  }
+  /** Khi admin nhận ticket hỗ trợ */
+  onSupportTicketAssigned(
+    callback: (data: { roomId: string; userId: string }) => void
+  ): void {
+    this.eventHandlers.onSupportTicketAssigned = callback;
+  }
+  /** Khi admin bị đổi do timeout */
+  onSupportAdminChanged(
+    callback: (data: {
+      roomId: string;
+      userId: string;
+      newAdminId: string;
+    }) => void
+  ): void {
+    this.eventHandlers.onSupportAdminChanged = callback;
   }
 
   private setupEventListeners(): void {
@@ -201,6 +255,35 @@ class WebSocketService implements WebSocketServiceInterface {
     this.socket.on(WS_RESPONSE_EVENTS.AUTH_ERROR, (data: WsResponse) => {
       this.eventHandlers.onAuthError?.(data);
     });
+
+    // ===== Support/Admin events =====
+    this.socket.on(WS_RESPONSE_EVENTS.SUPPORT_ROOM_PENDING, () => {
+      this.eventHandlers.onSupportRoomPending?.();
+    });
+    this.socket.on(
+      WS_RESPONSE_EVENTS.SUPPORT_ROOM_ASSIGNED,
+      (data: { roomId: string; admin?: { name?: string; _id?: string } }) => {
+        this.eventHandlers.onSupportRoomAssigned?.(data);
+      }
+    );
+    this.socket.on(
+      WS_RESPONSE_EVENTS.SUPPORT_ADMIN_JOINED,
+      (data: { roomId: string; admin?: { name?: string; _id?: string } }) => {
+        this.eventHandlers.onSupportAdminJoined?.(data);
+      }
+    );
+    this.socket.on(
+      WS_RESPONSE_EVENTS.SUPPORT_TICKET_ASSIGNED,
+      (data: { roomId: string; userId: string }) => {
+        this.eventHandlers.onSupportTicketAssigned?.(data);
+      }
+    );
+    this.socket.on(
+      WS_RESPONSE_EVENTS.SUPPORT_ADMIN_CHANGED,
+      (data: { roomId: string; userId: string; newAdminId: string }) => {
+        this.eventHandlers.onSupportAdminChanged?.(data);
+      }
+    );
   }
 }
 

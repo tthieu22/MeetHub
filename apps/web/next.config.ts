@@ -1,11 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack(config) {
+  webpack(config: import("webpack").Configuration) {
+    if (!config.resolve) config.resolve = {};
     config.resolve.alias = {
-      ...config.resolve.alias,
-      '@': __dirname + '/src',
+      ...(config.resolve.alias || {}),
+      "@": __dirname + "/src",
     };
     return config;
+  },
+  images: {
+    domains: ["res.cloudinary.com"],
   },
 };
 

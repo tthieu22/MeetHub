@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { Typography, Card, Space } from "antd";
-import { BookOutlined, MessageOutlined, TeamOutlined } from "@ant-design/icons";
-import CustomButton from "@web/components/CustomButton";
+import { Typography, Card } from "antd";
+// import { BookOutlined, MessageOutlined, TeamOutlined } from "@ant-design/icons";
+// import CustomButton from "@web/components/CustomButton";
 
 const { Title, Paragraph } = Typography;
 
@@ -21,9 +21,9 @@ interface WelcomeSectionProps {
 
 export default function WelcomeSection({
   currentUser,
-  onBookRoom,
-  onStartChat,
-  onFindPeople,
+  // onBookRoom,
+  // onStartChat,
+  // onFindPeople,
 }: WelcomeSectionProps) {
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -55,7 +55,7 @@ export default function WelcomeSection({
             Welcome back!
           </Paragraph>
         </div>
-        <Space>
+        {/* <Space>
           <CustomButton
             type="primary"
             icon={<BookOutlined />}
@@ -69,7 +69,7 @@ export default function WelcomeSection({
           <CustomButton icon={<TeamOutlined />} onClick={onFindPeople}>
             Find People
           </CustomButton>
-        </Space>
+        </Space> */}
       </div>
     </Card>
   );

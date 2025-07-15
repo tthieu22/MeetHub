@@ -33,25 +33,22 @@ export default function ChatPage() {
   const searchParams = useSearchParams();
   const roomId = searchParams.get("roomId");
 
+  // Lấy messages cho room hiện tại
   const currentMessages = useMemo(
-    () => (roomId ? (messages[roomId] ?? []) : []),
+    () => (roomId ? messages[roomId] ?? [] : []),
     [roomId, messages]
   );
 
-  // Tối ưu hóa selectedRoom - chỉ tạo lại khi roomId thay đổi hoặc room cụ thể thay đổi
-  const currentRoom = rooms.find((r) => r.roomId === roomId);
+  // Lấy room hiện tại
+  const currentRoom = useMemo(() => rooms.find((r) => r.roomId === roomId), [rooms, roomId]);
   const selectedRoom = useMemo(() => {
     if (!roomId) return undefined;
-
-    const room = currentRoom;
-    if (!room) return undefined;
-
-    // Trả về object mới chỉ khi room thực sự thay đổi
+    if (!currentRoom) return undefined;
     return {
-      roomId: room.roomId,
-      name: room.name,
-      members: room.members,
-      onlineMemberIds: room.onlineMemberIds,
+      roomId: currentRoom.roomId,
+      name: currentRoom.name,
+      members: currentRoom.members,
+      onlineMemberIds: currentRoom.onlineMemberIds,
     };
   }, [roomId, currentRoom]);
 
@@ -188,7 +185,6 @@ export default function ChatPage() {
         duration: 3,
         onClose: () => router.push("/"),
       });
-      // Nếu user không bấm tắt notification thì sau 3s cũng chuyển hướng
       setTimeout(() => router.push("/"), 3000);
     };
     socket.on(WS_RESPONSE_EVENTS.SUPPORT_ROOM_CLOSED, handleRoomClosed);
@@ -207,7 +203,6 @@ export default function ChatPage() {
           "Bạn đã được chuyển sang admin hỗ trợ mới. Vui lòng chờ phản hồi!",
         duration: 5,
       });
-      // Reload lại room info nếu cần
       getRooms();
     };
     socket.on(WS_RESPONSE_EVENTS.SUPPORT_ADMIN_CHANGED, handleAdminChanged);
@@ -246,7 +241,6 @@ export default function ChatPage() {
       const url = new URL(window.location.href);
       url.searchParams.set("roomId", selectedRoomId);
       window.history.pushState({}, "", url.toString());
-      // Mark the selected room as read immediately
       markRoomRead(selectedRoomId);
     },
     [markRoomRead]
@@ -322,12 +316,18 @@ export default function ChatPage() {
           </h2>
         </div>
         <div style={{ flex: 1, overflow: "auto" }}>
-          <ChatList
-            rooms={rooms}
-            selectedRoomId={roomId || undefined}
-            onRoomSelect={handleRoomSelect}
-            unreadCounts={unreadCounts}
-          />
+          {rooms.length === 0 ? (
+            <div style={{ padding: 32, textAlign: "center", color: "#888" }}>
+              Đang tải danh sách phòng chat...
+            </div>
+          ) : (
+            <ChatList
+              rooms={rooms}
+              selectedRoomId={roomId || undefined}
+              onRoomSelect={handleRoomSelect}
+              unreadCounts={unreadCounts}
+            />
+          )}
         </div>
       </div>
 
@@ -369,6 +369,18 @@ export default function ChatPage() {
               <div style={{ padding: 32, textAlign: "center", color: "#888" }}>
                 Phòng chat đã bị đóng và toàn bộ tin nhắn đã bị xoá.
               </div>
+            ) : !roomId ? (
+              <div style={{ padding: 32, textAlign: "center", color: "#888" }}>
+                Hãy chọn một phòng chat để bắt đầu.
+              </div>
+            ) : !currentRoom ? (
+              <div style={{ padding: 32, textAlign: "center", color: "#888" }}>
+                Không tìm thấy phòng chat này.
+              </div>
+            ) : loadingMessages ? (
+              <div style={{ padding: 32, textAlign: "center", color: "#888" }}>
+                Đang tải tin nhắn...
+              </div>
             ) : (
               <ChatMessages
                 messages={currentMessages}
@@ -376,11 +388,12 @@ export default function ChatPage() {
                 onLoadMore={handleLoadMore}
                 hasMore={hasMoreMessages}
                 onReply={handleReplyMessage}
+                onlineMemberIds={currentRoom.onlineMemberIds || []}
               />
             )}
           </div>
           {/* Input chat */}
-          {!chatClosed && (
+          {!chatClosed && roomId && currentRoom && (
             <ChatInput
               onSendMessage={handleSendMessage}
               replyMessage={replyMessage}

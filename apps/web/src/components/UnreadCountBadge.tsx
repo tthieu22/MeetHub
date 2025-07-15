@@ -24,8 +24,8 @@ const UnreadCountBadge: React.FC = memo(() => {
     return (
       <MessageOutlined 
         style={{ 
-          fontSize: '18px', 
-          color: '#8c8c8c',
+          fontSize: '23px', 
+          color: '#1890ff',
           cursor: 'pointer'
         }} 
         onClick={handleClick}

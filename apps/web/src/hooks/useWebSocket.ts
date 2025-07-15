@@ -27,9 +27,19 @@ export const useWebSocket = () => {
     try {
       hasConnectedRef.current = true;
       const newSocket = connect();
+      console.log("[WebSocket] Gọi connect(), socket:", newSocket); // Log socket instance
       if (newSocket) {
+        newSocket.on("connect", () => {
+          console.log("[WebSocket] Socket connected:", newSocket.id);
+        });
+        newSocket.on("disconnect", () => {
+          console.log("[WebSocket] Socket disconnected");
+        });
         // Setup event handlers
+        console.log("[WebSocket] Setup event handlers");
         WebSocketEventHandlers.setupEventHandlers(newSocket);
+      } else {
+        console.error("[WebSocket] Không khởi tạo được socket");
       }
     } catch (error) {
       console.error("Failed to connect WebSocket:", error);
