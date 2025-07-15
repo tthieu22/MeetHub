@@ -1,10 +1,15 @@
-import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from '@api/modules/users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import { comparePassword } from '@api/utils/brcrypt.password';
 
 import { LoginResgisterService } from '@api/login-resgister/login-resgister.service';
+
+interface GoogleUserProfile {
+  email: string;
+  name: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -33,20 +38,44 @@ export class AuthService {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return { access_token };
+    return {
+      success: true,
+      message: 'Đăng nhập thành công',
+      data: { access_token },
+    };
   }
 
   async refreshToken(req: Request, res: Response) {
-    const refresh_token = req.cookies?.refresh_token;
-    if (!refresh_token) throw new ForbiddenException('Không có refresh token');
+    const refresh_token = typeof req.cookies?.refresh_token === 'string' ? req.cookies.refresh_token : undefined;
+    if (!refresh_token) {
+      return res.json({
+        success: false,
+        message: 'Không có refresh token',
+        data: null,
+      });
+    }
 
     try {
-      const payload = await this.jwtService.verifyAsync(refresh_token);
+      interface JwtPayload {
+        sub?: string;
+        name?: string;
+        role?: string;
+        [key: string]: any;
+      }
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(refresh_token);
       const newAccessToken = await this.jwtService.signAsync({ sub: payload.sub, name: payload.name, role: payload.role }, { expiresIn: '5m' });
 
-      return res.json({ access_token: newAccessToken });
+      return res.json({
+        success: true,
+        message: 'Làm mới access token thành công',
+        data: { access_token: newAccessToken },
+      });
     } catch {
-      throw new ForbiddenException('Refresh token không hợp lệ hoặc đã hết hạn');
+      return res.json({
+        success: false,
+        message: 'Refresh token không hợp lệ hoặc đã hết hạn',
+        data: null,
+      });
     }
   }
 
@@ -58,7 +87,7 @@ export class AuthService {
   }
 
   async googleLogin(userProfile: any, res: Response) {
-    const { email, name } = userProfile;
+    const { email, name } = userProfile as GoogleUserProfile;
 
     let user = await this.usersService.findOne(email);
     if (!user) {

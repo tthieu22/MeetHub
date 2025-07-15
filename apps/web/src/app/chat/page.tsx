@@ -9,16 +9,26 @@ import ChatInput from "@web/components/chat/ChatInput";
 import ChatHeader from "@web/components/chat/ChatHeader";
 import OnlineUsersList from "@web/components/OnlineUsersList";
 import { useSearchParams } from "next/navigation";
-import { WS_EVENTS } from "@web/constants/websocket.events";
+import { WS_EVENTS, WS_RESPONSE_EVENTS } from "@web/constants/websocket.events";
 import type { Message } from "@web/types/chat";
+import { useRouter } from "next/navigation";
+import { notification } from "antd";
 
 export default function ChatPage() {
+  const router = useRouter();
   const rooms = useChatStore((state) => state.rooms);
   const messages = useChatStore((state) => state.messages);
   const unreadCounts = useChatStore((state) => state.unreadCounts);
 
   // State quản lý tin nhắn đang reply
-  const [replyMessage, setReplyMessage] = useState<Message | null>(null);
+  const [replyMessage, setReplyMessage] = useState<{
+    id: string;
+    text: string;
+    sender?: { id: string; name: string; avatar?: string; email?: string };
+    fileName?: string;
+  } | null>(null);
+  const [chatClosed, setChatClosed] = useState(false);
+  const [api, contextHolder] = notification.useNotification();
 
   const searchParams = useSearchParams();
   const roomId = searchParams.get("roomId");
@@ -100,18 +110,19 @@ export default function ChatPage() {
           // Đọc file thành base64
           const fileData = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = () => resolve((reader.result as string).split(',')[1]);
+            reader.onload = () =>
+              resolve((reader.result as string).split(",")[1]);
             reader.onerror = reject;
             reader.readAsDataURL(file);
           });
-          if(replyMessage) {
+          if (replyMessage) {
             socket.emit(WS_EVENTS.CREATE_MESSAGE, {
               roomId,
               text,
               fileData,
               fileName: file.name,
               fileType: file.type,
-              replyTo: replyMessage._id
+              replyTo: replyMessage.id,
             });
           } else {
             socket.emit(WS_EVENTS.CREATE_MESSAGE, {
@@ -122,16 +133,15 @@ export default function ChatPage() {
               fileType: file.type,
             });
           }
-          
         } else {
-          if(replyMessage) {
+          if (replyMessage) {
             socket.emit(WS_EVENTS.CREATE_MESSAGE, {
               roomId,
-              text, 
-              replyTo: replyMessage._id
+              text,
+              replyTo: replyMessage.id,
             });
           } else {
-            socket.emit(WS_EVENTS.CREATE_MESSAGE, { roomId, text }); 
+            socket.emit(WS_EVENTS.CREATE_MESSAGE, { roomId, text });
           }
         }
       }
@@ -142,7 +152,6 @@ export default function ChatPage() {
   // State quản lý loading, hasMore
   const [loadingMessages, setLoadingMessages] = useState(false);
   const hasMoreMessages = true;
-
 
   // Auto load rooms khi component mount
   useEffect(() => {
@@ -166,6 +175,60 @@ export default function ChatPage() {
       });
     }
   }, [isConnected, rooms, getUnreadCount]);
+
+  // Lắng nghe sự kiện phòng bị đóng
+  useEffect(() => {
+    if (!socket || !roomId) return;
+    const handleRoomClosed = () => {
+      setChatClosed(true);
+      api.info({
+        message: "Phòng chat đã bị đóng",
+        description:
+          "Phòng chat này đã được đóng và toàn bộ tin nhắn đã được xoá.",
+        duration: 3,
+        onClose: () => router.push("/"),
+      });
+      // Nếu user không bấm tắt notification thì sau 3s cũng chuyển hướng
+      setTimeout(() => router.push("/"), 3000);
+    };
+    socket.on(WS_RESPONSE_EVENTS.SUPPORT_ROOM_CLOSED, handleRoomClosed);
+    return () => {
+      socket.off(WS_RESPONSE_EVENTS.SUPPORT_ROOM_CLOSED, handleRoomClosed);
+    };
+  }, [socket, roomId, api, router]);
+
+  // Lắng nghe sự kiện admin bị chuyển
+  useEffect(() => {
+    if (!socket || !roomId) return;
+    const handleAdminChanged = () => {
+      api.info({
+        message: "Admin hỗ trợ đã được chuyển",
+        description:
+          "Bạn đã được chuyển sang admin hỗ trợ mới. Vui lòng chờ phản hồi!",
+        duration: 5,
+      });
+      // Reload lại room info nếu cần
+      getRooms();
+    };
+    socket.on(WS_RESPONSE_EVENTS.SUPPORT_ADMIN_CHANGED, handleAdminChanged);
+    return () => {
+      socket.off(WS_RESPONSE_EVENTS.SUPPORT_ADMIN_CHANGED, handleAdminChanged);
+    };
+  }, [socket, roomId, api, getRooms]);
+
+  // Chủ động reload rooms khi join phòng thành công (admin hoặc user)
+  useEffect(() => {
+    if (!socket) return;
+    const handleRoomJoined = () => {
+      getRooms();
+    };
+    socket.on(WS_RESPONSE_EVENTS.ROOM_JOINED, handleRoomJoined);
+    socket.on("support_admin_joined", handleRoomJoined);
+    return () => {
+      socket.off(WS_RESPONSE_EVENTS.ROOM_JOINED, handleRoomJoined);
+      socket.off("support_admin_joined", handleRoomJoined);
+    };
+  }, [socket, getRooms]);
 
   // Hàm load thêm tin nhắn cũ (memo hóa)
   const handleLoadMore = useCallback(() => {
@@ -199,6 +262,34 @@ export default function ChatPage() {
     },
     [roomId, sendMessage]
   );
+
+  // Hàm đóng phòng
+  const handleCloseRoom = useCallback(() => {
+    if (socket && roomId) {
+      socket.emit(WS_EVENTS.CLOSE_SUPPORT_ROOM, { roomId });
+    }
+  }, [socket, roomId]);
+
+  // Hàm chọn tin nhắn để reply
+  const handleReplyMessage = useCallback((id: string, message: Message) => {
+    setReplyMessage({
+      id: message._id,
+      text: message.text,
+      sender:
+        typeof message.senderId === "object" && message.senderId !== null
+          ? {
+              id: message.senderId._id,
+              name:
+                message.senderId.username ||
+                message.senderId.email ||
+                "Unknown",
+              avatar: message.senderId.avatar,
+              email: message.senderId.email,
+            }
+          : { id: String(message.senderId), name: "Unknown" },
+      fileName: message.fileName,
+    });
+  }, []);
 
   return (
     <div
@@ -262,65 +353,41 @@ export default function ChatPage() {
           backgroundColor: "white",
         }}
       >
-        <ChatHeader room={selectedRoom} />
-        {roomId ? (
-          <>
-            <div style={{ flex: 1, overflow: "hidden" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          {contextHolder}
+          {/* Header phòng chat */}
+          <div>
+            <ChatHeader
+              room={selectedRoom}
+              onCloseRoom={handleCloseRoom}
+              chatClosed={chatClosed}
+            />
+          </div>
+          {/* Nội dung chat */}
+          <div style={{ flex: 1, overflow: "auto" }}>
+            {chatClosed ? (
+              <div style={{ padding: 32, textAlign: "center", color: "#888" }}>
+                Phòng chat đã bị đóng và toàn bộ tin nhắn đã bị xoá.
+              </div>
+            ) : (
               <ChatMessages
                 messages={currentMessages}
-                onlineMemberIds={selectedRoom?.onlineMemberIds}
                 loading={loadingMessages}
-                hasMore={hasMoreMessages}
                 onLoadMore={handleLoadMore}
-                onReply={(id, message) => setReplyMessage(message)}
+                hasMore={hasMoreMessages}
+                onReply={handleReplyMessage}
               />
-            </div>
+            )}
+          </div>
+          {/* Input chat */}
+          {!chatClosed && (
             <ChatInput
-              disabled={!roomId}
               onSendMessage={handleSendMessage}
-              replyMessage={
-                replyMessage
-                  ? {
-                      id: replyMessage._id,
-                      text: replyMessage.text,
-                      sender: {
-                        id: typeof replyMessage.senderId === "object" && replyMessage.senderId !== null
-                          ? replyMessage.senderId._id
-                          : replyMessage.senderId,
-                        name:
-                          typeof replyMessage.senderId === "object" && replyMessage.senderId !== null
-                            ? replyMessage.senderId.name || replyMessage.senderId.username || replyMessage.senderId.email || "Unknown"
-                            : "Unknown",
-                        avatar:
-                          typeof replyMessage.senderId === "object" && replyMessage.senderId !== null
-                            ? replyMessage.senderId.avatar
-                            : undefined,
-                        email:
-                          typeof replyMessage.senderId === "object" && replyMessage.senderId !== null
-                            ? replyMessage.senderId.email
-                            : undefined,
-                      },
-                      fileName: replyMessage.fileName,
-                    }
-                  : null
-              }
+              replyMessage={replyMessage}
               onCancelReply={() => setReplyMessage(null)}
             />
-          </>
-        ) : (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              height: "100%",
-              color: "#999",
-              fontSize: "16px",
-            }}
-          >
-            Chọn một cuộc trò chuyện để bắt đầu
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

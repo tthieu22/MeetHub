@@ -17,6 +17,7 @@ import { ParticipationRequestsModule } from './modules/participation-requests/pa
 import { LoginResgisterModule } from './login-resgister/login-resgister.module';
 import { UploadImageModule } from './modules/upload/upload.module';
 import { PasswordResetModule } from './modules/password-reset/password-reset.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { PasswordResetModule } from './modules/password-reset/password-reset.mod
     LoginResgisterModule,
     UploadImageModule,
     PasswordResetModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [AppService],

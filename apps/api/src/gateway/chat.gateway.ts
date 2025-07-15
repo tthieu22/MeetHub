@@ -1,5 +1,5 @@
 import { WebSocketGateway, OnGatewayConnection, OnGatewayDisconnect, WebSocketServer, SubscribeMessage, ConnectedSocket, MessageBody } from '@nestjs/websockets';
-import { UseGuards, UsePipes, ValidationPipe, Logger } from '@nestjs/common';
+import { UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ChatService } from '@api/gateway/chat.service';
 import { WsAuthGuard, AuthenticatedSocket } from '@api/common/guards/ws-auth.guard';
 import { Server } from 'socket.io';
@@ -39,7 +39,6 @@ export enum WebSocketEventName {
 @UseGuards(WsAuthGuard)
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
-  private readonly logger = new Logger(ChatGateway.name);
   constructor(
     private chatService: ChatService,
     private wsAuthService: WsAuthService,
@@ -95,6 +94,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data: { userId, rooms: roomIds },
     };
     client.emit(WebSocketEventName.CONNECTION_SUCCESS, response);
+    // Ensure every user joins their own user:{userId} room for direct events
+    await client.join(`user:${user._id}`);
+    if (user.role === 'admin') {
+      const assignedRooms = await this.chatService.assignPendingRoomsToAdmins();
+      const assignedRoom = assignedRooms?.[0];
+      if (assignedRoom) {
+        this.server.to(`user:${assignedRoom.userId}`).emit('support_room_assigned', {
+          roomId: String(assignedRoom.roomId),
+          admin: {
+            _id: user._id,
+            name: user.name,
+          },
+        });
+        this.server.to(`user:${user._id}`).emit('support_ticket_assigned', {
+          roomId: String(assignedRoom.roomId),
+          userId: String(assignedRoom.userId),
+        });
+      }
+    }
   }
   // hành động disconnect
   async handleDisconnect(client: AuthenticatedSocket): Promise<void> {
@@ -158,12 +176,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = validateClient(client);
     if (!userId) return;
 
-    this.logger.log(`Marking room ${data.roomId} as read for user ${userId}`);
     const response = await this.chatEventsHandler.handleMarkRoomRead(userId, data);
     client.emit(WebSocketEventName.MARK_ROOM_READ_SUCCESS, response);
 
     if (response.success) {
-      this.logger.log(`Emitting ROOM_MARKED_READ to room ${data.roomId}`);
       this.server.to(`room:${data.roomId}`).emit(WebSocketEventName.ROOM_MARKED_READ, response);
     }
   }
@@ -280,6 +296,93 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const response = await this.chatEventsHandler.handleGetAllOnlineUsers();
     client.emit('all_online_users', response);
+  }
+
+  // Khi user click chat với admin
+  @SubscribeMessage('user_request_support')
+  async handleUserRequestSupport(@ConnectedSocket() client: AuthenticatedSocket) {
+    const userId = validateClient(client);
+    if (!userId) return;
+    try {
+      // Gán admin và tạo/tìm phòng
+      const { roomId, admin, pending } = await this.chatService.assignAdminToUser(userId);
+      // Join user vào phòng socket
+      await client.join(`room:${String(roomId)}`);
+      if (pending) {
+        // Nếu chưa có admin online, gửi event pending cho user
+        client.emit('support_room_pending', { roomId: String(roomId) });
+        return;
+      }
+      // Gửi notification cho admin (nếu online)
+      if (admin && admin._id) {
+        this.server.to(`user:${String(admin._id)}`).emit('support_ticket_assigned', { roomId: String(roomId), userId: String(userId) });
+        // Emit support_room_assigned cho admin luôn
+        this.server.to(`user:${String(admin._id)}`).emit('support_room_assigned', { roomId: String(roomId), admin });
+      }
+      // Gửi về cho user roomId và thông tin admin
+      client.emit('support_room_assigned', { roomId: String(roomId), admin });
+    } catch (err) {
+      emitError(client, 'ASSIGN_ADMIN_ERROR', err instanceof Error ? err.message : String(err), 'support_room_assigned');
+      // Tìm adminId từ phòng active nếu có lỗi trùng phòng
+      // Gọi service lấy danh sách các cặp adminId, adminName, roomId, userId, userName
+      const adminRoomPairs = await this.chatService.getActiveAdminRoomPairsByUserId(userId);
+      for (const { adminId, adminName, roomId, userId: uId, userName } of adminRoomPairs) {
+        this.server.to(`user:${adminId}`).emit('support_ticket_assigned', {
+          roomId,
+          adminId,
+          adminName,
+          userId: uId,
+          userName,
+          message: err instanceof Error ? err.message : String(err),
+          code: 'ASSIGN_ADMIN_ERROR',
+        });
+      }
+    }
+  }
+
+  @SubscribeMessage('admin_join_support_room')
+  async handleAdminJoinSupportRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { roomId: string }) {
+    const adminId = validateClient(client);
+    if (!adminId) return;
+    // 1. Cập nhật phòng: thêm admin vào memberIds, assignedAdmins, currentAdminId, pending=false
+    const room = await this.chatService.adminJoinRoom(data.roomId, adminId);
+    if (!room) {
+      client.emit('error', { message: 'Không tìm thấy phòng' });
+      return;
+    }
+    // 2. Join socket room
+    await client.join(`room:${data.roomId}`);
+    // 3. Gửi event cho user
+    const userIdObj = room.memberIds.find((id) => id.toString() !== adminId.toString());
+    const userId = userIdObj?.toString();
+    if (userId) {
+      this.server.to(`user:${userId}`).emit('support_admin_joined', {
+        roomId: data.roomId,
+        admin: { _id: adminId, name: client.user.name },
+      });
+    }
+    // 4. Gửi event cho admin (nếu muốn)
+    client.emit('support_ticket_assigned', {
+      roomId: data.roomId,
+      userId,
+    });
+  }
+
+  // Đóng phòng chat support
+  @SubscribeMessage('close_support_room')
+  async handleCloseSupportRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { roomId: string }) {
+    const userId = validateClient(client);
+    if (!userId) return;
+    // Đảm bảo user là thành viên của phòng
+    const isMember = await this.chatService.validateRoomMembership(userId, data.roomId);
+    if (!isMember) {
+      client.emit('support_room_closed', { success: false, message: 'Bạn không phải thành viên phòng này' });
+      return;
+    }
+    // Cập nhật trạng thái phòng (ví dụ: set closed = true)
+    await this.chatService.closeSupportRoom(data.roomId, userId);
+    // Emit tới tất cả thành viên phòng
+    this.server.to(`room:${data.roomId}`).emit('support_room_closed', { roomId: data.roomId, closedBy: userId });
   }
 }
 

@@ -36,6 +36,7 @@ interface ChatMessageProps {
     fileType?:string; 
   };
   repliedMsg?: Message; 
+  repliedSenderName?: string;
   isSenderOnline?: boolean;
   currentUserId?: string; // Optional prop for demo purposes
   onReply?: (messageId: string, message: ChatMessageProps['message']) => void;
@@ -88,6 +89,7 @@ export default function ChatMessage({
   currentUserId,
   onReply,
   repliedMsg,
+  repliedSenderName,
 }: ChatMessageProps) {
   const currentUser = useUserStore((state) => state.currentUser); 
   const [isHovered, setIsHovered] = useState(false); 
@@ -252,11 +254,9 @@ export default function ChatMessage({
                 }}
               >
                 <span style={{ color: "#1890ff", fontWeight: 600 }}>
-                  {typeof repliedMsg.senderId === "object"
-                    ? repliedMsg.senderId.name || repliedMsg.senderId.username || repliedMsg.senderId.email || "Unknown"
-                    : "Unknown"}
+                  {repliedSenderName}
                 </span>
-                : {repliedMsg.text || repliedMsg.fileName || "Tin nhắn đính kèm"}
+                Reply: {repliedMsg.text || repliedMsg.fileName || "Tin nhắn đính kèm"}
               </div>
             )}
             {message.text} 
@@ -322,24 +322,6 @@ export default function ChatMessage({
                 backgroundColor: "#1890ff",
               }}
             />
-            {/* Badge "Bạn" */}
-            <div
-              style={{
-                position: "absolute",
-                top: "-8px",
-                right: "-8px",
-                backgroundColor: "#1890ff",
-                color: "white",
-                fontSize: "10px",
-                fontWeight: "bold",
-                padding: "2px 6px",
-                borderRadius: "8px",
-                border: "1px solid white",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-              }}
-            >
-              Bạn
-            </div>
           </div>
         )}
       </div>

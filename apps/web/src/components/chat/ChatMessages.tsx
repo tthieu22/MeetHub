@@ -15,7 +15,6 @@ interface ChatMessagesProps {
   onLoadMore?: () => void;
   onlineMemberIds?: string[];
   onReply?: (id: string, message: Message) => void;
-
 }
 
 function ChatMessages({
@@ -24,7 +23,7 @@ function ChatMessages({
   hasMore = false,
   onLoadMore = () => {},
   onlineMemberIds = [],
-  onReply = () => {}
+  onReply = () => {},
 }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -79,7 +78,7 @@ function ChatMessages({
       style={{
         flex: 1,
         overflowY: "auto",
-        height: "100%",
+        height: "70vh",
         padding: "16px",
         backgroundColor: "#fafafa",
       }}
@@ -138,7 +137,7 @@ function ChatMessages({
                 message={message}
                 isSenderOnline={isSenderOnline}
                 onReply={onReply}
-                allMessages={messages} 
+                allMessages={messages}
               />
             );
           })
