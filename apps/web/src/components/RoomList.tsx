@@ -98,7 +98,7 @@ const RoomList = () => {
   });
 
   const isAdmin = role === 'admin';
-  const NESTJS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const NESTJS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'; // Đồng bộ cổng 3000
 
   const fetchUserRole = useCallback(async () => {
     const authToken = token || localStorage.getItem('access_token');

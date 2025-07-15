@@ -9,303 +9,162 @@ const { Option } = Select;
 const AddRoom: React.FC = () => {
   const [form] = Form.useForm();
   const router = useRouter();
-  const { token, currentUser, isAuthenticated } = useUserStore();
+  const { token, isAuthenticated } = useUserStore();
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const NESTJS_API_URL = process.env.NEXT_PUBLIC_NESTJS_API_URL || 'http://localhost:8000/api';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-  // Kiểm tra đăng nhập và role ADMIN
   useEffect(() => {
     if (!isAuthenticated || !token) {
-      message.error('Vui lòng đăng nhập để tạo phòng');
-      router.push('/login');
-      return;
-    }
-
-    // Decode token để kiểm tra role
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      if (payload.role !== 'ADMIN') {
-        message.error('Chỉ admin mới có thể tạo phòng');
-        router.push('/rooms');
-      }
-    } catch (error) {
-      message.error('Token không hợp lệ');
-      useUserStore.getState().logout();
+      message.error('Vui lòng đăng nhập');
       router.push('/login');
     }
   }, [isAuthenticated, token, router]);
 
-  // Hiển thị dialog xác nhận
-  const showConfirmModal = () => {
-    setIsModalVisible(true);
-  };
+  const showConfirmModal = () => setIsModalVisible(true);
+  const handleCancel = () => setIsModalVisible(false);
 
-  // Xử lý xác nhận tạo phòng
   const handleConfirm = async () => {
     try {
-      const values = await form.validateFields(); // Validate form trước khi tạo
+      const values = await form.validateFields();
+
       const payload = {
-        name: values.name,
-        capacity: values.capacity,
-        location: values.location,
-        description: values.description,
-        devices: values.devices
-          ? values.devices.map((device: any) => ({
-              name: device.name,
-              quantity: device.quantity,
-              note: device.note,
-              canBeRemoved: device.canBeRemoved,
-            }))
-          : [],
-        features: values.features || [],
+        name: values.name || '',
+        capacity: Math.max(Number(values.capacity || 1), 1),
+        location: values.location || '',
+        description: values.description || '',
+        devices: values.devices || [],
         status: values.status || 'available',
         images: values.images || [],
         allowFood: values.allowFood || false,
-        operatingHours: values.operatingHours
-          ? {
-              open: values.operatingHours.open,
-              close: values.operatingHours.close,
-              closedDays: values.operatingHours.closedDays || [],
-            }
-          : undefined,
-        bookingPolicy: values.bookingPolicy
-          ? {
-              minBookingHours: values.bookingPolicy.minBookingHours,
-              maxBookingHours: values.bookingPolicy.maxBookingHours,
-              bufferTime: values.bookingPolicy.bufferTime,
-            }
-          : undefined,
-        cancellationPolicy: values.cancellationPolicy
-          ? {
-              minNotice: values.cancellationPolicy.minNotice,
-              lateCancelFee: values.cancellationPolicy.lateCancelFee,
-            }
-          : undefined,
+        operatingHours: {
+          open: values.operatingHours?.open || '',
+          close: values.operatingHours?.close || '',
+          closedDays: values.operatingHours?.closedDays || [],
+        },
+        bookingPolicy: {
+          minBookingHours: Math.max(Number(values.bookingPolicy?.minBookingHours || 1), 1),
+          maxBookingHours: Math.max(Number(values.bookingPolicy?.maxBookingHours || 1), 1),
+          bufferTime: Math.max(Number(values.bookingPolicy?.bufferTime || 0), 0),
+        },
+        cancellationPolicy: {
+          minNotice: Math.max(Number(values.cancellationPolicy?.minNotice || 1), 1),
+          lateCancelFee: Math.max(Number(values.cancellationPolicy?.lateCancelFee || 0), 0),
+        },
       };
 
-      console.log('Auth Token:', token);
-      console.log('API URL:', NESTJS_API_URL);
-      console.log('Sending payload:', JSON.stringify(payload, null, 2));
+      console.log('Payload:', payload);
 
-      const response = await axios.post(`${NESTJS_API_URL}/rooms/add-room`, payload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('Room created:', response.data);
-      message.success('Tạo phòng thành công!');
-      form.resetFields();
-      setIsModalVisible(false); // Đóng modal sau khi tạo thành công
-
-      // Gọi API getAll để cập nhật danh sách phòng
-      try {
-        const roomsResponse = await axios.get(`${NESTJS_API_URL}/rooms/getAll`, {
+      const response = await axios.post(
+        `${API_URL}/api/rooms/add-room`,
+        payload,
+        {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-        });
-        console.log('Updated rooms list:', roomsResponse.data);
-        // Nếu bạn có store cho rooms (ví dụ: useRoomStore), gọi hàm để cập nhật state
-        // Ví dụ: useRoomStore.getState().setRooms(roomsResponse.data.data);
-      } catch (error: any) {
-        console.error('Error fetching rooms:', error);
-        message.error('Lỗi khi cập nhật danh sách phòng: ' + (error.response?.data?.message || error.message));
-      }
-    } catch (error: any) {
-      console.error('onFinish Error:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response,
-        status: error.response?.status,
-        data: error.response?.data,
-      });
-      message.error(
-        'Lỗi khi tạo phòng: ' + (error.response?.data?.message || error.message)
+        }
       );
+
+      if (response.status === 201 || response.status === 200) {
+        message.success('Tạo phòng thành công!');
+        form.resetFields();
+        setIsModalVisible(false);
+      }
+    } catch (error) {
+      console.error(error);
+      if (axios.isAxiosError(error) && error.response) {
+        console.error('Response data:', error.response.data);
+        message.error(`Lỗi: ${JSON.stringify(error.response.data)}`);
+      } else {
+        message.error('Có lỗi xảy ra!');
+      }
     }
   };
 
-  // Hủy modal
-  const handleCancel = () => {
-    setIsModalVisible(false);
-  };
-
-  // Submit form
   const onFinish = async () => {
     try {
-      await form.validateFields(); // Validate form trước khi mở modal
-      showConfirmModal(); // Hiển thị dialog xác nhận
-    } catch (error) {
-      message.error('Vui lòng kiểm tra lại thông tin form');
+      await form.validateFields();
+      showConfirmModal();
+    } catch {
+      message.error('Vui lòng nhập đủ thông tin!');
     }
   };
 
-  // Không render form nếu chưa đăng nhập hoặc không phải admin
-  if (!isAuthenticated || !token) {
-    return null;
-  }
+  if (!isAuthenticated || !token) return null;
 
   return (
-    <>
-      <Form form={form} onFinish={onFinish} layout="vertical">
-        <Form.Item
-          name="name"
-          label="Tên phòng"
-          rules={[{ required: true, message: 'Vui lòng nhập tên phòng!' }]}
-        >
-          <Input />
-        </Form.Item>
+    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-indigo-900 via-purple-800 to-indigo-600">
+      <div className="w-full max-w-4xl bg-white/90 rounded-xl shadow-2xl p-8">
+        <h1 className="text-4xl font-extrabold mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-500">
+          Thêm Phòng Mới
+        </h1>
 
-        <Form.Item
-          name="capacity"
-          label="Sức chứa"
-          rules={[
-            { required: true, message: 'Vui lòng nhập sức chứa!' },
-            { type: 'number', min: 6, message: 'Sức chứa phải lớn hơn 5 người!' },
-          ]}
-        >
-          <InputNumber min={6} style={{ width: '100%' }} />
-        </Form.Item>
+        {/* PHẢI GÁN form={form}  */}
+        <Form form={form} onFinish={onFinish} layout="vertical">
+          <Form.Item name="name" label="Tên phòng" rules={[{ required: true }]}>
+            <Input placeholder="Tên phòng" />
+          </Form.Item>
 
-        <Form.Item
-          name="location"
-          label="Vị trí"
-          rules={[{ required: true, message: 'Vui lòng chọn vị trí!' }]}
-        >
-          <Select>
-            <Option value="phòng 1901 - tầng 19 - 19 Tố Hữu">Phòng 1901 - Tầng 19</Option>
-            <Option value="phòng 1902 - tầng 19 - 19 Tố Hữu">Phòng 1902 - Tầng 19</Option>
-            <Option value="tầng 1704 - tầng 17 - 19 Tố Hữu">Tầng 1704 - Tầng 17</Option>
-          </Select>
-        </Form.Item>
+          <Form.Item name="capacity" label="Sức chứa" rules={[{ required: true, type: 'number', min: 1 }]}>
+            <InputNumber min={1} style={{ width: '100%' }} placeholder="Sức chứa" />
+          </Form.Item>
 
-        <Form.Item name="description" label="Mô tả">
-          <Input.TextArea />
-        </Form.Item>
+          <Form.Item name="location" label="Vị trí" rules={[{ required: true }]}>
+            <Input placeholder="Vị trí" />
+          </Form.Item>
 
-        <Form.List name="devices">
-          {(fields, { add, remove }) => (
-            <>
-              {fields.map(({ key, name, ...restField }) => (
-                <div key={key} style={{ display: 'flex', gap: '10px', marginBottom: 8 }}>
-                  <Form.Item
-                    {...restField}
-                    name={[name, 'name']}
-                    rules={[{ required: true, message: 'Vui lòng nhập tên thiết bị!' }]}
-                  >
-                    <Input placeholder="Tên thiết bị" />
-                  </Form.Item>
-                  <Form.Item
-                    {...restField}
-                    name={[name, 'quantity']}
-                    rules={[{ required: true, message: 'Vui lòng nhập số lượng!' }]}
-                  >
-                    <InputNumber min={1} placeholder="Số lượng" />
-                  </Form.Item>
-                  <Form.Item {...restField} name={[name, 'note']}>
-                    <Input placeholder="Ghi chú" />
-                  </Form.Item>
-                  <Form.Item {...restField} name={[name, 'canBeRemoved']} valuePropName="checked">
-                    <Checkbox>Có thể mang ra ngoài</Checkbox>
-                  </Form.Item>
-                  <Button onClick={() => remove(name)}>Xóa</Button>
-                </div>
-              ))}
-              <Button onClick={() => add()}>Thêm thiết bị</Button>
-            </>
-          )}
-        </Form.List>
+          <Form.Item name={['operatingHours', 'open']} label="Giờ mở cửa" rules={[{ required: true }]}>
+            <Input placeholder="08:00" />
+          </Form.Item>
 
-        <Form.Item name="features" label="Tính năng">
-          <Select mode="multiple" placeholder="Chọn tính năng">
-            <Option value="Wi-Fi">Wi-Fi</Option>
-            <Option value="Máy chiếu">Máy chiếu</Option>
-            <Option value="Loa">Loa</Option>
-            <Option value="Bảng trắng">Bảng trắng</Option>
-          </Select>
-        </Form.Item>
+          <Form.Item name={['operatingHours', 'close']} label="Giờ đóng cửa" rules={[{ required: true }]}>
+            <Input placeholder="18:00" />
+          </Form.Item>
 
-        <Form.Item name="status" label="Trạng thái" initialValue="available">
-          <Select>
-            <Option value="available">Available</Option>
-            <Option value="occupied">Occupied</Option>
-            <Option value="maintenance">Maintenance</Option>
-            <Option value="cleaning">Cleaning</Option>
-          </Select>
-        </Form.Item>
+          <Form.Item name={['operatingHours', 'closedDays']} label="Ngày đóng cửa">
+            <Select mode="multiple">
+              <Option value="sun">Chủ nhật</Option>
+              <Option value="mon">Thứ hai</Option>
+              <Option value="tue">Thứ ba</Option>
+              <Option value="wed">Thứ tư</Option>
+              <Option value="thu">Thứ năm</Option>
+              <Option value="fri">Thứ sáu</Option>
+              <Option value="sat">Thứ bảy</Option>
+            </Select>
+          </Form.Item>
 
-        <Form.Item name={['operatingHours', 'open']} label="Giờ mở cửa">
-          <Input placeholder="VD: 08:00" />
-        </Form.Item>
+          <Form.Item name={['bookingPolicy', 'minBookingHours']} label="Giờ đặt tối thiểu">
+            <InputNumber min={1} style={{ width: '100%' }} placeholder="Giờ tối thiểu" />
+          </Form.Item>
 
-        <Form.Item name={['operatingHours', 'close']} label="Giờ đóng cửa">
-          <Input placeholder="VD: 18:00" />
-        </Form.Item>
+          <Form.Item name={['bookingPolicy', 'maxBookingHours']} label="Giờ đặt tối đa">
+            <InputNumber min={1} style={{ width: '100%' }} placeholder="Giờ tối đa" />
+          </Form.Item>
 
-        <Form.Item name={['operatingHours', 'closedDays']} label="Ngày đóng cửa">
-          <Select mode="multiple" placeholder="Chọn ngày đóng cửa">
-            <Option value="sun">Chủ nhật</Option>
-            <Option value="mon">Thứ hai</Option>
-            <Option value="tue">Thứ ba</Option>
-            <Option value="wed">Thứ tư</Option>
-            <Option value="thu">Thứ năm</Option>
-            <Option value="fri">Thứ sáu</Option>
-            <Option value="sat">Thứ bảy</Option>
-          </Select>
-        </Form.Item>
+          <Form.Item name={['cancellationPolicy', 'minNotice']} label="Thông báo hủy trước (giờ)">
+            <InputNumber min={1} style={{ width: '100%' }} placeholder="Giờ" />
+          </Form.Item>
 
-        <Form.Item name={['bookingPolicy', 'minBookingHours']} label="Số giờ đặt tối thiểu">
-          <InputNumber min={0.5} step={0.5} style={{ width: '100%' }} />
-        </Form.Item>
+          <Form.Item name={['cancellationPolicy', 'lateCancelFee']} label="Phí hủy muộn">
+            <InputNumber min={0} style={{ width: '100%' }} placeholder="VNĐ" />
+          </Form.Item>
 
-        <Form.Item name={['bookingPolicy', 'maxBookingHours']} label="Số giờ đặt tối đa">
-          <InputNumber min={1} style={{ width: '100%' }} />
-        </Form.Item>
-
-        <Form.Item name={['bookingPolicy', 'bufferTime']} label="Thời gian chuẩn bị (phút)">
-          <InputNumber min={0} style={{ width: '100%' }} />
-        </Form.Item>
-
-        <Form.Item name={['cancellationPolicy', 'minNotice']} label="Thời gian thông báo hủy (giờ)">
-          <InputNumber min={1} style={{ width: '100%' }} />
-        </Form.Item>
-
-        <Form.Item name={['cancellationPolicy', 'lateCancelFee']} label="Phí hủy muộn">
-          <InputNumber min={0} style={{ width: '100%' }} />
-        </Form.Item>
-
-        <Form.Item name="images" label="Hình ảnh">
-          <Select mode="multiple" placeholder="Chọn URL hình ảnh">
-            <Option value="image1.jpg">Hình ảnh 1</Option>
-            <Option value="image2.jpg">Hình ảnh 2</Option>
-          </Select>
-        </Form.Item>
-
-        <Form.Item name="allowFood" label="Cho phép đồ ăn" valuePropName="checked">
-          <Checkbox />
-        </Form.Item>
-
-        <Form.Item>
-          <Button type="primary" htmlType="submit">
-            Tạo phòng
-          </Button>
-        </Form.Item>
-      </Form>
+          <Form.Item>
+            <Button type="primary" htmlType="submit">Tạo phòng</Button>
+          </Form.Item>
+        </Form>
+      </div>
 
       <Modal
-        title="Xác nhận tạo phòng"
         open={isModalVisible}
         onOk={handleConfirm}
         onCancel={handleCancel}
-        okText="Tạo"
+        okText="Xác nhận"
         cancelText="Hủy"
       >
-        <p>Bạn có chắc chắn muốn tạo phòng với các thông tin đã nhập?</p>
+        <p>Bạn có chắc chắn muốn tạo phòng?</p>
       </Modal>
-    </>
+    </div>
   );
 };
 
