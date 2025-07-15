@@ -96,6 +96,14 @@ export class ChatService {
     return this.roomService.getOnlineMemberIds(roomId);
   }
 
+  async adminJoinRoom(roomId: string, adminId: string) {
+    return await this.roomService.adminJoinRoom(roomId, adminId);
+  }
+
+  async closeSupportRoom(conversationId: string, closedBy: string) {
+    return await this.roomService.closeSupportRoom(conversationId, closedBy);
+  }
+
   // Reaction methods
   async addReaction(messageId: string, userId: string, reaction: string) {
     return await this.reactionService.addReaction(messageId, userId, reaction);
@@ -149,5 +157,21 @@ export class ChatService {
     } catch {
       return false;
     }
+  }
+
+  async assignAdminToUser(userId: string) {
+    return await this.roomService.assignAdminToUser(userId);
+  }
+
+  async assignPendingRoomsToAdmins() {
+    return await this.roomService.assignPendingRoomsToAdmins();
+  }
+
+  async getActiveAdminIdsByUserId(userId: string) {
+    return await this.roomService.getActiveAdminIdsByUserId(userId);
+  }
+
+  public getActiveAdminRoomPairsByUserId(userId: string) {
+    return this.roomService.getActiveAdminRoomPairsByUserId(userId);
   }
 }

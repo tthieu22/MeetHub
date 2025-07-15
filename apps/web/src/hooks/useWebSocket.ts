@@ -130,18 +130,19 @@ export const useWebSocket = () => {
     [isConnected, socket]
   );
 
-  // Auto connect when user is authenticated
+  // Auto connect when user is authenticated hoặc có access_token trong localStorage
   useEffect(() => {
+    const hasToken =
+      typeof window !== "undefined" && !!localStorage.getItem("access_token");
     if (
-      isAuthenticated &&
-      currentUser &&
+      ((isAuthenticated && currentUser) || hasToken) &&
       !isConnected &&
       !isConnecting &&
       !hasConnectedRef.current
     ) {
       connectWebSocket();
-    } else if (!isAuthenticated && isConnected) {
-      // Disconnect khi user logout
+    } else if (!isAuthenticated && isConnected && !hasToken) {
+      // Disconnect khi user logout và không còn token
       disconnectWebSocket();
     }
   }, [

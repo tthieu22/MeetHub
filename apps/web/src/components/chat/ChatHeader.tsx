@@ -6,7 +6,7 @@ import {
   Typography,
   Space,
   Button,
-  Tooltip,
+  // Tooltip,
   Popover,
   Modal,
   List,
@@ -14,8 +14,8 @@ import {
 } from "antd";
 import {
   UserOutlined,
-  PhoneOutlined,
-  VideoCameraOutlined,
+  // PhoneOutlined,
+  // VideoCameraOutlined,
   MoreOutlined,
 } from "@ant-design/icons";
 
@@ -33,15 +33,28 @@ interface ChatHeaderProps {
     }>;
     onlineMemberIds?: string[];
   };
+  onCloseRoom?: () => void;
+  chatClosed?: boolean;
 }
 
 // Memoized menu component
 const ChatMenu = React.memo(
-  ({ onMenuClick }: { onMenuClick: (key: string) => void }) => (
+  ({
+    onMenuClick,
+    onCloseRoom,
+  }: {
+    onMenuClick: (key: string) => void;
+    onCloseRoom?: () => void;
+  }) => (
     <div>
       <Button type="text" block onClick={() => onMenuClick("members")}>
         Thành viên
       </Button>
+      {onCloseRoom && (
+        <Button danger type="text" block onClick={onCloseRoom}>
+          Đóng phòng
+        </Button>
+      )}
       {/* Thêm các tuỳ chọn khác nếu cần */}
     </div>
   )
@@ -49,7 +62,7 @@ const ChatMenu = React.memo(
 
 ChatMenu.displayName = "ChatMenu";
 
-function ChatHeader({ room }: ChatHeaderProps) {
+function ChatHeader({ room, onCloseRoom, chatClosed }: ChatHeaderProps) {
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -133,7 +146,7 @@ function ChatHeader({ room }: ChatHeaderProps) {
         </div>
       </Space>
       <Space style={{ flexShrink: 0 }}>
-        <Tooltip title="Gọi thoại">
+        {/* <Tooltip title="Gọi thoại">
           <Button
             type="text"
             icon={<PhoneOutlined />}
@@ -148,9 +161,16 @@ function ChatHeader({ room }: ChatHeaderProps) {
             size="large"
             disabled={!room}
           />
-        </Tooltip>
+        </Tooltip> */}
         <Popover
-          content={room ? <ChatMenu onMenuClick={handleMenuClick} /> : null}
+          content={
+            room ? (
+              <ChatMenu
+                onMenuClick={handleMenuClick}
+                onCloseRoom={!chatClosed ? onCloseRoom : undefined}
+              />
+            ) : null
+          }
           trigger="click"
           open={popoverOpen}
           onOpenChange={handlePopoverChange}
@@ -197,5 +217,4 @@ function ChatHeader({ room }: ChatHeaderProps) {
     </div>
   );
 }
-
 export default React.memo(ChatHeader);

@@ -1,13 +1,28 @@
 // Auth API Service for authentication
-import { message } from "antd";
+import axios from "../axios/customer.axios";
 
 export interface LoginForm {
   email: string;
   password: string;
 }
-
+export interface RegisterForm {
+  email: string;
+  password: string;
+  name: string;
+  passwordagain: string;
+}
+type RegisterPayload = Omit<RegisterForm, "passwordagain">;
 export interface LoginResponse {
-  access_token: string;
+  success: boolean;
+  message?: string;
+  errors?: string[];
+  access_token?: string;
+}
+export interface RegisterResponse {
+  success?: boolean;
+  message?: string;
+  errors?: string[];
+  user?: User;
 }
 
 export interface User {
@@ -30,66 +45,38 @@ class AuthApiService {
     this.baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    try {
-      const url = `${this.baseURL}${endpoint}`;
-      const config: RequestInit = {
-        ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...options.headers,
-        },
-      };
-
-      const response = await fetch(url, config);
-
-      if (!response.ok) {
-        throw new Error("Đăng nhập thất bại");
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error("Auth API request failed:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Đăng nhập thất bại";
-      message.error(errorMessage);
-      throw error;
-    }
+  async loginAPI(credentials: LoginForm) {
+    const URL_BACKEND = `/api/auth/signIn`;
+    const response = await axios.post(URL_BACKEND, credentials);
+    return response;
   }
 
-  async login(credentials: LoginForm): Promise<LoginResponse> {
-    return this.request<LoginResponse>("/api/auth/signIn", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    });
+  async registerAPI(userData: RegisterPayload) {
+    const URL_BACKEND = `/api/register/register`;
+    const response = await axios.post(URL_BACKEND, userData);
+    return response;
   }
+  async sendVerificationCodeAPI(payload: { email: string }) {
+    const URL_BACKEND = `/api/register/send-code`;
+    const response = await axios.post(URL_BACKEND, payload);
+    return response;
+  }
+  async verifyCodeAPI(payload: { email: string; code: string }) {
+    const URL_BACKEND = `/api/register/verify-code`;
+    const response = await axios.post(URL_BACKEND, payload);
+    return response;
+  }
+  // async logout(): Promise<void> {
+  //   return this.request<void>("/api/auth/logout", {
+  //     method: "POST",
+  //   });
+  // }
 
-  async register(userData: {
-    name: string;
-    email: string;
-    password: string;
-  }): Promise<LoginResponse> {
-    return this.request<LoginResponse>("/api/auth/signUp", {
-      method: "POST",
-      body: JSON.stringify(userData),
-    });
-  }
-
-  async logout(): Promise<void> {
-    return this.request<void>("/api/auth/logout", {
-      method: "POST",
-    });
-  }
-
-  async refreshToken(): Promise<{ access_token: string }> {
-    return this.request<{ access_token: string }>("/api/auth/refresh", {
-      method: "POST",
-    });
-  }
+  // async refreshToken(): Promise<{ access_token: string }> {
+  //   return this.request<{ access_token: string }>("/api/auth/refresh", {
+  //     method: "POST",
+  //   });
+  // }
 }
 
 // Create singleton instance

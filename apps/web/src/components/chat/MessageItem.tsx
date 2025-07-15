@@ -44,9 +44,12 @@ function MessageItem({ message, isSenderOnline, onReply, allMessages }: MessageI
     }),
     [message._id, message.text, sender, message.createdAt, message.fileUrl, message.fileName, message.fileType]
   );
-  const repliedMsg = message.replyTo
-    ? allMessages.find((msg) => msg._id === message.replyTo)
-    : undefined;
+  const repliedMsg =
+    message.replyTo && typeof message.replyTo === "object"
+      ? message.replyTo as Message
+      : typeof message.replyTo === "string"
+        ? allMessages.find((msg) => msg._id === message.replyTo)
+        : undefined;
   return <ChatMessage 
     message={messageData} 
     isSenderOnline={isSenderOnline} 

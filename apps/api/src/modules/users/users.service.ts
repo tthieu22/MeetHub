@@ -53,6 +53,56 @@ export class UsersService {
       throw error;
     }
   }
+  async findByFilter(queryParams: any): Promise<{
+    success: boolean;
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    data: UserDocument[];
+  }> {
+    console.log('heee');
+    try {
+      const {
+        page = 1,
+        limit = 500,
+        sort = '{"createdAt": -1}', // Mặc định sort mới
+        ...filters
+      } = queryParams as { page?: number; limit?: number; sort?: string; [key: string]: any };
+      let sortObj: Record<string, 1 | -1>;
+      try {
+        sortObj = typeof sort === 'string' ? JSON.parse(sort) : sort;
+      } catch {
+        sortObj = { createdAt: -1 };
+      }
+      const availablePaths = this.userDocumentModel.schema.paths;
+      for (const key of Object.keys(sortObj)) {
+        if (!availablePaths[key]) {
+          delete sortObj[key];
+        }
+      }
+      // Nếu không còn field nào thì sort mặc định
+      if (Object.keys(sortObj).length === 0) {
+        sortObj = { fullName: 1 }; // fallback
+      }
+      const pageNum = Math.max(Number(page) || 1, 1);
+      const limitNum = Math.max(Number(limit) || 10, 1);
+      const skip = (pageNum - 1) * limitNum;
+      const [data, totalRecords] = await Promise.all([this.userDocumentModel.find(filters).sort(sortObj).skip(skip).limit(limitNum).exec(), this.userDocumentModel.countDocuments(filters)]);
+      const totalPages = Math.ceil(totalRecords / limitNum);
+
+      return {
+        success: true,
+        total: totalRecords,
+        page: pageNum,
+        limit: limitNum,
+        totalPages,
+        data,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
 
   async findOne(email: string) {
     try {

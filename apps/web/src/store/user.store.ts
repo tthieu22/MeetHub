@@ -5,6 +5,7 @@ interface User {
   email: string;
   username?: string;
   avatar?: string;
+  role?: string; // thêm dòng này
 }
 
 interface UserState {
@@ -23,7 +24,10 @@ export const useUserStore = create<UserState>((set) => ({
   currentUser: null,
   isAuthenticated: false,
   isLoading: false,
-  token: typeof window !== "undefined" ? localStorage.getItem("access_token") || null : null, // Khởi tạo token từ localStorage
+  token:
+    typeof window !== "undefined"
+      ? localStorage.getItem("access_token") || null
+      : null, // Khởi tạo token từ localStorage
   setCurrentUser: (user: User | null) => {
     set({
       currentUser: user,
@@ -39,7 +43,7 @@ export const useUserStore = create<UserState>((set) => ({
   setToken: (token: string | null) => {
     if (typeof window !== "undefined") {
       if (token) {
-        localStorage.setItem("access_token", token); // Lưu token vào localStorage
+        localStorage.setItem("access_token", token);
       } else {
         localStorage.removeItem("access_token");
       }

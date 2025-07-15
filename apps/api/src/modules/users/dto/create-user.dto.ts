@@ -3,6 +3,7 @@ import { UserRole } from '../schema/user.schema';
 import { Transform } from 'class-transformer';
 
 export class CreateUserDto {
+  @IsOptional()
   @IsString({
     message: 'name phải là string',
   })
@@ -15,7 +16,7 @@ export class CreateUserDto {
   @Matches(/^[a-zA-ZÀ-ỹ0-9\s]+$/, {
     message: 'Name chỉ được chứa chữ cái, số và khoảng trắng',
   })
-  name: string;
+  name?: string;
 
   @IsNotEmpty({ message: 'Email là bắt buộc' })
   @IsEmail({}, { message: 'Email không hợp lệ' })
