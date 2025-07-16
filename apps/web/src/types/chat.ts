@@ -24,6 +24,10 @@ export interface Message {
   fileType?: string;
   senderEmail?: string;
   senderName?: string;
+  reactions?: {
+    userId: string;
+    emoji: string;
+  }[];
   replyTo?: unknown;
   mentions: string[];
   isPinned: boolean;

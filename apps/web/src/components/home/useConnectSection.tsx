@@ -41,7 +41,7 @@ export function useConnectSection() {
 
   // Fetch users from API with caching
   const fetchUsers = useCallback(
-    async (forceRefresh = false) => {
+    async (forceRefresh = false) => { 
       try {
         // Check cache first
         const cacheKey = `users_${currentUser?._id || "anonymous"}`;
@@ -92,16 +92,9 @@ export function useConnectSection() {
           throw new Error(result.message || "Failed to fetch users");
         }
       } catch (error) {
-        console.error("Error fetching users:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to load users";
-        setError(errorMessage);
-        api.error({
-          message: "Lỗi tải dữ liệu",
-          description: errorMessage,
-          placement: "topRight",
-          duration: 5,
-        });
+        const errorMessage = error instanceof Error ? error.message : "Failed to load users";
+        setError(errorMessage); // chỉ set state, không gọi api.error ở đây
+     
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -109,7 +102,16 @@ export function useConnectSection() {
     },
     [allOnline, currentUser?._id]
   );
- 
+   useEffect(() => {
+    if (error) {
+      api.error({
+        message: "Lỗi tải dữ liệu",
+        description: error,
+        placement: "topRight",
+      });
+    }
+  }, [error]);
+  
   const fetchInvitations = useCallback(async () => {
     try {
       const result = await invitationApiService.getReceivedInvitations();

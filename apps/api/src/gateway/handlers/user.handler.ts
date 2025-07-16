@@ -62,13 +62,12 @@ export class UserHandler {
     const roomIds = rooms.map((r) => r.roomId);
 
     await Promise.all(
-      roomIds.map(async (roomId) => {
+      roomIds.map((roomId) => {
         const response: WsResponse = {
           success: true,
           data: { userId, roomId },
         };
         server.to(`room:${roomId}`).emit(WS_RESPONSE_EVENTS.USER_OFFLINE, response);
-        await this.roomHandler.emitRoomOnlineMembers(server, roomId);
       }),
     );
 
@@ -84,7 +83,6 @@ export class UserHandler {
         data: { userId, roomId },
       };
       server.to(`room:${roomId}`).emit(WS_RESPONSE_EVENTS.USER_ONLINE, response);
-      await this.roomHandler.emitRoomOnlineMembers(server, roomId);
     }
 
     const allOnlineResponse = await this.handleGetAllOnlineUsers();

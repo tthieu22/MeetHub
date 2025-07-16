@@ -9,23 +9,18 @@ export function handleConnectionSuccess(
   socket: Socket,
   data: WsResponse<{ userId: string; rooms: string[] }>
 ) {
+  console.log("[core-handlers] handleConnectionSuccess", { data });
   if (data.success && data.data) {
-    socket.emit("get_rooms");
     socket.emit("get_all_online_users");
   }
 }
 
-// Nhận danh sách phòng
+// Nhận danh sách phòng (chỉ cập nhật store, không emit gì thêm)
 export function handleRooms(data: WsResponse<ChatRoom[]>, socket?: Socket) {
+  console.log("[core-handlers] handleRooms", { data, socket });
   if (data.success && data.data) {
     const { setRooms } = useChatStore.getState();
     setRooms(data.data);
-    if (socket) {
-      data.data.forEach((room) => {
-        socket.emit("get_room_online_members", { roomId: room.roomId });
-        socket.emit("get_unread_count", { roomId: room.roomId });
-      });
-    }
   }
 }
 
@@ -38,6 +33,7 @@ export function handleMessages(
     before?: string;
   }>
 ) {
+  console.log("[core-handlers] handleMessages", { data });
   if (data.success && data.data) {
     const { roomId, data: messages } = data.data;
     const { setMessages } = useChatStore.getState();
@@ -47,6 +43,7 @@ export function handleMessages(
 
 // Tin nhắn mới
 export function handleNewMessage(socket: Socket, data: WsResponse<Message>) {
+  console.log("[core-handlers] handleNewMessage", { data });
   if (data.success && data.data) {
     const {
       addMessage,
@@ -80,9 +77,7 @@ export function handleNewMessage(socket: Socket, data: WsResponse<Message>) {
       fileType: data.data.fileType || undefined,
     };
     updateRoom(roomId, { lastMessage });
-    if (currentRoomId === roomId) {
-      socket.emit("mark_room_read", { roomId });
-    }
+    // Không emit mark_room_read ở đây nữa
     if (
       currentRoomId !== roomId &&
       currentUser &&
@@ -102,6 +97,7 @@ export function handleNewMessage(socket: Socket, data: WsResponse<Message>) {
 export function handleUnreadCountUpdated(
   data: WsResponse<{ roomId: string; unreadCount: number }>
 ) {
+  console.log("[core-handlers] handleUnreadCountUpdated", { data });
   if (data.success && data.data) {
     const { updateUnreadCount } = useChatStore.getState();
     const { roomId, unreadCount } = data.data;
@@ -111,6 +107,7 @@ export function handleUnreadCountUpdated(
 
 // Nhận danh sách tất cả người online
 export function handleAllOnlineUsers(data: WsResponse<UsersOnline[]>) {
+  console.log("[core-handlers] handleAllOnlineUsers", { data });
   if (data.success && data.data) {
     const { setAllOnline, setOnlineUsers } = useChatStore.getState();
     setAllOnline(
@@ -134,6 +131,7 @@ export function handleAllOnlineUsers(data: WsResponse<UsersOnline[]>) {
 export function handleUserOnline(
   data: WsResponse<{ userId: string; roomId: string }>
 ) {
+  console.log("[core-handlers] handleUserOnline", { data });
   if (data.success && data.data) {
     const { setUserOnline, updateRoomOnlineStatus } = useChatStore.getState();
     setUserOnline(data.data.userId, true);
@@ -145,6 +143,7 @@ export function handleUserOnline(
 export function handleUserOffline(
   data: WsResponse<{ userId: string; roomId: string }>
 ) {
+  console.log("[core-handlers] handleUserOffline", { data });
   if (data.success && data.data) {
     const { setUserOnline, updateRoomOnlineStatus } = useChatStore.getState();
     setUserOnline(data.data.userId, false);
@@ -154,6 +153,7 @@ export function handleUserOffline(
 
 // Lỗi
 export function handleError(data: WsResponse) {
+  console.log("[core-handlers] handleError", { data });
   if (data.message) {
     console.error("Error message:", data.message);
   }
@@ -161,6 +161,7 @@ export function handleError(data: WsResponse) {
 
 // Lỗi xác thực
 export function handleAuthError(data: WsResponse) {
+  console.log("[core-handlers] handleAuthError", { data });
   if (data.code === "TOKEN_INVALID" || data.code === "USER_INVALID") {
     const { logout } = useUserStore.getState();
     logout();
@@ -172,6 +173,7 @@ export function handleAuthError(data: WsResponse) {
 export function handleRoomOnlineMembers(
   data: WsResponse<{ roomId: string; onlineMemberIds: string[] }>
 ) {
+  console.log("[core-handlers] handleRoomOnlineMembers", { data });
   if (data.success && data.data) {
     const { setRoomOnlineMembers } = useChatStore.getState();
     setRoomOnlineMembers(data.data.roomId, data.data.onlineMemberIds);
@@ -180,6 +182,7 @@ export function handleRoomOnlineMembers(
 
 // Đánh dấu đã đọc thành công
 export function handleRoomMarkedRead(data: WsResponse<{ roomId: string }>) {
+  console.log("[core-handlers] handleRoomMarkedRead", { data });
   if (data.success && data.data) {
     const { updateUnreadCount } = useChatStore.getState();
     updateUnreadCount(data.data.roomId, 0);

@@ -6,13 +6,14 @@ import {
   RoomMemberInfo,
 } from "@web/types/chat";
 
-// Định nghĩa Notification đơn giản để tránh dùng any
 export interface Notification {
   id: string;
   type: string;
   content: string;
   createdAt: number;
 }
+
+export type { ChatState };
 
 interface ChatState {
   // All rooms
@@ -29,6 +30,9 @@ interface ChatState {
   roomOnlineMembers: Record<string, string[]>;
   // Tất cả người dùng đang online
   allOnline: UsersOnline[];
+
+  // Danh sách các popup chat đang mở
+  openedPopups: string[];
 
   // Gán lại toàn bộ danh sách phòng chat
   setRooms: (rooms: ChatRoom[]) => void;
@@ -54,8 +58,8 @@ interface ChatState {
   // Cập nhật số lượng tin chưa đọc cho một phòng
   updateUnreadCount: (roomId: string, count: number) => void;
 
-  // Đặt phòng chat hiện tại
-  setCurrentRoom: (roomId: string | null) => void;
+  // Cập nhật room id current hiện tại của người dùng hiện tại
+  setCurrentRoomId: (roomId: string) => void;
 
   // Gán lại trạng thái online/offline của tất cả user
   setOnlineUsers: (users: Record<string, boolean>) => void;
@@ -98,9 +102,15 @@ interface ChatState {
   // Tìm kiếm tin nhắn trong phòng
   searchMessages: (roomId: string, keyword: string) => Message[];
   // Đánh dấu user đang gõ trong phòng
-  // setTyping: (roomId: string, userId: string, isTyping: boolean) => void;
-  // Cập nhật thời gian online cuối cùng của user trong phòng
-  // setLastSeen: (roomId: string, userId: string, timestamp: number) => void;
+  typingUsers: Record<string, string[]>; // roomId -> [userId]
+  setTyping: (roomId: string, userId: string, isTyping: boolean) => void;
+  hasMoreMessages: Record<string, boolean>;
+  setHasMoreMessages: (roomId: string, hasMore: boolean) => void;
+  reactToMessage: (
+    roomId: string,
+    messageId: string,
+    reaction: { userId: string; emoji: string }
+  ) => void;
   // Lưu thông báo liên quan đến phòng/chat
   // setNotification: (roomId: string, notification: Notification) => void;
   // Xóa thông báo của phòng khi đã đọc
@@ -113,6 +123,10 @@ interface ChatState {
   // reactToMessage: (roomId: string, messageId: string, reaction: string) => void;
   // Tải thêm lịch sử tin nhắn (phân trang)
   // loadMoreMessages: (roomId: string, beforeMessageId: string) => void;
+  // Thêm popup chat đang mở
+  addPopup: (roomId: string) => void;
+  // Xóa popup chat đang mở
+  removePopup: (roomId: string) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -123,6 +137,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   onlineUsers: {},
   roomOnlineMembers: {},
   allOnline: [],
+  openedPopups: [],
+  typingUsers: {},
+  hasMoreMessages: {},
 
   setRooms: (rooms: ChatRoom[]) => {
     set({ rooms });
@@ -144,7 +161,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setMessages: (roomId: string, messages: Message[]) => {
     const { messages: currentMessages } = get();
-    // Lọc trùng _id
     const uniqueMessages = Array.from(
       new Map(messages.map((m) => [m._id, m])).values()
     );
@@ -203,13 +219,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  setCurrentRoom: (roomId: string | null) => {
-    const { currentRoomId } = get();
-    // Only update if the room actually changed
-    if (currentRoomId !== roomId) {
-      set({ currentRoomId: roomId });
-    }
-  },
+  setCurrentRoomId: (roomId: string) => set({ currentRoomId: roomId }),
 
   setOnlineUsers: (users: Record<string, boolean>) => {
     set({ onlineUsers: users });
@@ -312,6 +322,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       onlineUsers: {},
       roomOnlineMembers: {},
       allOnline: [],
+      openedPopups: [],
+      typingUsers: {},
+      hasMoreMessages: {},
     });
   },
 
@@ -364,12 +377,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ),
     });
   },
+
   leaveRoom: (roomId) => {
     get().removeRoom(roomId);
     if (get().currentRoomId === roomId) {
       set({ currentRoomId: null });
     }
   },
+
   addMemberToRoom: (roomId, user) => {
     const { rooms } = get();
     set({
@@ -411,10 +426,63 @@ export const useChatStore = create<ChatState>((set, get) => ({
     get().deleteMessage(roomId, messageId);
   },
 
-  // setTyping: (roomId, userId, isTyping) => {
-  //   // Đơn giản: lưu trạng thái typing vào room (có thể mở rộng thêm state typingUsers)
-  //   // Chưa cài đặt chi tiết vì chưa có state typingUsers
-  // },
+  addPopup: (roomId: string) => {
+    set((state) => {
+      let newPopups = state.openedPopups.filter((id) => id !== roomId);
+      if (newPopups.length >= 2) {
+        newPopups = newPopups.slice(1); // chỉ giữ lại popup cuối cùng
+      }
+      return { openedPopups: [...newPopups, roomId] };
+    });
+  },
+
+  removePopup: (roomId: string) =>
+    set((state) => ({
+      openedPopups: state.openedPopups.filter((id) => id !== roomId),
+    })),
+
+  setTyping: (roomId, userId, isTyping) => {
+    set((state) => {
+      const current = state.typingUsers[roomId] || [];
+      let updated: string[];
+      if (isTyping) {
+        updated = current.includes(userId) ? current : [...current, userId];
+      } else {
+        updated = current.filter((id) => id !== userId);
+      }
+      return {
+        typingUsers: { ...state.typingUsers, [roomId]: updated },
+      };
+    });
+  },
+  setHasMoreMessages: (roomId, hasMore) => {
+    set((state) => ({
+      hasMoreMessages: { ...state.hasMoreMessages, [roomId]: hasMore },
+    }));
+  },
+  reactToMessage: (roomId, messageId, reaction) => {
+    set((state) => {
+      const roomMessages = state.messages[roomId] || [];
+      const updatedMessages = roomMessages.map((msg) => {
+        if (msg._id !== messageId) return msg;
+        // Xử lý reactions: nếu user đã có reaction thì update, chưa có thì thêm mới
+        let reactions = msg.reactions || [];
+        const idx = reactions.findIndex((r) => r.userId === reaction.userId);
+        if (idx !== -1) {
+          reactions = reactions.map((r, i) =>
+            i === idx ? { ...r, emoji: reaction.emoji } : r
+          );
+        } else {
+          reactions = [...reactions, reaction];
+        }
+        return { ...msg, reactions };
+      });
+      return {
+        messages: { ...state.messages, [roomId]: updatedMessages },
+      };
+    });
+  },
+
   // setLastSeen: (roomId, userId, timestamp) => {
   //   // Đơn giản: lưu lastSeen vào room (có thể mở rộng thêm state lastSeen)
   //   // Chưa cài đặt chi tiết vì chưa có state lastSeen

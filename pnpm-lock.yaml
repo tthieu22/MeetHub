@@ -210,6 +210,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.1.11
         version: 4.1.11
+      '@types/react-window':
+        specifier: ^1.8.8
+        version: 1.8.8
       antd:
         specifier: ^5.15.0
         version: 5.15.0(luxon@3.6.1)(moment@2.30.1)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -237,6 +240,9 @@ importers:
       react-toastify:
         specifier: ^11.0.5
         version: 11.0.5(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      react-window:
+        specifier: ^1.8.11
+        version: 1.8.11(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       socket.io-client:
         specifier: ^4.8.1
         version: 4.8.1
@@ -1776,6 +1782,9 @@ packages:
 
   '@types/react-dom@18.2.19':
     resolution: {integrity: sha512-aZvQL6uUbIJpjZk4U8JZGbau9KDeAwMfmhyWorxgBkqDIEf6ROjRozcmPIicqsUwPUjbkDfHKgGee1Lq65APcA==}
+
+  '@types/react-window@1.8.8':
+    resolution: {integrity: sha512-8Ls660bHR1AUA2kuRvVG9D/4XpRC6wjAaPT9dil7Ckc76eP9TKWZwwmgfq8Q1LANX3QNDnoU4Zp48A3w+zK69Q==}
 
   '@types/react@18.2.39':
     resolution: {integrity: sha512-Oiw+ppED6IremMInLV4HXGbfbG6GyziY3kqAwJYOR0PNbkYDmLWQA3a95EhdSmamsvbkJN96ZNN+YD+fGjzSBA==}
@@ -4058,6 +4067,9 @@ packages:
     resolution: {integrity: sha512-UERzLsxzllchadvbPs5aolHh65ISpKpM+ccLbOJ8/vvpBKmAWf+la7dXFy7Mr0ySHbdHrFv5kGFCUHHe6GFEmw==}
     engines: {node: '>= 4.0.0'}
 
+  memoize-one@5.2.1:
+    resolution: {integrity: sha512-zYiwtZUcYyXKo/np96AGZAckk+FWWsUdJ3cHGGmld7+AhvcWmQyGCYUh1hc4Q/pkOhb65dQR/pqCyK0cOaHz4Q==}
+
   memory-pager@1.5.0:
     resolution: {integrity: sha512-ZS4Bp4r/Zoeq6+NLJpP+0Zzm0pR8whtGPf1XExKLJBAczGMnSi3It14OiNCStjQjM6NU1okjQGSxgEZN8eBYKg==}
 
@@ -4883,6 +4895,13 @@ packages:
     peerDependencies:
       react: ^18 || ^19
       react-dom: ^18 || ^19
+
+  react-window@1.8.11:
+    resolution: {integrity: sha512-+SRbUVT2scadgFSWx+R1P754xHPEqvcfSfVX10QYg6POOz+WNgkN48pS+BtZNIMGiL1HYrSEiCkwsMS15QogEQ==}
+    engines: {node: '>8.0.0'}
+    peerDependencies:
+      react: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   react@18.2.0:
     resolution: {integrity: sha512-/3IjMdb2L9QbBdWiW5e3P2/npwMBaU9mHCSCUzNln0ZCYbcfTsGbTJrU/kGemdH2IWmB2ioZ+zkxtmq6g09fGQ==}
@@ -7467,6 +7486,10 @@ snapshots:
   '@types/range-parser@1.2.7': {}
 
   '@types/react-dom@18.2.19':
+    dependencies:
+      '@types/react': 18.2.39
+
+  '@types/react-window@1.8.8':
     dependencies:
       '@types/react': 18.2.39
 
@@ -10325,6 +10348,8 @@ snapshots:
     dependencies:
       fs-monkey: 1.0.6
 
+  memoize-one@5.2.1: {}
+
   memory-pager@1.5.0: {}
 
   merge-descriptors@2.0.0: {}
@@ -11183,6 +11208,13 @@ snapshots:
   react-toastify@11.0.5(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
       clsx: 2.1.1
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+
+  react-window@1.8.11(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
+    dependencies:
+      '@babel/runtime': 7.27.6
+      memoize-one: 5.2.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
 
