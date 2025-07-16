@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useUserStore } from '@/store/user.store';
-import { message, Card, Typography, Select, Spin, List, Tag, Button, Row, Col } from 'antd';
+import { message, Card, Typography, Select, Spin, List, Tag, Button, Row, Col, Modal } from 'antd';
 import { api, setAuthToken } from '@/lib/api';
 import moment, { Moment } from 'moment';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
@@ -55,11 +55,23 @@ const Bookings = () => {
   const isInRange = (day: Moment) => selectedStartDate && selectedEndDate && 
     day.isBetween(selectedStartDate, selectedEndDate, 'day', '[]');
 
+  const checkBookingConflict = (start: Moment, end: Moment): boolean => {
+    return bookings.some(booking => {
+      if (booking.status === 'cancelled') return false;
+      const existingStart = moment(booking.startTime);
+      const existingEnd = moment(booking.endTime);
+      return !(end.isSameOrBefore(existingStart) || start.isSameOrAfter(existingEnd));
+    });
+  };
+
   const fetchData = useCallback(async () => {
     if (!token) {
-      setError('Vui lòng đăng nhập để xem thông tin phòng.');
-      message.error('Vui lòng đăng nhập để tiếp tục.', 2);
-      router.push('/login');
+      const errorMsg = 'Vui lòng đăng nhập để xem thông tin phòng.';
+      setError(errorMsg);
+      Modal.error({
+        title: 'Lỗi',
+        content: errorMsg,
+      });
       return;
     }
 
@@ -97,14 +109,14 @@ const Bookings = () => {
       const errorMsg = error.response?.data?.message || error.message || 'Lỗi không xác định khi tải dữ liệu.';
       console.error('Lỗi khi tải dữ liệu:', errorMsg);
       setError(`Lỗi khi tải dữ liệu: ${errorMsg}`);
-      message.error(errorMsg, 2);
-      if (error.response?.status === 401) {
-        router.push('/login');
-      }
+      Modal.error({
+        title: 'Lỗi',
+        content: errorMsg,
+      });
     } finally {
       setLoading(false);
     }
-  }, [token, roomId, selectedWeek, router, NESTJS_API_URL]);
+  }, [token, roomId, selectedWeek, NESTJS_API_URL]);
 
   const debouncedFetchData = useMemo(() => _.debounce(fetchData, 300), [fetchData]);
 
@@ -136,29 +148,48 @@ const Bookings = () => {
   };
 
   const handleDateSelect = (date: Moment) => {
+    const startTime = date.clone().set({ hour: 9, minute: 0, second: 0 });
+    const endTime = date.clone().set({ hour: 17, minute: 0, second: 0 });
+
     if (selectionPhase === 'start') {
+      if (checkBookingConflict(startTime, endTime)) {
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Ngày này đã có lịch đặt. Vui lòng chọn ngày khác.',
+        });
+        return;
+      }
       setSelectedStartDate(date);
       setSelectedEndDate(null);
       setSelectionPhase('end');
       message.info('Đã chọn ngày bắt đầu, vui lòng chọn ngày kết thúc');
     } else {
       if (date.isBefore(selectedStartDate)) {
-        message.error('Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.');
-        setSelectedStartDate(date);
-        setSelectedEndDate(null);
-        setSelectionPhase('end');
-      } else {
-        setSelectedEndDate(date);
-        setSelectionPhase('start');
-        setIsBookingModalVisible(true);
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.',
+        });
+        return;
       }
+      if (checkBookingConflict(selectedStartDate!.clone().set({ hour: 9, minute: 0, second: 0 }), endTime)) {
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Ngày này đã có lịch đặt. Vui lòng chọn ngày khác.',
+        });
+        return;
+      }
+      setSelectedEndDate(date);
+      setSelectionPhase('start');
+      setIsBookingModalVisible(true);
     }
   };
 
   const handleBookingSubmit = async (formData: any) => {
     if (!token) {
-      message.error('Vui lòng đăng nhập để đặt phòng.');
-      router.push('/login');
+      Modal.error({
+        title: 'Lỗi',
+        content: 'Vui lòng đăng nhập để đặt phòng.',
+      });
       return;
     }
 
@@ -172,21 +203,26 @@ const Bookings = () => {
       console.log('Phản hồi API đặt phòng:', response.data);
 
       if (response.data.success) {
-        message.success('Đặt phòng thành công!');
-        debouncedFetchData();
-        setIsBookingModalVisible(false);
-        setSelectedStartDate(null);
-        setSelectedEndDate(null);
+        Modal.success({
+          title: 'Thành công',
+          content: 'Đặt phòng thành công!',
+          onOk: () => {
+            debouncedFetchData();
+            setIsBookingModalVisible(false);
+            setSelectedStartDate(null);
+            setSelectedEndDate(null);
+          },
+        });
       } else {
         throw new Error(response.data.message || 'Đặt phòng thất bại.');
       }
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || error.message || 'Lỗi không xác định khi đặt phòng.';
       console.error('Lỗi API:', errorMsg);
-      message.error(`Lỗi khi đặt phòng: ${errorMsg}`);
-      if (error.response?.status === 401) {
-        router.push('/login');
-      }
+      Modal.error({
+        title: 'Lỗi',
+        content: `Lỗi khi đặt phòng: ${errorMsg}`,
+      });
     } finally {
       setLoading(false);
     }
@@ -196,6 +232,15 @@ const Bookings = () => {
     const dateBookings = bookings.filter((booking) =>
       moment(booking.startTime).isSame(value, 'day')
     );
+    const hasConflict = dateBookings.some(booking => {
+      if (booking.status === 'cancelled') return false;
+      const existingStart = moment(booking.startTime);
+      const existingEnd = moment(booking.endTime);
+      const startTime = value.clone().set({ hour: 9, minute: 0, second: 0 });
+      const endTime = value.clone().set({ hour: 17, minute: 0, second: 0 });
+      return !(endTime.isSameOrBefore(existingStart) || startTime.isSameOrAfter(existingEnd));
+    });
+
     return (
       <List
         size="small"
@@ -302,8 +347,10 @@ const Bookings = () => {
       userId = payload.sub || payload.userId || '';
     } catch (e) {
       console.error('Lỗi khi phân tích token:', e);
-      message.error('Token không hợp lệ. Vui lòng đăng nhập lại.');
-      router.push('/login');
+      Modal.error({
+        title: 'Lỗi',
+        content: 'Token không hợp lệ. Vui lòng đăng nhập lại.',
+      });
     }
   }
 
@@ -443,25 +490,35 @@ const Bookings = () => {
               {Array.from({ length: 7 }, (_, index) => {
                 const day = selectedWeek.clone().startOf('isoWeek').add(index, 'days');
                 const isCurrentMonth = day.year() === selectedYear && day.month() === selectedMonth;
+                const hasConflict = bookings.some(booking => {
+                  if (booking.status === 'cancelled') return false;
+                  const existingStart = moment(booking.startTime);
+                  const existingEnd = moment(booking.endTime);
+                  const startTime = day.clone().set({ hour: 9, minute: 0, second: 0 });
+                  const endTime = day.clone().set({ hour: 17, minute: 0, second: 0 });
+                  return !(endTime.isSameOrBefore(existingStart) || startTime.isSameOrAfter(existingEnd));
+                });
                 
                 return (
                   <Col 
                     key={index} 
                     xs={24} sm={24} md={24} lg={24} xl={24}
                     style={{ 
-                      backgroundColor: isStartDate(day) ? '#1890ff' : 
-                                    isEndDate(day) ? '#52c41a' : 
-                                    isInRange(day) ? '#e6f7ff' : '#fff',
-                      border: isStartDate(day) ? '2px solid #1890ff' : 
+                      backgroundColor: hasConflict ? '#ff4d4f' : 
+                                      isStartDate(day) ? '#1890ff' : 
+                                      isEndDate(day) ? '#52c41a' : 
+                                      isInRange(day) ? '#e6f7ff' : '#fff',
+                      border: hasConflict ? '2px solid #ff4d4f' : 
+                             isStartDate(day) ? '2px solid #1890ff' : 
                              isEndDate(day) ? '2px solid #52c41a' : 
                              '1px solid #d9d9d9',
                       borderRadius: 8,
                       padding: 8,
-                      cursor: 'pointer',
+                      cursor: hasConflict ? 'not-allowed' : 'pointer',
                       position: 'relative',
                       minHeight: '120px'
                     }}
-                    onClick={() => handleDateSelect(day)}
+                    onClick={() => !hasConflict && handleDateSelect(day)}
                   >
                     {isStartDate(day) && (
                       <Tag color="blue" style={{ 
@@ -490,7 +547,7 @@ const Bookings = () => {
                     )}
 
                     <div style={{ 
-                      color: isStartDate(day) || isEndDate(day) ? '#fff' : 
+                      color: hasConflict || isStartDate(day) || isEndDate(day) ? '#fff' : 
                             isCurrentMonth ? '#1d39c4' : '#595959',
                       fontWeight: 500,
                       marginBottom: 8
@@ -538,6 +595,7 @@ const Bookings = () => {
               status: 'pending',
               participants: [],
             }}
+            bookings={bookings}
           />
         </>
       ) : null}

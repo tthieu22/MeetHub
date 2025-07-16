@@ -21,11 +21,19 @@ const { TextArea } = Input;
 const { Option } = Select;
 const { Text } = Typography;
 
+interface Booking {
+  _id: string;
+  startTime: string;
+  endTime: string;
+  status: 'confirmed' | 'cancelled' | 'completed' | 'pending';
+}
+
 interface BookingFormProps {
   visible: boolean;
   onCancel: () => void;
   onSubmit: (formData: any) => Promise<void>;
   initialValues: any;
+  bookings: Booking[];
 }
 
 interface User {
@@ -41,7 +49,8 @@ const BookingForm: React.FC<BookingFormProps> = ({
   visible, 
   onCancel, 
   onSubmit, 
-  initialValues 
+  initialValues,
+  bookings
 }) => {
   const [form] = Form.useForm();
   const [users, setUsers] = useState<User[]>([]);
@@ -298,6 +307,15 @@ const BookingForm: React.FC<BookingFormProps> = ({
     );
   };
 
+  const checkBookingConflict = (start: Moment, end: Moment): boolean => {
+    return bookings.some(booking => {
+      if (booking.status === 'cancelled') return false;
+      const existingStart = moment(booking.startTime);
+      const existingEnd = moment(booking.endTime);
+      return !(end.isSameOrBefore(existingStart) || start.isSameOrAfter(existingEnd));
+    });
+  };
+
   const handleFinish = async () => {
     console.log('handleFinish được gọi');
     try {
@@ -379,6 +397,20 @@ const BookingForm: React.FC<BookingFormProps> = ({
           content: 'Một hoặc nhiều ID người tham gia không hợp lệ.',
         });
         console.error('ID người tham gia không hợp lệ:', participants);
+        return;
+      }
+
+      // Kiểm tra lịch trùng
+      if (checkBookingConflict(startDateTime, endDateTime)) {
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Lịch đặt phòng bị trùng. Vui lòng chọn thời gian khác.',
+        });
+        console.error('Lịch trùng:', {
+          startTime: startDateTime.toISOString(),
+          endTime: endDateTime.toISOString(),
+          existingBookings: bookings,
+        });
         return;
       }
 
