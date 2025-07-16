@@ -45,7 +45,7 @@ export class BookingsController {
   // @Roles(UserRole.ADMIN)
   async findAll(
     @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
+    @Query('limit') limit: number = 1000000000,
     @Query('filter') filter: string = '{}'
   ) {
     const parsedFilter = JSON.parse(filter);
