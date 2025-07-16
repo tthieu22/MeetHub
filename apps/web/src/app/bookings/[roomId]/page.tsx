@@ -67,7 +67,7 @@ const Bookings = () => {
   const isInRange = (day: Moment) => selectedStartDate && selectedEndDate && day.isBetween(selectedStartDate, selectedEndDate, 'day', '[]');
 
   const checkBookingConflict = (start: Moment, end: Moment): boolean => {
-    return bookings.some(booking => {
+    return bookings.some((booking) => {
       if (booking.status === 'deleted') return false;
       const existingStart = moment(booking.startTime);
       const existingEnd = moment(booking.endTime);
@@ -88,7 +88,7 @@ const Bookings = () => {
     try {
       console.log('Đang lấy dữ liệu phòng và đặt phòng...');
       const [roomResponse, bookingsResponse] = await Promise.all([
-        api.get(`/api/rooms/${roomId}`),
+        api.get(`${NESTJS_API_URL}/api/rooms/${roomId}`),
         api.get(`${NESTJS_API_URL}/api/bookings/findAll`, {
           params: { roomId },
           headers: { Authorization: `Bearer ${token}` },
@@ -152,7 +152,7 @@ const Bookings = () => {
   };
 
   const handleDateSelect = (date: Moment) => {
-    const currentDate = moment().startOf('day'); // 12:29 AM +07, 17/07/2025
+    const currentDate = moment().startOf('day'); // 01:04 AM +07, 17/07/2025
     const startTime = date.clone().set({ hour: 9, minute: 0, second: 0 });
     const endTime = date.clone().set({ hour: 17, minute: 0, second: 0 });
 
@@ -282,7 +282,7 @@ const Bookings = () => {
           <p><strong>Thời gian:</strong> {moment(booking.startTime).format('HH:mm DD/MM/YYYY')} - {moment(booking.endTime).format('HH:mm DD/MM/YYYY')}</p>
           <p><strong>Trạng thái:</strong> {booking.status === 'confirmed' ? 'Đã xác nhận' : booking.status === 'cancelled' ? 'Đã hủy' : booking.status === 'pending' ? 'Chờ duyệt' : booking.status === 'completed' ? 'Hoàn thành' : 'Đã xóa'}</p>
           <p><strong>Người đặt:</strong> {booking.user.name}</p>
-          <p><strong>Tham gia:</strong> {booking.participants.map(p => p).join(', ') || 'Không có'}</p>
+          <p><strong>Tham gia:</strong> {booking.participants.map((p) => p).join(', ') || 'Không có'}</p>
         </div>
       ),
       onOk() {},
@@ -294,7 +294,7 @@ const Bookings = () => {
       moment(booking.startTime).isSame(value, 'day')
     );
     console.log('Date bookings for', value.format('DD/MM/YYYY'), ':', dateBookings);
-    const hasConflict = dateBookings.some(booking => {
+    const hasConflict = dateBookings.some((booking) => {
       if (booking.status === 'deleted') return false;
       const existingStart = moment(booking.startTime);
       const existingEnd = moment(booking.endTime);
@@ -402,7 +402,7 @@ const Bookings = () => {
         </Title>
         <Row gutter={[16, 16]}>
           {weeks.map((week, index) => {
-            const bookingCount = bookings.filter(b => 
+            const bookingCount = bookings.filter((b) => 
               moment(b.startTime).isBetween(week, week.clone().endOf('isoWeek'), 'day', '[]')
             ).length;
             
@@ -559,7 +559,7 @@ const Bookings = () => {
                   {Array.from({ length: 7 }, (_, index) => {
                     const day = selectedWeek.clone().startOf('isoWeek').add(index, 'days');
                     const isCurrentMonth = day.year() === selectedYear && day.month() === selectedMonth;
-                    const hasConflict = bookings.some(booking => {
+                    const hasConflict = bookings.some((booking) => {
                       if (booking.status === 'deleted') return false;
                       const existingStart = moment(booking.startTime);
                       const existingEnd = moment(booking.endTime);
