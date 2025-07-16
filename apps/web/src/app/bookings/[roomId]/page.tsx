@@ -3,20 +3,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useUserStore } from '@/store/user.store';
-import { 
-  message, 
-  Card, 
-  Typography, 
-  Select, 
-  Spin, 
-  List, 
-  Tag, 
-  Button, 
-  Row, 
-  Col, 
-  Modal, 
-  Input 
-} from 'antd';
+import { message, Card, Typography, Select, Spin, List, Tag, Button, Row, Col } from 'antd';
 import { api, setAuthToken } from '@/lib/api';
 import moment, { Moment } from 'moment';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
@@ -52,22 +39,11 @@ const Bookings = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState(moment().year());
   const [selectedMonth, setSelectedMonth] = useState(moment().month());
-  const [selectedWeek, setSelectedWeek] = useState(moment().startOf('week'));
+  const [selectedWeek, setSelectedWeek] = useState(moment().startOf('isoWeek'));
   const [isBookingModalVisible, setIsBookingModalVisible] = useState(false);
-  const [bookingForm, setBookingForm] = useState({
-    room: '',
-    user: '',
-    startTime: moment().set({ hour: 9, minute: 0, second: 0 }).toISOString(),
-    endTime: moment().set({ hour: 17, minute: 0, second: 0 }).toISOString(),
-    title: 'Cuộc họp nhóm dự án',
-    description: 'Thảo luận kế hoạch phát triển sản phẩm mới',
-    status: 'pending',
-    participants: [],
-  });
   const [selectedStartDate, setSelectedStartDate] = useState<Moment | null>(null);
   const [selectedEndDate, setSelectedEndDate] = useState<Moment | null>(null);
   const [selectionPhase, setSelectionPhase] = useState<'start' | 'end'>('start');
-  const [accessToken, setAccessToken] = useState<string | null>(localStorage.getItem('access_token'));
   const router = useRouter();
   const { roomId } = useParams();
   const { token } = useUserStore();
@@ -80,44 +56,55 @@ const Bookings = () => {
     day.isBetween(selectedStartDate, selectedEndDate, 'day', '[]');
 
   const fetchData = useCallback(async () => {
-    const authToken = token || accessToken;
-    if (!authToken) {
+    if (!token) {
       setError('Vui lòng đăng nhập để xem thông tin phòng.');
       message.error('Vui lòng đăng nhập để tiếp tục.', 2);
+      router.push('/login');
       return;
     }
 
-    setAuthToken(authToken);
+    setAuthToken(token);
     setLoading(true);
     try {
+      console.log('Đang lấy dữ liệu phòng và đặt phòng...');
       const [roomResponse, bookingsResponse] = await Promise.all([
         api.get(`/api/rooms/${roomId}`),
         api.get(`${NESTJS_API_URL}/api/bookings/findAll`, {
           params: {
             roomId,
-            startTimeFrom: selectedWeek.clone().startOf('week').toISOString(),
-            startTimeTo: selectedWeek.clone().endOf('week').toISOString(),
+            startTimeFrom: selectedWeek.clone().startOf('isoWeek').toISOString(),
+            startTimeTo: selectedWeek.clone().endOf('isoWeek').toISOString(),
           },
-          headers: { Authorization: `Bearer ${authToken}` },
+          headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
 
+      console.log('Phản hồi phòng:', roomResponse.data);
+      console.log('Phản hồi đặt phòng:', bookingsResponse.data);
+
       if (roomResponse.data?.success) {
         setRoom(roomResponse.data.data);
-        setBookingForm((prev) => ({ ...prev, room: roomResponse.data.data._id }));
+      } else {
+        throw new Error(roomResponse.data?.message || 'Không thể tải thông tin phòng.');
       }
+
       if (bookingsResponse.data.success) {
         setBookings(bookingsResponse.data.data || []);
+      } else {
+        throw new Error(bookingsResponse.data?.message || 'Không thể tải danh sách đặt phòng.');
       }
     } catch (error: any) {
-      const errorMsg = error.response?.data?.message || error.message;
+      const errorMsg = error.response?.data?.message || error.message || 'Lỗi không xác định khi tải dữ liệu.';
+      console.error('Lỗi khi tải dữ liệu:', errorMsg);
       setError(`Lỗi khi tải dữ liệu: ${errorMsg}`);
       message.error(errorMsg, 2);
-      if (error.response?.status === 401) router.push('/login');
+      if (error.response?.status === 401) {
+        router.push('/login');
+      }
     } finally {
       setLoading(false);
     }
-  }, [token, accessToken, roomId, selectedWeek, router, NESTJS_API_URL]);
+  }, [token, roomId, selectedWeek, router, NESTJS_API_URL]);
 
   const debouncedFetchData = useMemo(() => _.debounce(fetchData, 300), [fetchData]);
 
@@ -128,32 +115,24 @@ const Bookings = () => {
 
   const handleYearChange = (value: number) => {
     setSelectedYear(value);
-    setSelectedWeek(moment().year(value).month(selectedMonth).startOf('month').startOf('week'));
+    setSelectedWeek(moment().year(value).month(selectedMonth).startOf('isoWeek'));
   };
 
   const handleMonthChange = (value: number) => {
     setSelectedMonth(value);
-    setSelectedWeek(moment().year(selectedYear).month(value).startOf('month').startOf('week'));
+    setSelectedWeek(moment().year(selectedYear).month(value).startOf('isoWeek'));
   };
 
   const handleNextWeek = () => {
     const nextWeek = selectedWeek.clone().add(1, 'week');
-    if (nextWeek.month() === selectedMonth) {
-      setSelectedWeek(nextWeek);
-    } else {
-      setSelectedMonth(nextWeek.month());
-      setSelectedWeek(nextWeek);
-    }
+    setSelectedWeek(nextWeek);
+    setSelectedMonth(nextWeek.month());
   };
 
   const handlePreviousWeek = () => {
     const prevWeek = selectedWeek.clone().subtract(1, 'week');
-    if (prevWeek.month() === selectedMonth) {
-      setSelectedWeek(prevWeek);
-    } else {
-      setSelectedMonth(prevWeek.month());
-      setSelectedWeek(prevWeek);
-    }
+    setSelectedWeek(prevWeek);
+    setSelectedMonth(prevWeek.month());
   };
 
   const handleDateSelect = (date: Moment) => {
@@ -171,52 +150,26 @@ const Bookings = () => {
       } else {
         setSelectedEndDate(date);
         setSelectionPhase('start');
-        handleBookRoom();
+        setIsBookingModalVisible(true);
       }
-    }
-  };
-
-  const handleBookRoom = () => {
-    if (selectedStartDate) {
-      const startTime = selectedStartDate.clone().set({ hour: 9, minute: 0, second: 0 }).toISOString();
-      const endTime = selectedEndDate
-        ? selectedEndDate.clone().set({ hour: 17, minute: 0, second: 0 }).toISOString()
-        : selectedStartDate.clone().set({ hour: 17, minute: 0, second: 0 }).toISOString();
-
-      let userId = '';
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          userId = payload.sub || payload.userId || '';
-        } catch (e) {
-          console.error('Error parsing token:', e);
-          userId = '';
-        }
-      }
-
-      setBookingForm({
-        ...bookingForm,
-        room: room?._id || '',
-        user: userId,
-        startTime,
-        endTime,
-        participants: [],
-      });
-      setIsBookingModalVisible(true);
     }
   };
 
   const handleBookingSubmit = async (formData: any) => {
-    try {
-      if (!token || !accessToken) {
-        message.error('Vui lòng đăng nhập và cung cấp access-token.');
-        return;
-      }
+    if (!token) {
+      message.error('Vui lòng đăng nhập để đặt phòng.');
+      router.push('/login');
+      return;
+    }
 
-      setAuthToken(accessToken);
+    try {
+      setLoading(true);
+      console.log('Dữ liệu gửi đi:', JSON.stringify(formData, null, 2));
       const response = await api.post(`${NESTJS_API_URL}/api/bookings/add-booking`, formData, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
+
+      console.log('Phản hồi API đặt phòng:', response.data);
 
       if (response.data.success) {
         message.success('Đặt phòng thành công!');
@@ -224,32 +177,18 @@ const Bookings = () => {
         setIsBookingModalVisible(false);
         setSelectedStartDate(null);
         setSelectedEndDate(null);
-        setBookingForm({
-          room: room?._id || '',
-          user: token ? (JSON.parse(atob(token.split('.')[1]))?.sub || JSON.parse(atob(token.split('.')[1]))?.userId) || '' : '',
-          startTime: moment().set({ hour: 9, minute: 0, second: 0 }).toISOString(),
-          endTime: moment().set({ hour: 17, minute: 0, second: 0 }).toISOString(),
-          title: 'Cuộc họp nhóm dự án',
-          description: 'Thảo luận kế hoạch phát triển sản phẩm mới',
-          status: 'pending',
-          participants: [],
-        });
       } else {
-        throw new Error(response.data.message || 'Đặt phòng thất bại');
+        throw new Error(response.data.message || 'Đặt phòng thất bại.');
       }
     } catch (error: any) {
-      message.error(`Lỗi khi đặt phòng: ${error.response?.data?.message || error.message}`);
-      console.error('API Error:', error);
-    }
-  };
-
-  const handleTokenInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newToken = e.target.value;
-    setAccessToken(newToken);
-    localStorage.setItem('access_token', newToken);
-    if (newToken) {
-      setError(null);
-      debouncedFetchData();
+      const errorMsg = error.response?.data?.message || error.message || 'Lỗi không xác định khi đặt phòng.';
+      console.error('Lỗi API:', errorMsg);
+      message.error(`Lỗi khi đặt phòng: ${errorMsg}`);
+      if (error.response?.status === 401) {
+        router.push('/login');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -299,7 +238,7 @@ const Bookings = () => {
     const endOfMonth = moment().year(year).month(month).endOf('month');
     
     const weeks: moment.Moment[] = [];
-    let currentWeek = startOfMonth.clone().startOf('week');
+    let currentWeek = startOfMonth.clone().startOf('isoWeek');
     
     while (currentWeek.isBefore(endOfMonth)) {
       weeks.push(currentWeek.clone());
@@ -324,7 +263,7 @@ const Bookings = () => {
         <Row gutter={[16, 16]}>
           {weeks.map((week, index) => {
             const bookingCount = bookings.filter(b => 
-              moment(b.startTime).isBetween(week, week.clone().endOf('week'), 'day', '[]')
+              moment(b.startTime).isBetween(week, week.clone().endOf('isoWeek'), 'day', '[]')
             ).length;
             
             return (
@@ -339,7 +278,7 @@ const Bookings = () => {
                   }}
                 >
                   <Text strong>
-                    Tuần {index + 1}: {week.format('DD/MM')} - {week.clone().endOf('week').format('DD/MM')}
+                    Tuần {index + 1}: {week.format('DD/MM')} - {week.clone().endOf('isoWeek').format('DD/MM')}
                   </Text>
                   <div style={{ marginTop: 8 }}>
                     <Text type={bookingCount > 0 ? 'success' : 'secondary'}>
@@ -354,6 +293,19 @@ const Bookings = () => {
       </div>
     );
   };
+
+  // Lấy userId từ token
+  let userId = '';
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      userId = payload.sub || payload.userId || '';
+    } catch (e) {
+      console.error('Lỗi khi phân tích token:', e);
+      message.error('Token không hợp lệ. Vui lòng đăng nhập lại.');
+      router.push('/login');
+    }
+  }
 
   return (
     <div style={{ 
@@ -370,24 +322,6 @@ const Bookings = () => {
         }}>
           <Spin size="large" />
         </div>
-      ) : error && !accessToken ? (
-        <Card style={{ 
-          maxWidth: 500, 
-          margin: '40px auto', 
-          textAlign: 'center',
-          borderRadius: 16,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-        }}>
-          <Text type="danger" style={{ fontSize: 20, marginBottom: 16 }}>
-            {error}
-          </Text>
-          <Input
-            placeholder="Nhập access-token của bạn"
-            value={accessToken || ''}
-            onChange={handleTokenInputChange}
-            style={{ marginBottom: 16 }}
-          />
-        </Card>
       ) : error ? (
         <Card style={{ 
           maxWidth: 500, 
@@ -495,7 +429,7 @@ const Bookings = () => {
                 Tuần trước
               </Button>
               <Text strong style={{ fontSize: 18 }}>
-                Tuần từ {selectedWeek.startOf('week').format('DD/MM')} đến {selectedWeek.endOf('week').format('DD/MM')}
+                Tuần từ {selectedWeek.startOf('isoWeek').format('DD/MM')} đến {selectedWeek.endOf('isoWeek').format('DD/MM')}
               </Text>
               <Button 
                 icon={<RightOutlined />} 
@@ -507,7 +441,7 @@ const Bookings = () => {
 
             <Row gutter={[8, 8]} style={{ marginBottom: 16 }}>
               {Array.from({ length: 7 }, (_, index) => {
-                const day = selectedWeek.clone().startOf('week').add(index, 'days');
+                const day = selectedWeek.clone().startOf('isoWeek').add(index, 'days');
                 const isCurrentMonth = day.year() === selectedYear && day.month() === selectedMonth;
                 
                 return (
@@ -595,9 +529,14 @@ const Bookings = () => {
             }}
             onSubmit={handleBookingSubmit}
             initialValues={{
-              ...bookingForm,
-              startTime: selectedStartDate ? selectedStartDate.clone().set({ hour: 9, minute: 0, second: 0 }).toISOString() : moment().set({ hour: 9, minute: 0, second: 0 }).toISOString(),
-              endTime: selectedEndDate ? selectedEndDate.clone().set({ hour: 17, minute: 0, second: 0 }).toISOString() : moment().set({ hour: 17, minute: 0, second: 0 }).toISOString(),
+              room: room?._id || '',
+              user: userId,
+              startTime: selectedStartDate ? selectedStartDate.clone().set({ hour: 9, minute: 0, second: 0 }).toISOString() : moment().add(1, 'day').set({ hour: 9, minute: 0, second: 0 }).toISOString(),
+              endTime: selectedEndDate ? selectedEndDate.clone().set({ hour: 17, minute: 0, second: 0 }).toISOString() : moment().add(1, 'day').set({ hour: 17, minute: 0, second: 0 }).toISOString(),
+              title: 'Cuộc họp nhóm dự án',
+              description: 'Thảo luận kế hoạch phát triển sản phẩm mới',
+              status: 'pending',
+              participants: [],
             }}
           />
         </>

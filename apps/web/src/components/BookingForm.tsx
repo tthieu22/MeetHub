@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Modal, 
@@ -6,7 +8,6 @@ import {
   DatePicker, 
   TimePicker, 
   Select, 
-  message, 
   Row, 
   Col, 
   Typography,
@@ -23,7 +24,7 @@ const { Text } = Typography;
 interface BookingFormProps {
   visible: boolean;
   onCancel: () => void;
-  onSubmit: (formData: any) => void;
+  onSubmit: (formData: any) => Promise<void>;
   initialValues: any;
 }
 
@@ -31,6 +32,10 @@ interface User {
   _id: string;
   name: string;
 }
+
+const isValidObjectId = (id: string): boolean => {
+  return /^[0-9a-fA-F]{24}$/.test(id);
+};
 
 const BookingForm: React.FC<BookingFormProps> = ({ 
   visible, 
@@ -43,57 +48,175 @@ const BookingForm: React.FC<BookingFormProps> = ({
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [selectedStartDate, setSelectedStartDate] = useState<Moment | null>(null);
   const [selectedEndDate, setSelectedEndDate] = useState<Moment | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
+    console.log('Đang lấy dữ liệu người dùng...');
+    const token = localStorage.getItem('access_token');
+    console.log('Token từ localStorage:', token ? token.substring(0, 10) + '...' : 'undefined');
+
     try {
-      const token = localStorage.getItem('access_token');
+      // Kiểm tra token
       if (!token) {
-        message.error('Vui lòng đăng nhập để tiếp tục.');
-        return;
+        const errorMsg = 'Không tìm thấy access token. Vui lòng đăng nhập lại.';
+        Modal.error({
+          title: 'Lỗi',
+          content: errorMsg,
+        });
+        console.error(errorMsg);
+        setFetchError(errorMsg);
+        // Tiếp tục gọi /api/users/find-all dù thiếu token
+      } else if (!token.match(/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/)) {
+        const errorMsg = 'Định dạng access token không hợp lệ. Vui lòng đăng nhập lại.';
+        Modal.error({
+          title: 'Lỗi',
+          content: errorMsg,
+        });
+        console.error(errorMsg, 'Token:', token.substring(0, 10) + '...');
+        setFetchError(errorMsg);
+        // Tiếp tục gọi /api/users/find-all dù token không hợp lệ
+      } else {
+        try {
+          const userResponse = await api.get('/api/users/me', { 
+            headers: { Authorization: `Bearer ${token}` } 
+          });
+          console.log('Phản hồi /api/users/me:', JSON.stringify(userResponse.data, null, 2));
+
+          if (userResponse.data.success) {
+            if (!isValidObjectId(userResponse.data.data._id)) {
+              const errorMsg = 'ID người dùng không hợp lệ từ server.';
+              Modal.error({
+                title: 'Lỗi',
+                content: errorMsg,
+              });
+              console.error(errorMsg, 'User ID:', userResponse.data.data._id);
+              setFetchError(errorMsg);
+            } else {
+              setCurrentUser(userResponse.data.data);
+              setFetchError(null); // Reset fetchError khi lấy user thành công
+            }
+          } else {
+            const errorMsg = userResponse.data?.message || 'Không thể tải thông tin người dùng hiện tại.';
+            Modal.error({
+              title: 'Lỗi',
+              content: errorMsg,
+            });
+            console.error('Lấy thông tin người dùng thất bại:', errorMsg);
+            setFetchError(errorMsg);
+          }
+        } catch (err: any) {
+          const errorMsg = err.response?.data?.message || err.message || 'Lỗi khi gọi /api/users/me.';
+          Modal.error({
+            title: 'Lỗi',
+            content: errorMsg,
+          });
+          console.error('Lỗi khi gọi /api/users/me:', {
+            status: err.response?.status,
+            statusText: err.response?.statusText,
+            data: JSON.stringify(err.response?.data, null, 2),
+            message: err.message,
+            headers: err.response?.headers,
+            config: {
+              url: err.config?.url,
+              method: err.config?.method,
+              headers: err.config?.headers,
+            },
+          });
+          setFetchError(errorMsg);
+        }
       }
 
-      const [userResponse, usersResponse] = await Promise.all([
-        api.get('/api/users/me', { 
-          headers: { Authorization: `Bearer ${token}` } 
-        }),
-        api.get('/api/users/find-all'),
-      ]);
+      // Gọi /api/users/find-all không cần header Authorization
+      try {
+        const usersResponse = await api.get('/api/users/find-all');
+        console.log('Phản hồi /api/users/find-all:', JSON.stringify(usersResponse.data, null, 2));
 
-      if (userResponse.data.success) {
-        setCurrentUser(userResponse.data.data);
+        if (usersResponse.data.success) {
+          const validUsers = usersResponse.data.data?.filter((user: User) => isValidObjectId(user._id)) || [];
+          if (validUsers.length !== usersResponse.data.data?.length) {
+            console.warn('Một số ID người dùng trong phản hồi /api/users/find-all không hợp lệ');
+          }
+          setUsers(validUsers);
+          setFetchError(null); // Reset fetchError khi lấy danh sách người dùng thành công
+        } else {
+          const errorMsg = usersResponse.data?.message || 'Không thể tải danh sách người dùng.';
+          Modal.error({
+            title: 'Lỗi',
+            content: errorMsg,
+          });
+          console.error('Lấy danh sách người dùng thất bại:', errorMsg);
+          setFetchError(errorMsg);
+        }
+      } catch (err: any) {
+        const errorMsg = err.response?.data?.message || err.message || 'Lỗi khi tải danh sách người dùng.';
+        Modal.error({
+          title: 'Lỗi',
+          content: errorMsg,
+        });
+        console.error('Lỗi khi gọi /api/users/find-all:', {
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          data: JSON.stringify(err.response?.data, null, 2),
+          message: err.message,
+          headers: err.response?.headers,
+          config: {
+            url: err.config?.url,
+            method: err.config?.method,
+            headers: err.config?.headers,
+          },
+        });
+        setFetchError(errorMsg);
       }
-      if (usersResponse.data.success) {
-        setUsers(usersResponse.data.data || []);
-      }
-    } catch (error) {
-      message.error('Lỗi khi tải thông tin người dùng.');
-      console.error('API error:', error);
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || error.message || 'Lỗi khi tải dữ liệu.';
+      Modal.error({
+        title: 'Lỗi',
+        content: errorMsg,
+      });
+      console.error('Lỗi chung trong fetchData:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: JSON.stringify(error.response?.data, null, 2),
+        headers: error.response?.headers,
+        config: error.config,
+      });
+      setFetchError(errorMsg);
     }
   }, []);
 
   useEffect(() => {
     if (visible) {
+      console.log('Modal hiển thị, initialValues:', JSON.stringify(initialValues, null, 2));
+      setFetchError(null); // Reset fetchError khi modal mở
       fetchData();
 
-      const startDate = initialValues.startTime ? moment(initialValues.startTime) : null;
-      const endDate = initialValues.endTime ? moment(initialValues.endTime) : null;
+      const tomorrow = moment().add(1, 'day').startOf('day');
+      const startDate = initialValues.startTime && moment(initialValues.startTime).isAfter(moment()) 
+        ? moment(initialValues.startTime) 
+        : tomorrow;
+      const endDate = initialValues.endTime && moment(initialValues.endTime).isAfter(startDate) 
+        ? moment(initialValues.endTime) 
+        : startDate;
 
       setSelectedStartDate(startDate);
       setSelectedEndDate(endDate);
 
       form.setFieldsValue({
         title: initialValues.title || 'Cuộc họp nhóm dự án',
-        description: initialValues.description || 'Thảo luận kế hoạch phát triển sản phẩm mới',
+        description: initialValues.description || 'Thảo luận về kế hoạch phát triển sản phẩm mới',
         startDate: startDate,
         endDate: endDate,
-        startTime: startDate ? startDate.clone().set({ hour: 9, minute: 0, second: 0 }) : moment().set({ hour: 9, minute: 0, second: 0 }),
-        endTime: endDate ? endDate.clone().set({ hour: 17, minute: 0, second: 0 }) : moment().set({ hour: 17, minute: 0, second: 0 }),
-        participants: initialValues.participants || [],
+        startTime: startDate.clone().set({ hour: 9, minute: 0, second: 0 }),
+        endTime: endDate.clone().set({ hour: 17, minute: 0, second: 0 }),
+        participants: initialValues.participants?.filter((id: string) => isValidObjectId(id)) || [],
       });
     }
   }, [visible, form, initialValues, fetchData]);
 
   const handleDateClick = (date: Moment, type: 'start' | 'end') => {
+    console.log(`Ngày được chọn: ${type} - ${date.format('DD/MM/YYYY')}`);
     if (type === 'start') {
       setSelectedStartDate(date);
       form.setFieldsValue({
@@ -116,7 +239,11 @@ const BookingForm: React.FC<BookingFormProps> = ({
       }
     } else {
       if (selectedStartDate && date.isBefore(selectedStartDate, 'day')) {
-        message.error('Ngày kết thúc phải sau ngày bắt đầu');
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Ngày kết thúc phải từ ngày bắt đầu trở đi.',
+        });
+        console.error('Ngày kết thúc trước ngày bắt đầu');
         return;
       }
       setSelectedEndDate(date);
@@ -164,85 +291,201 @@ const BookingForm: React.FC<BookingFormProps> = ({
               lineHeight: '16px'
             }}
           >
-            {type === 'start' ? 'BĐ' : 'KT'}
+            {type === 'start' ? 'Bắt đầu' : 'Kết thúc'}
           </Tag>
         )}
       </div>
     );
   };
 
-  const handleFinish = () => {
-    form.validateFields()
-      .then((values) => {
-        if (!values.startDate || !values.endDate) {
-          message.error('Vui lòng chọn cả ngày bắt đầu và kết thúc');
-          return;
-        }
+  const handleFinish = async () => {
+    console.log('handleFinish được gọi');
+    try {
+      setLoading(true);
+      const values = await form.validateFields();
+      console.log('Giá trị form:', JSON.stringify(values, null, 2));
+      console.log('Lỗi form:', form.getFieldsError());
 
-        const startDateTime = values.startDate.clone()
-          .set({
-            hour: values.startTime.hour(),
-            minute: values.startTime.minute(),
-            second: 0,
-          });
+      if (!values.startDate || !values.endDate) {
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Vui lòng chọn cả ngày bắt đầu và ngày kết thúc.',
+        });
+        console.error('Thiếu startDate hoặc endDate');
+        return;
+      }
 
-        const endDateTime = values.endDate.clone()
-          .set({
-            hour: values.endTime.hour(),
-            minute: values.endTime.minute(),
-            second: 0,
-          });
-
-        const now = moment();
-        if (startDateTime.isBefore(now)) {
-          message.error('Thời gian bắt đầu phải là thời điểm trong tương lai.');
-          return;
-        }
-        if (endDateTime.isBefore(startDateTime)) {
-          message.error('Thời gian kết thúc phải lớn hơn thời gian bắt đầu.');
-          return;
-        }
-
-        const submitData = {
-          room: initialValues.room || '',
-          user: currentUser?._id || initialValues.user,
-          startTime: startDateTime.toISOString(),
-          endTime: endDateTime.toISOString(),
-          participants: values.participants || [],
-          title: values.title,
-          description: values.description,
-          status: 'pending',
-        };
-
-        onSubmit(submitData);
-      })
-      .catch((error) => {
-        message.error('Vui lòng điền đầy đủ thông tin hợp lệ.');
-        console.error('Validation error:', error);
+      const startDateTime = values.startDate.clone().set({
+        hour: values.startTime.hour(),
+        minute: values.startTime.minute(),
+        second: 0,
       });
+
+      const endDateTime = values.endDate.clone().set({
+        hour: values.endTime.hour(),
+        minute: values.endTime.minute(),
+        second: 0,
+      });
+
+      const now = moment();
+      console.log('Thời gian hiện tại:', now.toISOString());
+      console.log('Thời gian bắt đầu:', startDateTime.toISOString());
+      console.log('Thời gian kết thúc:', endDateTime.toISOString());
+
+      if (startDateTime.isBefore(now)) {
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Thời gian bắt đầu phải trong tương lai.',
+        });
+        console.error('Thời gian bắt đầu trong quá khứ:', startDateTime.toISOString());
+        return;
+      }
+      if (endDateTime.isBefore(startDateTime)) {
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Thời gian kết thúc phải sau thời gian bắt đầu.',
+        });
+        console.error('Thời gian kết thúc trước thời gian bắt đầu:', endDateTime.toISOString());
+        return;
+      }
+
+      if (!initialValues.room || !isValidObjectId(initialValues.room)) {
+        Modal.error({
+          title: 'Lỗi',
+          content: 'ID phòng không hợp lệ.',
+        });
+        console.error('ID phòng không hợp lệ:', initialValues.room);
+        return;
+      }
+
+      const token = localStorage.getItem('access_token');
+      const userId = currentUser?._id && isValidObjectId(currentUser._id) 
+        ? currentUser._id 
+        : token ? '686b2bd1ef3f57bb0f638bab' : null;
+
+      if (!userId) {
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Không thể xác định ID người dùng. Vui lòng đăng nhập lại.',
+        });
+        console.error('ID người dùng không hợp lệ hoặc thiếu token');
+        return;
+      }
+
+      const participants = values.participants || [];
+      if (participants.some((id: string) => !isValidObjectId(id))) {
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Một hoặc nhiều ID người tham gia không hợp lệ.',
+        });
+        console.error('ID người tham gia không hợp lệ:', participants);
+        return;
+      }
+
+      const submitData = {
+        room: initialValues.room,
+        user: userId,
+        startTime: startDateTime.toISOString(),
+        endTime: endDateTime.toISOString(),
+        participants,
+        title: values.title,
+        description: values.description || '',
+        status: 'pending',
+      };
+
+      console.log('Dữ liệu gửi:', JSON.stringify(submitData, null, 2));
+
+      // Hiển thị dialog xác nhận
+      Modal.confirm({
+        title: 'Xác nhận',
+        content: 'Bạn có chắc chắn muốn tạo đặt lịch không?',
+        okText: 'Xác nhận',
+        cancelText: 'Hủy',
+        onOk: async () => {
+          try {
+            await onSubmit(submitData);
+            Modal.success({
+              title: 'Thành công',
+              content: 'Đặt phòng thành công!',
+              onOk: () => {
+                form.resetFields();
+                onCancel();
+              },
+            });
+          } catch (error: any) {
+            console.error('Lỗi trong handleFinish:', {
+              message: error.message,
+              stack: error.stack,
+              response: JSON.stringify(error.response?.data, null, 2),
+              status: error.response?.status,
+              statusText: error.response?.statusText,
+              headers: error.response?.headers,
+              config: error.config,
+            });
+            let errorMsg = error.response?.data?.message || error.message || 'Đặt phòng thất bại. Vui lòng thử lại.';
+            if (error.response?.status === 400) {
+              errorMsg = error.response?.data?.message || 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin nhập.';
+            }
+            Modal.error({
+              title: 'Lỗi',
+              content: errorMsg,
+            });
+          } finally {
+            setLoading(false);
+          }
+        },
+        onCancel: () => {
+          console.log('Hủy tạo đặt lịch');
+          setLoading(false);
+        },
+      });
+    } catch (error: any) {
+      console.error('Lỗi trong handleFinish:', {
+        message: error.message,
+        stack: error.stack,
+        response: JSON.stringify(error.response?.data, null, 2),
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        headers: error.response?.headers,
+        config: error.config,
+      });
+      const errorMsg = error.response?.data?.message || error.message || 'Đặt phòng thất bại. Vui lòng kiểm tra lại thông tin nhập.';
+      Modal.error({
+        title: 'Lỗi',
+        content: errorMsg,
+      });
+      setLoading(false);
+    }
   };
 
   const futureDateValidator = (_: any, value: Moment) => {
     if (value && value.isBefore(moment(), 'day')) {
-      return Promise.reject('Thời gian phải là trong tương lai!');
+      return Promise.reject('Ngày phải trong tương lai!');
     }
     return Promise.resolve();
   };
 
   return (
     <Modal
-      title="Đặt lịch phòng"
+      title="Tạo Đặt Phòng"
       open={visible}
-      onCancel={onCancel}
+      onCancel={() => {
+        console.log('Modal bị hủy');
+        onCancel();
+      }}
       footer={[
-        <Button key="cancel" onClick={onCancel}>
+        <Button key="cancel" onClick={onCancel} disabled={loading}>
           Hủy
         </Button>,
         <Button 
           key="submit" 
           type="primary" 
-          onClick={handleFinish}
-          disabled={!form.isFieldsTouched(true) || form.getFieldsError().some(field => field.errors.length > 0)}
+          onClick={() => {
+            console.log('Nút Xác nhận được nhấn');
+            handleFinish();
+          }}
+          loading={loading}
+          disabled={form.getFieldsError().some(field => field.errors.length > 0)}
         >
           Xác nhận
         </Button>,
@@ -251,12 +494,15 @@ const BookingForm: React.FC<BookingFormProps> = ({
       centered
     >
       <Form 
-        form={form} 
+        form={form}
         layout="vertical"
         initialValues={{
           title: initialValues.title || 'Cuộc họp nhóm dự án',
-          description: initialValues.description || 'Thảo luận kế hoạch phát triển sản phẩm mới',
-          participants: initialValues.participants || [],
+          description: initialValues.description || 'Thảo luận về kế hoạch phát triển sản phẩm mới',
+          participants: initialValues.participants?.filter((id: string) => isValidObjectId(id)) || [],
+        }}
+        onFieldsChange={() => {
+          console.log('Trường form thay đổi, lỗi:', form.getFieldsError());
         }}
       >
         <Form.Item 
@@ -301,15 +547,16 @@ const BookingForm: React.FC<BookingFormProps> = ({
                 format="DD/MM/YYYY"
                 style={{ width: '100%' }}
                 placeholder="Chọn ngày bắt đầu"
-                dateRender={(current) => dateCellRender(current, 'start')}
+                cellRender={(current) => dateCellRender(current, 'start')}
+                disabledDate={(current) => current && current.isBefore(moment(), 'day')}
               />
             </Form.Item>
           </Col>
           <Col span={12}>
             <Form.Item
               name="startTime"
-              label="Thời gian bắt đầu"
-              rules={[{ required: true, message: 'Vui lòng chọn thời gian bắt đầu!' }]}
+              label="Giờ bắt đầu"
+              rules={[{ required: true, message: 'Vui lòng chọn giờ bắt đầu!' }]}
             >
               <TimePicker 
                 format="HH:mm" 
@@ -334,7 +581,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
                     if (!value || !getFieldValue('startDate') || value.isSameOrAfter(getFieldValue('startDate'), 'day')) {
                       return Promise.resolve();
                     }
-                    return Promise.reject('Ngày kết thúc phải sau ngày bắt đầu');
+                    return Promise.reject('Ngày kết thúc phải từ ngày bắt đầu trở đi');
                   },
                 }),
               ]}
@@ -343,10 +590,10 @@ const BookingForm: React.FC<BookingFormProps> = ({
                 format="DD/MM/YYYY"
                 style={{ width: '100%' }}
                 placeholder="Chọn ngày kết thúc"
-                dateRender={(current) => dateCellRender(current, 'end')}
+                cellRender={(current) => dateCellRender(current, 'end')}
                 disabledDate={(current) => {
                   const startDate = form.getFieldValue('startDate');
-                  return startDate ? current.isBefore(startDate, 'day') : false;
+                  return startDate ? current.isBefore(startDate, 'day') : current.isBefore(moment(), 'day');
                 }}
               />
             </Form.Item>
@@ -354,9 +601,9 @@ const BookingForm: React.FC<BookingFormProps> = ({
           <Col span={12}>
             <Form.Item
               name="endTime"
-              label="Thời gian kết thúc"
+              label="Giờ kết thúc"
               rules={[
-                { required: true, message: 'Vui lòng chọn thời gian kết thúc!' },
+                { required: true, message: 'Vui lòng chọn giờ kết thúc!' },
                 ({ getFieldValue }) => ({
                   validator(_, value) {
                     const startDate = getFieldValue('startDate');
@@ -365,7 +612,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
                     
                     if (startDate && endDate && startDate.isSame(endDate, 'day') && 
                         value && startTime && value.isBefore(startTime)) {
-                      return Promise.reject('Thời gian kết thúc phải sau thời gian bắt đầu');
+                      return Promise.reject('Giờ kết thúc phải sau giờ bắt đầu');
                     }
                     return Promise.resolve();
                   },
@@ -393,18 +640,36 @@ const BookingForm: React.FC<BookingFormProps> = ({
             placeholder="Chọn người tham gia"
             optionFilterProp="children"
             filterOption={(input, option) => {
-              const children = option.children;
-              const text = typeof children === 'string' ? children : children.toString();
-              return text.toLowerCase().includes(input.toLowerCase());
+              const children = option?.children?.toString() || '';
+              return children.toLowerCase().includes(input.toLowerCase());
+            }}
+            tagRender={(props) => {
+              const { label, value, closable, onClose } = props;
+              const user = users.find(u => u._id === value);
+              return (
+                <Tag 
+                  closable={closable} 
+                  onClose={onClose}
+                  style={{ marginRight: 3 }}
+                >
+                  {user?.name || label}
+                </Tag>
+              );
             }}
           >
             {users.map((user) => (
               <Option key={user._id} value={user._id}>
-                {user.name} ({user._id})
+                {user.name}
               </Option>
             ))}
           </Select>
         </Form.Item>
+
+        {fetchError && (
+          <Text type="danger" style={{ display: 'block', marginBottom: 16 }}>
+            Lỗi: {fetchError}
+          </Text>
+        )}
       </Form>
     </Modal>
   );
