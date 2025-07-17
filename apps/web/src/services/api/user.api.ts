@@ -37,7 +37,7 @@ export interface AllUserRespon {
   page: number;
   limit: number;
   totalPages: number;
-  data: [Me];
+  data: Me[];
 }
 class UserApiService {
   async getMeAPI(): Promise<Me> {
@@ -92,6 +92,32 @@ class UserApiService {
     }
 
     const res = await axios.patch(`/api/users/update/${id}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return res;
+  }
+  async createUser(data: Partial<Me>, imageFormData?: FormData): Promise<any> {
+    const URL_BACKEND = `/api/users`;
+    const formData = new FormData();
+
+    // Gộp text fields vào formData
+    for (const key in data) {
+      if (data[key] !== undefined) {
+        formData.append(key, data[key] as string);
+      }
+    }
+
+    // Gắn thêm file nếu có
+    if (imageFormData) {
+      const imageFile = imageFormData.get("image");
+      console.log("Image file from FormData:", imageFile); // vì Upload bạn đang dùng key là 'image'
+      if (imageFile) {
+        formData.append("avatar", imageFile);
+      }
+    }
+
+    const res = await axios.post(URL_BACKEND, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
 

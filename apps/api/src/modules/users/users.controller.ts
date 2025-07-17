@@ -20,7 +20,13 @@ export class UsersController {
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post()
-  create(@Body() createUserDto: CreateUserDto) {
+  @UseInterceptors(FileInterceptor('avatar'))
+  async create(@Body() createUserDto: CreateUserDto, @UploadedFile() file: Express.Multer.File) {
+    if (file) {
+      const avatarURL = await this.uploadService.uploadImage(file);
+      createUserDto.avatarURL = avatarURL.data.savedImage.url;
+      return this.usersService.create(createUserDto);
+    }
     return this.usersService.create(createUserDto);
   }
   @UseGuards(AuthGuard, RolesGuard)
@@ -35,7 +41,6 @@ export class UsersController {
   @Patch('/update/:id')
   @UseInterceptors(FileInterceptor('avatar'))
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @UploadedFile() file: Express.Multer.File) {
-    console.log('Received file:', file);
     if (file) {
       const avatarURL = await this.uploadService.uploadImage(file);
       updateUserDto.avatarURL = avatarURL.data.savedImage.url;
@@ -84,7 +89,6 @@ export class UsersController {
     totalPages: number;
     data: UserDocument[];
   }> {
-    console.log(queryParams);
     return this.usersService.findByFilter(queryParams);
   }
 }

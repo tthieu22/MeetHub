@@ -3,8 +3,12 @@
 import CustomButton from "@web/components/CustomButton";
 import UserTableComponent from "@web/components/user/user.table";
 import { Card, Col, Row, Typography } from "antd";
+import { useState } from "react";
 const { Title } = Typography;
 export default function UsersPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"edit" | "create">("create");
+  const [editingUser, setEditingUser] = useState<any>(null);
   return (
     <div className="p-3 bg-gray-100 min-h-screen">
       <Card className="mb-6" style={{ borderRadius: "8px" }}>
@@ -24,7 +28,15 @@ export default function UsersPage() {
               styles={{ body: { padding: "16px" } }}
               className="text-center"
             >
-              <CustomButton>Thêm người dùng</CustomButton>
+              <CustomButton
+                onClick={() => {
+                  setModalMode("create");
+                  setEditingUser(null);
+                  setIsModalOpen(true);
+                }}
+              >
+                Thêm người dùng
+              </CustomButton>
             </Card>
           </Col>
         </Row>
@@ -39,14 +51,12 @@ export default function UsersPage() {
             styles={{ body: { padding: "16px" } }}
           >
             <UserTableComponent
-            //   dataUser={dataUser}
-            //   current={current}
-            //   setCurrent={setCurrent}
-            //   pageSize={pageSize}
-            //   setPageSize={setPageSize}
-            //   total={total}
-            //   loading={loading}
-            //   fetchUser={fetchUser}
+              modalMode={modalMode}
+              setModalMode={setModalMode}
+              setIsModalOpen={setIsModalOpen}
+              setEditingUser={setEditingUser}
+              isModalOpen={isModalOpen}
+              editingUser={editingUser}
             />
           </Card>
         </Col>

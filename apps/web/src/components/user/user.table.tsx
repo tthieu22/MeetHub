@@ -20,6 +20,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import EditUserModal from "./user.model";
+import UserFilter, { UserFilterParams } from "./UserFilter";
 
 export enum UserRole {
   ADMIN = "admin",
@@ -31,36 +32,71 @@ export interface DataType {
   name: string;
   email: string;
   role: UserRole;
-  avatarURL?: string;
+  avatarURL?: string | undefined;
   isActive: boolean;
 }
+interface UserTableComponentProps {
+  modalMode: "edit" | "create";
+  setModalMode: React.Dispatch<React.SetStateAction<"edit" | "create">>;
+  setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setEditingUser: React.Dispatch<React.SetStateAction<DataType | null>>;
+  isModalOpen: boolean;
+  editingUser: DataType | null;
+}
 
-const UserTableComponent: React.FC = () => {
+const UserTableComponent: React.FC<UserTableComponentProps> = ({
+  modalMode,
+  setModalMode,
+  setIsModalOpen,
+  setEditingUser,
+  isModalOpen,
+  editingUser,
+}) => {
   const [data, setData] = useState<DataType[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [editingUser, setEditingUser] = useState<DataType | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [filterParams, setFilterParams] = useState<UserFilterParams>({
+    page: 1,
+    limit: 10,
+    sort: JSON.stringify({ createdAt: -1 }),
+  });
   const [api, contextHolder] = notification.useNotification();
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (params?: UserFilterParams) => {
     try {
-      const res = await userApiService.getUsers({
-        page,
-        limit: 10,
-        sort: JSON.stringify({ createdAt: -1 }),
-      });
-      const transformed: DataType[] = res.data.map((user) => ({
-        key: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isActive: user.isActive,
-        avatarURL: user.avatarURL ?? "",
-      }));
-      setData(transformed);
-      setTotal(res.total);
+      setLoading(true);
+      const queryParams = {
+        page: params?.page || filterParams.page || 1,
+        limit: params?.limit || filterParams.limit || 10,
+        sort:
+          params?.sort ||
+          filterParams.sort ||
+          JSON.stringify({ createdAt: -1 }),
+        ...(params?.name && { name: params.name }),
+        ...(params?.email && { email: params.email }),
+        ...(params?.role && { role: params.role }),
+        ...(params?.isActive !== undefined && { isActive: params.isActive }),
+      };
+
+      const res = await userApiService.getUsers(queryParams);
+
+      if (res.success) {
+        const transformed: DataType[] = res.data.map((user: any) => ({
+          key: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role as UserRole,
+          isActive: user.isActive,
+          avatarURL: user.avatarURL || undefined,
+        }));
+        setData(transformed);
+        setTotal(res.total);
+      }
+      setLoading(false);
     } catch (err) {
+      setLoading(false);
       console.error("Fetch user lỗi", err);
     }
   };
@@ -68,6 +104,12 @@ const UserTableComponent: React.FC = () => {
   useEffect(() => {
     fetchUsers();
   }, [page]);
+
+  const handleFilter = (params: UserFilterParams) => {
+    setFilterParams(params);
+    setPage(1); // Reset về trang đầu khi filter
+    fetchUsers(params);
+  };
 
   const deleteUser = async (id: string) => {
     try {
@@ -90,14 +132,44 @@ const UserTableComponent: React.FC = () => {
     if (!imageFormData) {
       console.log("No new image selected, keeping existing avatarURL");
     }
+    setModalLoading(true);
     try {
-      await userApiService.updateUser(editingUser!.key, values, imageFormData);
-      api.success({ message: "Cập nhật người dùng thành công" });
-      fetchUsers();
-      setIsModalOpen(false);
-      setEditingUser(null);
+      const res = await userApiService.updateUser(
+        editingUser!.key,
+        values,
+        imageFormData
+      );
+      if (res.success) {
+        api.success({ message: "Cập nhật người dùng thành công" });
+        fetchUsers();
+        setIsModalOpen(false);
+        setEditingUser(null);
+      } else {
+        api.error({
+          message: "Cập nhật người dùng thất bại",
+          description: res.message[0],
+        });
+      }
     } catch (err) {
       api.error({ message: "Cập nhật thất bại" });
+    } finally {
+      setModalLoading(false);
+    }
+  };
+  const handleCreate = async (values: any, imageFormData?: FormData) => {
+    if (!imageFormData) {
+      console.log("No new image selected, keeping existing avatarURL");
+    }
+    setModalLoading(true);
+    try {
+      await userApiService.createUser(values, imageFormData);
+      api.success({ message: "Thêm người dùng thành công" });
+      fetchUsers();
+      setIsModalOpen(false);
+    } catch (err) {
+      api.error({ message: "Thêm người dùng thất bại" });
+    } finally {
+      setModalLoading(false);
     }
   };
   const columns: TableProps<DataType>["columns"] = [
@@ -150,6 +222,7 @@ const UserTableComponent: React.FC = () => {
               style={{ cursor: "pointer", color: "#faad14" }}
               onClick={() => {
                 setEditingUser(record);
+                setModalMode("edit");
                 setIsModalOpen(true);
               }}
             />
@@ -181,11 +254,17 @@ const UserTableComponent: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: "24px", background: "#f0f2f5", minHeight: "100vh" }}>
+    <div style={{ minHeight: "100vh" }}>
       {contextHolder}
+
+      <UserFilter onFilter={handleFilter} loading={loading} />
+
       <Card
-        title="Quản lý người dùng"
-        style={{ borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
+        style={{
+          borderRadius: 12,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+        }}
+        styles={{ body: { padding: "0" } }}
       >
         <Table<DataType>
           columns={columns}
@@ -197,12 +276,16 @@ const UserTableComponent: React.FC = () => {
             onChange: (p) => setPage(p),
           }}
           rowKey="key"
+          loading={loading}
+          style={{ minHeight: "400px" }}
         />
         <EditUserModal
+          loading={modalLoading}
           open={isModalOpen}
-          onCancel={() => setIsModalOpen(false)}
-          onSubmit={handleUpdate}
+          mode={modalMode}
           user={editingUser}
+          onCancel={() => setIsModalOpen(false)}
+          onSubmit={modalMode === "edit" ? handleUpdate : handleCreate}
         />
       </Card>
     </div>

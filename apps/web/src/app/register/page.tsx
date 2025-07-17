@@ -12,6 +12,7 @@ import authApiService from "@web/services/api/auth.api";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
+import ModalGetCode from "@web/components/user/modal.getcode";
 
 const { Title, Text } = Typography;
 
@@ -57,8 +58,7 @@ export default function RegisterPage() {
         email,
         code: values.code,
       });
-      console.log(values);
-      console.log(email);
+
       if (res?.success) {
         toast.success("Xác minh thành công!");
         setModalVisible(false);
@@ -159,36 +159,14 @@ export default function RegisterPage() {
           </Form.Item>
         </Form>
       </Card>
-
-      <Modal
-        title="Xác minh email"
-        open={modalVisible}
-        onCancel={() => setModalVisible(false)}
-        onOk={() => codeForm.submit()}
-        okText="Xác minh"
-        cancelText="Hủy"
-        maskClosable={false}
-      >
-        <p>
-          Mã xác minh đã gửi tới email: <b>{email}</b>
-        </p>
-
-        <Form form={codeForm} layout="vertical" onFinish={handleVerifyCode}>
-          <Form.Item
-            name="code"
-            rules={[{ required: true, message: "Vui lòng nhập mã xác minh" }]}
-          >
-            <Input className="w-full" placeholder="Nhập mã xác minh" />
-          </Form.Item>
-        </Form>
-        <Button
-          onClick={async () => {
-            await authApiService.sendVerificationCodeAPI({ email: email });
-          }}
-        >
-          Gửi lại mã
-        </Button>
-      </Modal>
+      <ModalGetCode
+        modalVisible={modalVisible}
+        setModalVisible={setModalVisible}
+        codeForm={codeForm}
+        email={email}
+        handleVerifyCode={handleVerifyCode}
+        authApiService={authApiService}
+      />
       <ToastContainer />
     </div>
   );

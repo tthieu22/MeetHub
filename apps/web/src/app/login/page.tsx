@@ -44,11 +44,12 @@ export default function LoginPage() {
   const onFinish = async (values: LoginForm) => {
     try {
       setLoading(true);
-      const response = await authApiService.loginAPI(values);
-      const data: LoginResponse | undefined = response?.data;
-      if (data && data.access_token) {
-        localStorage.setItem("access_token", data.access_token || "");
-        const payload = JSON.parse(atob(data.access_token!.split(".")[1]));
+      const response: LoginResponse = await authApiService.loginAPI(values);
+
+      const data = response.data;
+      if (response?.success && data?.access_token) {
+        localStorage.setItem("access_token", data.access_token);
+        const payload = JSON.parse(atob(data.access_token.split(".")[1]));
         setCurrentUser({
           _id: payload._id,
           email: payload.email || payload.name,
@@ -56,6 +57,7 @@ export default function LoginPage() {
           avatar: "",
           role: payload.role,
         });
+
         api.success({
           message: "Đăng nhập thành công",
           placement: "topRight",
@@ -65,9 +67,9 @@ export default function LoginPage() {
         } else {
           router.push("/");
         }
-      } else if (data && !data.success) {
+      } else if (!data?.success) {
         api.error({
-          message: "Sai email hoặc password",
+          message: data?.message || "Sai email hoặc password",
           placement: "topRight",
         });
       } else {
@@ -80,7 +82,7 @@ export default function LoginPage() {
     } catch (error) {
       api.error({
         message: "Lỗi Đăng nhập",
-        description: `Lỗi  ${error}`,
+        description: `Lỗi: ${error}`,
         placement: "topRight",
       });
     } finally {
@@ -191,19 +193,9 @@ export default function LoginPage() {
           <Link href="/register" style={{ color: "#1677ff" }}>
             Bạn chưa có tài khoản?
           </Link>
-          <button
-            type="button"
-            style={{
-              background: "none",
-              border: "none",
-              color: "#1677ff",
-              cursor: "pointer",
-              padding: 0,
-              fontSize: 14,
-            }}
-          >
+          <Link href="/forgetPass" style={{ color: "#1677ff" }}>
             Quên mật khẩu?
-          </button>
+          </Link>
         </div>
 
         <button
