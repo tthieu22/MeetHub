@@ -1,6 +1,6 @@
+'use client';
 import "antd/dist/reset.css";
 import "@web/style/globals.css";
-
 import { ConfigProvider, Layout, App } from "antd";
 import Header from "@web/components/Header";
 import { Content } from "antd/es/layout/layout";
@@ -9,12 +9,15 @@ import { UserProvider } from "./UserProvider";
 import AuthGuard from "@web/components/AuthGuard";
 import React from "react";
 import ChatWithAdminButton from "@web/components/ChatWithAdminButton";
+import { useUserStore } from "@web/store/user.store";
 
 function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const currentUser = useUserStore((state) => state.currentUser);
+  const isAdmin = currentUser?.role === "admin";
   return (
     <html lang="en" translate="no">
       <head>
@@ -33,7 +36,7 @@ function RootLayout({
         <ConfigProvider>
           <App>
             <Layout style={{ minHeight: "100vh" }}>
-              <Header />
+              {!isAdmin && <Header />}
               <Content>
                 <AuthGuard>{children}</AuthGuard>
               </Content>
