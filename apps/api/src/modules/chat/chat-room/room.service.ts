@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, Inject, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, Types, FilterQuery } from 'mongoose';
 import { Conversation, ConversationDocument } from '@api/modules/chat/chat-room/schema/chat-room.schema';
 import { ConversationMember, ConversationMemberDocument } from '@api/modules/chat/chat-room/schema/conversation-member.schema';
 import { Message, MessageDocument } from '@api/modules/chat/chat-message/schema/message.schema';
@@ -10,6 +10,7 @@ import { CreateRoomDto, UpdateRoomDto } from '@api/modules/chat/chat-room/dto';
 import { Redis } from 'ioredis';
 import { REDIS_CLIENT } from '@api/modules/redis';
 import { RoomInfo, RoomMemberInfo, LastMessageInfo, RoomSidebarInfo, PopulatedUser } from '@api/modules/chat/chat-room/interfaces/room-sidebar.interface';
+import { PaginationQueryDto } from '@api/modules/users/dto/pagination-query.dto';
 
 @Injectable()
 export class RoomService {
@@ -249,9 +250,9 @@ export class RoomService {
   }
 
   // 17. Thêm user vào group chat
-  async addMember(conversationId: string, newUserId: string, adminUserId: string) {
-    const isAdmin = await this.isAdminOfConversation(adminUserId, conversationId);
-    if (!isAdmin) throw new ForbiddenException('Only admins can add members');
+  async addMember(conversationId: string, newUserId: string) {
+    // const isAdmin = await this.isAdminOfConversation(adminUserId, conversationId);
+    // if (!isAdmin) throw new ForbiddenException('Only admins can add members');
 
     const conversation = await this.conversationModel.findById(conversationId);
     if (!conversation) throw new NotFoundException('Conversation not found');
@@ -299,6 +300,11 @@ export class RoomService {
     await this.conversationMemberModel.findByIdAndDelete(member._id);
 
     return { success: true };
+  }
+
+  async removeMembers(roomId: string, userIds: string[], currentUserId: string) {
+    await Promise.all(userIds.map((userId) => this.removeMember(roomId, userId, currentUserId)));
+    return { success: true, removed: userIds.length };
   }
 
   // 19. Lấy danh sách user trong phòng
@@ -808,5 +814,52 @@ export class RoomService {
       }
     }
     return result;
+  }
+
+  async getAllUsersWithPagination(query: PaginationQueryDto & { conversationId?: string }): Promise<{
+    success: boolean;
+    data: any[];
+    total: number;
+    currentPage: number;
+    totalPages: number;
+  }> {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 20;
+    let filter: FilterQuery<UserDocument> = {};
+    if (query.conversationId) {
+      console.log('BE getAllUsersWithPagination received conversationId:', query.conversationId, typeof query.conversationId);
+      // Ưu tiên lấy memberIds từ Conversation
+      const conversation = await this.conversationModel.findById(query.conversationId).select('memberIds');
+      let memberIds: string[] = [];
+      if (conversation && Array.isArray(conversation.memberIds)) {
+        memberIds = conversation.memberIds.map((id) => id.toString());
+      } else {
+        // Fallback: lấy từ ConversationMember nếu không có memberIds
+        const members = await this.conversationMemberModel.find({ conversationId: new Types.ObjectId(query.conversationId) }).select('userId');
+        memberIds = members.map((m) => m.userId.toString());
+      }
+      filter = { _id: { $nin: memberIds } };
+    }
+    const [users, total] = await Promise.all([
+      this.userModel
+        .find(filter)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      this.userModel.countDocuments(filter),
+    ]);
+    return {
+      success: true,
+      data: users,
+      total,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async addMembers(roomId: string, userIds: string[]) {
+    // Giả sử đã có hàm addMember(roomId, userId, currentUserId)
+    const results = await Promise.all(userIds.map((userId) => this.addMember(roomId, userId)));
+    return { success: true, added: results };
   }
 }

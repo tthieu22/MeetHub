@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Message } from "@web/types/chat";
 import { MoreOutlined, RetweetOutlined, SmileOutlined } from "@ant-design/icons";
+import Image from "next/image";
+import { useChatStore } from "@web/store/chat.store";
+import type { RoomMemberInfo } from "@web/types/chat";
 
 interface Props {
   message: Message;
@@ -43,11 +46,27 @@ const ChatMessageItem: React.FC<Props> = ({ message, isOwn, onReply, onReact, on
   // Lấy thời gian gửi
   const createdAt = message.createdAt ? new Date(message.createdAt).toLocaleString() : '';
 
+  // Lấy danh sách thành viên phòng từ store (nếu có conversationId)
+  const rooms = useChatStore(s => s.rooms);
+  let roomMembers: RoomMemberInfo[] = [];
+  if (message.conversationId) {
+    const room = rooms.find(r => r.roomId === message.conversationId);
+    roomMembers = room?.members || [];
+  }
+
   // Lấy nội dung reply nếu có
   let replyText = '';
+  let replySender = '';
   if (message.replyTo && typeof message.replyTo === 'object') {
     const replyMsg = message.replyTo as Message;
-    replyText = typeof replyMsg.text === 'string' ? replyMsg.text : '';
+    replyText = typeof replyMsg.text === 'string' ? replyMsg.text : (replyMsg.fileName || 'Tin nhắn đính kèm');
+    if (typeof replyMsg.senderId === 'string') {
+      // Nếu là id, thử tìm trong roomMembers
+      const found = roomMembers.find(m => m.userId === replyMsg.senderId);
+      replySender = found?.name || found?.email || replyMsg.senderId;
+    } else if (replyMsg.senderId) {
+      replySender = replyMsg.senderId.name || replyMsg.senderId.username || replyMsg.senderId.email || '';
+    }
   }
 
   return (
@@ -71,12 +90,41 @@ const ChatMessageItem: React.FC<Props> = ({ message, isOwn, onReply, onReact, on
         {createdAt && (
           <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>{createdAt}</div>
         )}
-        {/* Nếu có reply, hiển thị reply: text */}
+        {/* Nếu có reply, hiển thị reply: text và người gửi */}
         {replyText && (
-          <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Reply: {replyText}</div>
+          <div style={{ fontSize: 12, color: '#888', marginBottom: 4, background: '#f0f5ff', borderLeft: '3px solid #1677ff', padding: '4px 8px', borderRadius: 4 }}>
+            <span style={{ color: '#1677ff', fontWeight: 600 }}>{replySender}</span>
+            {replySender && ': '}
+            {replyText}
+          </div>
         )}
         {/* Nội dung tin nhắn */}
         {message.text && <div style={{ fontSize: 14 }}>{message.text}</div>}
+        {/* Hiển thị file/ảnh nếu có */}
+        {message.fileUrl && (
+          <div style={{ marginTop: 6 }}>
+            {message.fileType && message.fileType.startsWith("image/") ? (
+              <Image
+                src={message.fileUrl}
+                alt={message.fileName || "image"}
+                width={180}
+                height={180}
+                style={{ maxWidth: 180, maxHeight: 180, borderRadius: 6, border: "1px solid #eee", objectFit: "contain" }}
+              />
+            ) : (
+              <a
+                href={message.fileUrl}
+                download={message.fileName}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#1677ff", textDecoration: "underline" }}
+              >
+                <span style={{ marginRight: 4 }}><MoreOutlined /></span>
+                {message.fileName || "Tải file"}
+              </a>
+            )}
+          </div>
+        )}
         {/* Emoji reactions */}
         {message.reactions && message.reactions.length > 0 && (
           <div style={{ marginTop: 2 }}>

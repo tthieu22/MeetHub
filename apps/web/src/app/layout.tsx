@@ -7,8 +7,7 @@ import { Content } from "antd/es/layout/layout";
 import { WebSocketProvider } from "./WebSocketProvider";
 import { UserProvider } from "./UserProvider";
 import AuthGuard from "@web/components/AuthGuard";
-import React from "react";
-import ChatWithAdminButton from "@web/components/ChatWithAdminButton";
+import React from "react"; 
 import { usePathname } from "next/navigation";
 
 function RootLayout({
@@ -41,8 +40,7 @@ function RootLayout({
               <Content>
                 <AuthGuard>{children}</AuthGuard>
               </Content>
-            </Layout>
-            <ChatWithAdminButton />
+            </Layout> 
           </App>
         </ConfigProvider>
       </body>

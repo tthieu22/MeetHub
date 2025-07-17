@@ -1,5 +1,5 @@
-import axios from "@web/services/axios/customer.axios";
-import { Message, MessagesResponse } from "@web/types/chat";
+import axios from "../axios/customer.axios";
+import { MessagesResponse } from "@web/types/chat";
 
 export interface GetMessagesParams {
   roomId: string;
@@ -8,26 +8,55 @@ export interface GetMessagesParams {
   before?: string;
 }
 
-export const chatApi = {
-  // Lấy lịch sử tin nhắn
+class ChatApiService {
   async getMessages(params: GetMessagesParams): Promise<MessagesResponse> {
     const res = await axios.get<MessagesResponse>("/api/messages", {
       params,
     });
     return res.data;
-  },
+  }
 
-  // Gửi tin nhắn mới
-  async sendMessage(data: { roomId: string; text: string }) {
-    const res = await axios.post<Message>("/api/messages", data);
-    return res.data;
-  },
+  async sendMessage({
+    roomId,
+    text,
+    fileData,
+    fileName,
+    fileType,
+    replyTo,
+    userId,
+  }: {
+    roomId: string;
+    text: string;
+    fileData?: string;
+    fileName?: string;
+    fileType?: string;
+    replyTo?: string;
+    userId: string;
+  }) {
+    const body: {
+      text: string;
+      fileData?: string;
+      fileName?: string;
+      fileType?: string;
+      replyTo?: string;
+    } = { text };
+    if (fileData) body.fileData = fileData;
+    if (fileName) body.fileName = fileName;
+    if (fileType) body.fileType = fileType;
+    if (replyTo) body.replyTo = replyTo;
+    return await axios.post(
+      `/api/messages?userId=${userId}&roomId=${roomId}`,
+      body
+    );
+  }
 
-  // Xóa tin nhắn
   async deleteMessage(id: string, userId: string) {
     const res = await axios.delete(`/api/messages/${id}`, {
       params: { userId },
     });
     return res.data;
-  },
-};
+  }
+}
+
+const chatApiService = new ChatApiService();
+export default chatApiService;

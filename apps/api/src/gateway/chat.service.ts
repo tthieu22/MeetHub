@@ -85,8 +85,8 @@ export class ChatService {
   }
 
   // Thêm thành viên vào phòng (admin)
-  async addMember(conversationId: string, newUserId: string, adminUserId: string) {
-    return await this.roomService.addMember(conversationId, newUserId, adminUserId);
+  async addMember(conversationId: string, newUserId: string) {
+    return await this.roomService.addMember(conversationId, newUserId);
   }
 
   // Xóa thành viên khỏi phòng (admin)
