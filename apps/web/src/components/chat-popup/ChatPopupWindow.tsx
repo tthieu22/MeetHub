@@ -12,9 +12,10 @@ import { useUserStore } from "@web/store/user.store";
 interface ChatPopupWindowProps {
   conversationId: string;
   index?: number;
+  onClose?: () => void;
 }
 
-export default function ChatPopupWindow({ conversationId, index = 0 }: ChatPopupWindowProps) {
+export default function ChatPopupWindow({ conversationId, index = 0, onClose }: ChatPopupWindowProps) {
   const messages = useRoomMessages(conversationId);
   const setMessages = useChatStore((s) => s.setMessages);
   const addMessage = useChatStore((s) => s.addMessage);
@@ -116,8 +117,7 @@ export default function ChatPopupWindow({ conversationId, index = 0 }: ChatPopup
         ...res.data,
         ...messages,
       ]);
-    }
-    // Có thể dùng res.hasNext để kiểm soát việc load thêm nếu cần
+    } 
   };
 
   return (
@@ -125,7 +125,7 @@ export default function ChatPopupWindow({ conversationId, index = 0 }: ChatPopup
       {/* Header popup */}
       <ChatPopupHeader
         roomName={room?.name || "Phòng chat"}
-        onClose={() => {}}
+        onClose={onClose || (() => {})}
         onShowMembers={() => {}}
         onLeaveRoom={() => {}}
         onShowInfo={() => {}}

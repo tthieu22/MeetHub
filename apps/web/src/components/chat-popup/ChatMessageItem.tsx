@@ -54,7 +54,7 @@ const ChatMessageItem: React.FC<Props> = ({ message, isOwn, onReply, onReact, on
     <div style={{ textAlign: isOwn ? "right" : "left", margin: "4px 0", position: "relative" }}>
       <div style={{
         display: "inline-block",
-        background: isOwn ? "#e6f7ff" : "#f5f5f5",
+        background: isOwn ? "rgb(212 233 255)" : "rgb(255 212 212)",
         borderRadius: 8,
         padding: "6px 12px",
         maxWidth: 320,
@@ -95,9 +95,9 @@ const ChatMessageItem: React.FC<Props> = ({ message, isOwn, onReply, onReact, on
           {showMenu && (
             <div ref={menuRef} style={{
               position: "absolute",
-              top: 28,
+              bottom: "100%",
               right: isOwn ? 0 : undefined,
-              left: isOwn ? undefined : 0,
+              left: isOwn ? undefined : "120%",
               background: "#fff",
               border: "1px solid #eee",
               borderRadius: 6,

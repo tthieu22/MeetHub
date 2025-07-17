@@ -214,7 +214,7 @@ const Header = memo(() => {
   const socket = useWebSocketStore((state) => state.socket);
   const openedPopups = useChatStore((state) => state.openedPopups);
   const addPopup = useChatStore((state) => state.addPopup);
-  // const removePopup = useChatStore((state) => state.removePopup);
+  const removePopup = useChatStore((state) => state.removePopup);
   const handleLogoClick = useCallback(() => {
     router.push("/");
   }, [router]);
@@ -315,12 +315,48 @@ const Header = memo(() => {
       </Space>
       {/* Render các popup chat ở góc màn hình */}
       {openedPopups.map((conversationId, idx) => (
-        <ChatPopupWindow
-          key={conversationId}
-          conversationId={conversationId}
-          index={idx}
-        />
+        typeof conversationId === 'string' ? (
+          <ChatPopupWindow
+            key={conversationId}
+            conversationId={conversationId}
+            index={idx}
+            onClose={() => removePopup(conversationId)}
+          />
+        ) : null
       ))}
+      {/* Nút thu nhỏ cho các popup đã đóng */}
+      {rooms.filter(r => typeof r.lastMessage?.conversationId === 'string' && !openedPopups.includes(r.lastMessage.conversationId)).map((room, i) => {
+        const conversationId = room.lastMessage!.conversationId as string;
+        const avatarURL = room.members && room.members[0] && room.members[0].avatarURL ? room.members[0].avatarURL : undefined;
+        return (
+          <button
+            key={conversationId}
+            style={{
+              position: "fixed",
+              bottom: 24 + i * 60,
+              right: 24,
+              zIndex: 1000,
+              borderRadius: "50%",
+              width: 48,
+              height: 48,
+              background: "#fff",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "1px solid #eee"
+            }}
+            onClick={() => addPopup(conversationId)}
+            title={room.name}
+          >
+            {avatarURL ? (
+              <img src={avatarURL} alt="avatar" style={{ width: 32, height: 32, borderRadius: "50%" }} />
+            ) : (
+              <span style={{ fontSize: 14, fontWeight: 600 }}>{room.name?.[0] || "C"}</span>
+            )}
+          </button>
+        );
+      })}
     </header>
   );
 });
