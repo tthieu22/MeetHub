@@ -46,6 +46,9 @@ interface Room {
 const Bookings = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [room, setRoom] = useState<Room | null>(null);
+   const [cancelModalVisible, setCancelModalVisible] = useState(false);
+const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
+   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState(moment().year());
@@ -63,7 +66,55 @@ const Bookings = () => {
   const userRole = useUserStore((state) => state.role) || 'ADMIN';
   const [detailModalVisible, setDetailModalVisible] = useState(false); // bật/tắt modal
 const [detailBookingId, setDetailBookingId] = useState<string | null>(null); // lưu id booking
+const getBookingDetail = async (bookingId: string, token: string) => {
+const [bookings, setBookings] = useState<Booking[]>([]);
+const [room, setRoom] = useState<Room | null>(null);
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState<string | null>(null);
+const [cancelModalVisible, setCancelModalVisible] = useState(false);
+const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
+const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+useEffect(() => {
+  if (currentUserId) {
+    console.log('UserId đã được load:', currentUserId);
+  }
+
+  const fetchUserId = async () => {
+    try {
+      const response = await axios.get(`${NESTJS_API_URL}/api/users/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (response.data && response.data._id) {
+        setCurrentUserId(response.data._id);
+      }
+    } catch (err) {
+      console.error('Không thể lấy userId:', err);
+    }
+  };
+
+  if (token) {
+    fetchUserId();
+  }
+}, [token]);
+
+
+  try {
+    const response = await axios.get(`http://localhost:8000/api/bookings/${bookingId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    console.log('Booking detail:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Lỗi khi gọi API:', error);
+    throw error;
+  }
+};
 
   const NESTJS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -287,82 +338,97 @@ const [detailBookingId, setDetailBookingId] = useState<string | null>(null); // 
     setIsBookingModalVisible(true);
   };
 
-  const handleCancel = async (bookingId: string) => {
-    Modal.confirm({
-      title: 'Xác nhận hủy đặt phòng',
-      content: 'Bạn có chắc chắn muốn hủy đặt phòng này?',
-      okText: 'Xác nhận',
-      cancelText: 'Hủy',
-      onOk: async () => {
-        try {
-          setLoading(true);
-          const userId = JSON.parse(atob(token.split('.')[1])).sub || '';
-          const response = await api.post(
-            `${NESTJS_API_URL}/api/bookings/${bookingId}/cancel`, 
-            { userId }, 
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+  
 
-          if (response.data.success) {
-            await fetchDataImmediately();
-            Modal.success({
-              title: 'Thành công',
-              content: 'Hủy đặt phòng thành công!',
-              okText: 'OK',
-            });
-          } else {
-            throw new Error(response.data.message || 'Hủy đặt phòng thất bại');
-          }
-        } catch (error: any) {
-          Modal.error({
-            title: 'Lỗi',
-            content: error.response?.data?.message || error.message || 'Lỗi không xác định khi hủy đặt phòng',
-            okText: 'Đã hiểu',
-          });
-        } finally {
-          setLoading(false);
-        }
-      }
+const openCancelModal = (bookingId: string) => {
+  if (!currentUserId) {
+    message.error('Không thể xác định người dùng. Vui lòng thử lại sau.');
+    return;
+  }
+
+  setCancelBookingId(bookingId);
+  setCancelModalVisible(true);
+};
+
+
+const handleCancelBooking = async () => {
+  if (!cancelBookingId || !currentUserId) {
+    message.error('Không thể hủy vì thiếu thông tin người dùng hoặc booking.');
+    return;
+  }
+
+  console.log('Đang gửi hủy với userId:', currentUserId);
+
+  try {
+    setLoading(true);
+    const response = await axios.post(
+      `${NESTJS_API_URL}/api/bookings/${cancelBookingId}/cancel`,
+      { userId: currentUserId },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    if (response.data.success) {
+      Modal.success({
+        title: 'Thành công',
+        content: 'Hủy đặt phòng thành công!',
+      });
+      setCancelModalVisible(false);
+      await fetchDataImmediately();
+    } else {
+      throw new Error(response.data.message || 'Hủy thất bại');
+    }
+  } catch (error: any) {
+    console.error('Lỗi khi huỷ:', error);
+    Modal.error({
+      title: 'Lỗi',
+      content: error.response?.data?.message || error.message || 'Lỗi không xác định',
     });
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const handleSoftDelete = async (bookingId: string) => {
-    Modal.confirm({
-      title: 'Xác nhận xóa đặt phòng',
-      content: 'Bạn có chắc chắn muốn xóa đặt phòng này?',
-      okText: 'Xác nhận',
-      cancelText: 'Hủy',
-      onOk: async () => {
-        try {
-          setLoading(true);
-          const response = await api.put(
-            `${NESTJS_API_URL}/api/bookings/${bookingId}/delete`, 
-            {}, 
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
 
-          if (response.data.success) {
-            await fetchDataImmediately();
-            Modal.success({
-              title: 'Thành công',
-              content: 'Xóa đặt phòng thành công!',
-              okText: 'OK',
-            });
-          } else {
-            throw new Error(response.data.message || 'Xóa đặt phòng thất bại');
+
+
+const handleSoftDelete = async (bookingId: string) => {
+  Modal.confirm({
+    title: 'Xác nhận xóa đặt phòng',
+    content: 'Bạn có chắc chắn muốn xóa đặt phòng này?',
+    okText: 'Xác nhận',
+    cancelText: 'Hủy',
+    onOk: async () => {
+      try {
+        setLoading(true);
+        const response = await api.delete(
+          `http://localhost:8000/api/bookings/${bookingId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
           }
-        } catch (error: any) {
-          Modal.error({
-            title: 'Lỗi',
-            content: error.response?.data?.message || error.message || 'Lỗi không xác định khi xóa đặt phòng',
-            okText: 'Đã hiểu',
+        );
+
+        if (response.data.success) {
+          await fetchDataImmediately();
+          Modal.success({
+            title: 'Thành công',
+            content: 'Xóa đặt phòng thành công!',
+            okText: 'OK',
           });
-        } finally {
-          setLoading(false);
+        } else {
+          throw new Error(response.data.message || 'Xóa đặt phòng thất bại');
         }
+      } catch (error: any) {
+        Modal.error({
+          title: 'Lỗi',
+          content: error.response?.data?.message || error.message || 'Lỗi không xác định khi xóa đặt phòng',
+          okText: 'Đã hiểu',
+        });
+      } finally {
+        setLoading(false);
       }
-    });
-  };
+    },
+  });
+};
 
 const handleViewDetails = (booking: Booking) => {
   console.log('Viewing details for booking:', booking);
@@ -429,14 +495,15 @@ const handleViewDetails = (booking: Booking) => {
                 >
                   Sửa
                 </Button>
-                <Button
-                  icon={<CloseOutlined />}
-                  onClick={() => handleCancel(booking._id)}
-                  style={{ marginRight: '8px' }}
-                  danger
-                >
-                  Hủy
-                </Button>
+<Button
+  icon={<CloseOutlined />}
+  onClick={() => openCancelModal(booking._id)}
+  style={{ marginRight: '8px' }}
+  danger
+>
+  Hủy
+</Button>
+
                 <Button
                   icon={<DeleteOutlined />}
                   onClick={() => handleSoftDelete(booking._id)}
@@ -771,6 +838,17 @@ const handleViewDetails = (booking: Booking) => {
 >
   {detailBookingId && <BookingDetail bookingId={detailBookingId} />}
 </Modal>
+
+<Modal
+  title="Xác nhận hủy đặt phòng"
+  open={cancelModalVisible}
+  onCancel={() => setCancelModalVisible(false)}
+  onOk={handleCancelBooking}
+>
+  <p>Bạn có chắc chắn muốn hủy đặt phòng này?</p>
+</Modal>
+
+
 
     </div>
     
