@@ -12,7 +12,8 @@ import {
   Col, 
   Typography,
   Tag,
-  Button
+  Button,
+  Spin
 } from 'antd';
 import { api } from '@/lib/api';
 import moment, { Moment } from 'moment';
@@ -39,6 +40,9 @@ interface BookingFormProps {
 interface User {
   _id: string;
   name: string;
+  email: string;
+  role: string;
+  isActive: boolean;
 }
 
 const isValidObjectId = (id: string): boolean => {
@@ -55,257 +59,94 @@ const BookingForm: React.FC<BookingFormProps> = ({
   const [form] = Form.useForm();
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [selectedStartDate, setSelectedStartDate] = useState<Moment | null>(null);
-  const [selectedEndDate, setSelectedEndDate] = useState<Moment | null>(null);
   const [loading, setLoading] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    console.log('Đang lấy dữ liệu người dùng...');
-    const token = localStorage.getItem('access_token');
-    console.log('Token từ localStorage:', token ? token.substring(0, 10) + '...' : 'undefined');
-
+  const fetchCurrentUser = useCallback(async () => {
     try {
-      // Kiểm tra token
-      if (!token) {
-        const errorMsg = 'Không tìm thấy access token. Vui lòng đăng nhập lại.';
-        Modal.error({
-          title: 'Lỗi',
-          content: errorMsg,
-        });
-        console.error(errorMsg);
-        setFetchError(errorMsg);
-        // Tiếp tục gọi /api/users/find-all dù thiếu token
-      } else if (!token.match(/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/)) {
-        const errorMsg = 'Định dạng access token không hợp lệ. Vui lòng đăng nhập lại.';
-        Modal.error({
-          title: 'Lỗi',
-          content: errorMsg,
-        });
-        console.error(errorMsg, 'Token:', token.substring(0, 10) + '...');
-        setFetchError(errorMsg);
-        // Tiếp tục gọi /api/users/find-all dù token không hợp lệ
-      } else {
-        try {
-          const userResponse = await api.get('/api/users/me', { 
-            headers: { Authorization: `Bearer ${token}` } 
-          });
-          console.log('Phản hồi /api/users/me:', JSON.stringify(userResponse.data, null, 2));
-
-          if (userResponse.data.success) {
-            if (!isValidObjectId(userResponse.data.data._id)) {
-              const errorMsg = 'ID người dùng không hợp lệ từ server.';
-              Modal.error({
-                title: 'Lỗi',
-                content: errorMsg,
-              });
-              console.error(errorMsg, 'User ID:', userResponse.data.data._id);
-              setFetchError(errorMsg);
-            } else {
-              setCurrentUser(userResponse.data.data);
-              setFetchError(null); // Reset fetchError khi lấy user thành công
-            }
-          } else {
-            const errorMsg = userResponse.data?.message || 'Không thể tải thông tin người dùng hiện tại.';
-            Modal.error({
-              title: 'Lỗi',
-              content: errorMsg,
-            });
-            console.error('Lấy thông tin người dùng thất bại:', errorMsg);
-            setFetchError(errorMsg);
-          }
-        } catch (err: any) {
-          const errorMsg = err.response?.data?.message || err.message || 'Lỗi khi gọi /api/users/me.';
-          Modal.error({
-            title: 'Lỗi',
-            content: errorMsg,
-          });
-          console.error('Lỗi khi gọi /api/users/me:', {
-            status: err.response?.status,
-            statusText: err.response?.statusText,
-            data: JSON.stringify(err.response?.data, null, 2),
-            message: err.message,
-            headers: err.response?.headers,
-            config: {
-              url: err.config?.url,
-              method: err.config?.method,
-              headers: err.config?.headers,
-            },
-          });
-          setFetchError(errorMsg);
-        }
+      const response = await api.get('/api/users/me');
+      
+      if (response.data && response.data._id) {
+        setCurrentUser(response.data);
+        return response.data._id;
       }
-
-      // Gọi /api/users/find-all không cần header Authorization
-      try {
-        const usersResponse = await api.get('/api/users/find-all');
-        console.log('Phản hồi /api/users/find-all:', JSON.stringify(usersResponse.data, null, 2));
-
-        if (usersResponse.data.success) {
-          const validUsers = usersResponse.data.data?.filter((user: User) => isValidObjectId(user._id)) || [];
-          if (validUsers.length !== usersResponse.data.data?.length) {
-            console.warn('Một số ID người dùng trong phản hồi /api/users/find-all không hợp lệ');
-          }
-          setUsers(validUsers);
-          setFetchError(null); // Reset fetchError khi lấy danh sách người dùng thành công
-        } else {
-          const errorMsg = usersResponse.data?.message || 'Không thể tải danh sách người dùng.';
-          Modal.error({
-            title: 'Lỗi',
-            content: errorMsg,
-          });
-          console.error('Lấy danh sách người dùng thất bại:', errorMsg);
-          setFetchError(errorMsg);
-        }
-      } catch (err: any) {
-        const errorMsg = err.response?.data?.message || err.message || 'Lỗi khi tải danh sách người dùng.';
-        Modal.error({
-          title: 'Lỗi',
-          content: errorMsg,
-        });
-        console.error('Lỗi khi gọi /api/users/find-all:', {
-          status: err.response?.status,
-          statusText: err.response?.statusText,
-          data: JSON.stringify(err.response?.data, null, 2),
-          message: err.message,
-          headers: err.response?.headers,
-          config: {
-            url: err.config?.url,
-            method: err.config?.method,
-            headers: err.config?.headers,
-          },
-        });
-        setFetchError(errorMsg);
-      }
-    } catch (error: any) {
-      const errorMsg = error.response?.data?.message || error.message || 'Lỗi khi tải dữ liệu.';
+      throw new Error('Invalid user data');
+    } catch (error) {
+      console.error('Error fetching current user:', error);
       Modal.error({
         title: 'Lỗi',
-        content: errorMsg,
+        content: 'Không thể lấy thông tin người dùng hiện tại',
+        okText: 'Đã hiểu',
       });
-      console.error('Lỗi chung trong fetchData:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: JSON.stringify(error.response?.data, null, 2),
-        headers: error.response?.headers,
-        config: error.config,
+      return null;
+    }
+  }, []);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/api/users/find-all');
+      
+      if (response.data?.success) {
+        const validUsers = response.data.data
+          .filter((user: any) => isValidObjectId(user._id))
+          .map((user: any) => ({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            isActive: user.isActive
+          }));
+        setUsers(validUsers);
+      } else {
+        throw new Error(response.data?.message || 'Failed to fetch users');
+      }
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
+      Modal.error({
+        title: 'Lỗi',
+        content: error.message || 'Không thể tải danh sách người dùng',
+        okText: 'Đã hiểu',
       });
-      setFetchError(errorMsg);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     if (visible) {
-      console.log('Modal hiển thị, initialValues:', JSON.stringify(initialValues, null, 2));
-      setFetchError(null); // Reset fetchError khi modal mở
-      fetchData();
+      const initializeForm = async () => {
+        const userId = await fetchCurrentUser();
+        
+        if (!userId) {
+          onCancel();
+          return;
+        }
 
-      const tomorrow = moment().add(1, 'day').startOf('day');
-      const startDate = initialValues.startTime && moment(initialValues.startTime).isAfter(moment()) 
-        ? moment(initialValues.startTime) 
-        : tomorrow;
-      const endDate = initialValues.endTime && moment(initialValues.endTime).isAfter(startDate) 
-        ? moment(initialValues.endTime) 
-        : startDate;
+        await fetchUsers();
+        
+        const startDate = initialValues.startTime 
+          ? moment(initialValues.startTime) 
+          : moment().add(1, 'day').startOf('day');
+          
+        const endDate = initialValues.endTime 
+          ? moment(initialValues.endTime) 
+          : startDate.clone();
 
-      setSelectedStartDate(startDate);
-      setSelectedEndDate(endDate);
-
-      form.setFieldsValue({
-        title: initialValues.title || 'Cuộc họp nhóm dự án',
-        description: initialValues.description || 'Thảo luận về kế hoạch phát triển sản phẩm mới',
-        startDate: startDate,
-        endDate: endDate,
-        startTime: startDate.clone().set({ hour: 9, minute: 0, second: 0 }),
-        endTime: endDate.clone().set({ hour: 17, minute: 0, second: 0 }),
-        participants: initialValues.participants?.filter((id: string) => isValidObjectId(id)) || [],
-      });
-    }
-  }, [visible, form, initialValues, fetchData]);
-
-  const handleDateClick = (date: Moment, type: 'start' | 'end') => {
-    console.log(`Ngày được chọn: ${type} - ${date.format('DD/MM/YYYY')}`);
-    if (type === 'start') {
-      setSelectedStartDate(date);
-      form.setFieldsValue({
-        startDate: date,
-        startTime: date.clone().set({
-          hour: form.getFieldValue('startTime')?.hour() || 9,
-          minute: form.getFieldValue('startTime')?.minute() || 0
-        })
-      });
-
-      if (selectedEndDate && date.isAfter(selectedEndDate)) {
-        setSelectedEndDate(date);
         form.setFieldsValue({
-          endDate: date,
-          endTime: date.clone().set({
-            hour: form.getFieldValue('endTime')?.hour() || 17,
-            minute: form.getFieldValue('endTime')?.minute() || 0
-          })
+          title: initialValues.title || 'Cuộc họp nhóm dự án',
+          description: initialValues.description || 'Thảo luận về kế hoạch phát triển sản phẩm mới',
+          startDate,
+          endDate,
+          startTime: startDate.clone().set({ hour: 9, minute: 0 }),
+          endTime: endDate.clone().set({ hour: 17, minute: 0 }),
+          participants: initialValues.participants?.filter((id: string) => isValidObjectId(id)) || [],
         });
-      }
-    } else {
-      if (selectedStartDate && date.isBefore(selectedStartDate, 'day')) {
-        Modal.error({
-          title: 'Lỗi',
-          content: 'Ngày kết thúc phải từ ngày bắt đầu trở đi.',
-        });
-        console.error('Ngày kết thúc trước ngày bắt đầu');
-        return;
-      }
-      setSelectedEndDate(date);
-      form.setFieldsValue({
-        endDate: date,
-        endTime: date.clone().set({
-          hour: form.getFieldValue('endTime')?.hour() || 17,
-          minute: form.getFieldValue('endTime')?.minute() || 0
-        })
-      });
+      };
+
+      initializeForm();
     }
-  };
-
-  const dateCellRender = (current: Moment, type: 'start' | 'end') => {
-    const isSelected = type === 'start' 
-      ? selectedStartDate?.isSame(current, 'day')
-      : selectedEndDate?.isSame(current, 'day');
-
-    return (
-      <div 
-        className="date-cell"
-        onClick={() => handleDateClick(current, type)}
-        style={{
-          height: '100%',
-          width: '100%',
-          backgroundColor: isSelected ? (type === 'start' ? '#1890ff' : '#52c41a') : 'transparent',
-          color: isSelected ? '#fff' : 'inherit',
-          borderRadius: '2px',
-          padding: '4px',
-          cursor: 'pointer',
-          position: 'relative',
-        }}
-      >
-        {current.date()}
-        {isSelected && (
-          <Tag 
-            color={type === 'start' ? 'blue' : 'green'}
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              borderRadius: '50%',
-              padding: '0 4px',
-              fontSize: 10,
-              lineHeight: '16px'
-            }}
-          >
-            {type === 'start' ? 'Bắt đầu' : 'Kết thúc'}
-          </Tag>
-        )}
-      </div>
-    );
-  };
+  }, [visible, form, initialValues, fetchCurrentUser, fetchUsers, onCancel]);
 
   const checkBookingConflict = (start: Moment, end: Moment): boolean => {
     return bookings.some(booking => {
@@ -316,393 +157,287 @@ const BookingForm: React.FC<BookingFormProps> = ({
     });
   };
 
-  const handleFinish = async () => {
-    console.log('handleFinish được gọi');
+  const handleSubmit = async () => {
     try {
-      setLoading(true);
+      setSubmitting(true);
       const values = await form.validateFields();
-      console.log('Giá trị form:', JSON.stringify(values, null, 2));
-      console.log('Lỗi form:', form.getFieldsError());
 
-      if (!values.startDate || !values.endDate) {
+      const startDateTime = values.startDate.clone()
+        .set({
+          hour: values.startTime.hour(),
+          minute: values.startTime.minute(),
+          second: 0
+        });
+
+      const endDateTime = values.endDate.clone()
+        .set({
+          hour: values.endTime.hour(),
+          minute: values.endTime.minute(),
+          second: 0
+        });
+
+      // Validation checks
+      if (startDateTime.isBefore(moment())) {
         Modal.error({
           title: 'Lỗi',
-          content: 'Vui lòng chọn cả ngày bắt đầu và ngày kết thúc.',
+          content: 'Thời gian bắt đầu phải trong tương lai',
+          okText: 'Đã hiểu',
         });
-        console.error('Thiếu startDate hoặc endDate');
         return;
       }
 
-      const startDateTime = values.startDate.clone().set({
-        hour: values.startTime.hour(),
-        minute: values.startTime.minute(),
-        second: 0,
-      });
-
-      const endDateTime = values.endDate.clone().set({
-        hour: values.endTime.hour(),
-        minute: values.endTime.minute(),
-        second: 0,
-      });
-
-      const now = moment();
-      console.log('Thời gian hiện tại:', now.toISOString());
-      console.log('Thời gian bắt đầu:', startDateTime.toISOString());
-      console.log('Thời gian kết thúc:', endDateTime.toISOString());
-
-      if (startDateTime.isBefore(now)) {
-        Modal.error({
-          title: 'Lỗi',
-          content: 'Thời gian bắt đầu phải trong tương lai.',
-        });
-        console.error('Thời gian bắt đầu trong quá khứ:', startDateTime.toISOString());
-        return;
-      }
       if (endDateTime.isBefore(startDateTime)) {
         Modal.error({
           title: 'Lỗi',
-          content: 'Thời gian kết thúc phải sau thời gian bắt đầu.',
+          content: 'Thời gian kết thúc phải sau thời gian bắt đầu',
+          okText: 'Đã hiểu',
         });
-        console.error('Thời gian kết thúc trước thời gian bắt đầu:', endDateTime.toISOString());
         return;
       }
 
-      if (!initialValues.room || !isValidObjectId(initialValues.room)) {
-        Modal.error({
-          title: 'Lỗi',
-          content: 'ID phòng không hợp lệ.',
-        });
-        console.error('ID phòng không hợp lệ:', initialValues.room);
-        return;
-      }
-
-      const token = localStorage.getItem('access_token');
-      const userId = currentUser?._id && isValidObjectId(currentUser._id) 
-        ? currentUser._id 
-        : token ? '686b2bd1ef3f57bb0f638bab' : null;
-
-      if (!userId) {
-        Modal.error({
-          title: 'Lỗi',
-          content: 'Không thể xác định ID người dùng. Vui lòng đăng nhập lại.',
-        });
-        console.error('ID người dùng không hợp lệ hoặc thiếu token');
-        return;
-      }
-
-      const participants = values.participants || [];
-      if (participants.some((id: string) => !isValidObjectId(id))) {
-        Modal.error({
-          title: 'Lỗi',
-          content: 'Một hoặc nhiều ID người tham gia không hợp lệ.',
-        });
-        console.error('ID người tham gia không hợp lệ:', participants);
-        return;
-      }
-
-      // Kiểm tra lịch trùng
       if (checkBookingConflict(startDateTime, endDateTime)) {
         Modal.error({
           title: 'Lỗi',
-          content: 'Lịch đặt phòng bị trùng. Vui lòng chọn thời gian khác.',
+          content: 'Phòng đã được đặt trong khoảng thời gian này',
+          okText: 'Đã hiểu',
         });
-        console.error('Lịch trùng:', {
-          startTime: startDateTime.toISOString(),
-          endTime: endDateTime.toISOString(),
-          existingBookings: bookings,
+        return;
+      }
+
+      if (!currentUser) {
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Không tìm thấy thông tin người đặt',
+          okText: 'Đã hiểu',
         });
         return;
       }
 
       const submitData = {
         room: initialValues.room,
-        user: userId,
+        user: currentUser._id,
         startTime: startDateTime.toISOString(),
         endTime: endDateTime.toISOString(),
-        participants,
         title: values.title,
-        description: values.description || '',
-        status: 'pending',
+        description: values.description,
+        participants: values.participants,
+        status: 'pending'
       };
 
-      console.log('Dữ liệu gửi:', JSON.stringify(submitData, null, 2));
-
-      // Hiển thị dialog xác nhận
-      Modal.confirm({
-        title: 'Xác nhận',
-        content: 'Bạn có chắc chắn muốn tạo đặt lịch không?',
-        okText: 'Xác nhận',
-        cancelText: 'Hủy',
-        onOk: async () => {
-          try {
-            await onSubmit(submitData);
-            Modal.success({
-              title: 'Thành công',
-              content: 'Đặt phòng thành công!',
-              onOk: () => {
-                form.resetFields();
-                onCancel();
-              },
-            });
-          } catch (error: any) {
-            console.error('Lỗi trong handleFinish:', {
-              message: error.message,
-              stack: error.stack,
-              response: JSON.stringify(error.response?.data, null, 2),
-              status: error.response?.status,
-              statusText: error.response?.statusText,
-              headers: error.response?.headers,
-              config: error.config,
-            });
-            let errorMsg = error.response?.data?.message || error.message || 'Đặt phòng thất bại. Vui lòng thử lại.';
-            if (error.response?.status === 400) {
-              errorMsg = error.response?.data?.message || 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin nhập.';
-            }
-            Modal.error({
-              title: 'Lỗi',
-              content: errorMsg,
-            });
-          } finally {
-            setLoading(false);
-          }
-        },
-        onCancel: () => {
-          console.log('Hủy tạo đặt lịch');
-          setLoading(false);
-        },
-      });
+      try {
+        await onSubmit(submitData);
+        form.resetFields();
+        onCancel();
+      } catch (error: any) {
+        // Handle API response error
+        if (error.response?.data?.success === false) {
+          Modal.error({
+            title: 'Lỗi đặt phòng',
+            content: error.response.data.message || 'Đặt phòng thất bại',
+            okText: 'Đã hiểu',
+          });
+        } else {
+          throw error;
+        }
+      }
     } catch (error: any) {
-      console.error('Lỗi trong handleFinish:', {
-        message: error.message,
-        stack: error.stack,
-        response: JSON.stringify(error.response?.data, null, 2),
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        headers: error.response?.headers,
-        config: error.config,
-      });
-      const errorMsg = error.response?.data?.message || error.message || 'Đặt phòng thất bại. Vui lòng kiểm tra lại thông tin nhập.';
-      Modal.error({
-        title: 'Lỗi',
-        content: errorMsg,
-      });
-      setLoading(false);
+      console.error('Booking submission error:', error);
+      if (!error.response) {
+        Modal.error({
+          title: 'Lỗi',
+          content: error.message || 'Đặt phòng thất bại. Vui lòng thử lại.',
+          okText: 'Đã hiểu',
+        });
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const futureDateValidator = (_: any, value: Moment) => {
-    if (value && value.isBefore(moment(), 'day')) {
-      return Promise.reject('Ngày phải trong tương lai!');
-    }
-    return Promise.resolve();
+  const dateCellRender = (current: Moment, type: 'start' | 'end') => {
+    const isSelected = form.getFieldValue(`${type}Date`)?.isSame(current, 'day');
+    
+    return (
+      <div 
+        onClick={() => form.setFieldsValue({ [`${type}Date`]: current })}
+        style={{
+          backgroundColor: isSelected ? (type === 'start' ? '#1890ff' : '#52c41a') : 'transparent',
+          color: isSelected ? '#fff' : 'inherit',
+          cursor: 'pointer',
+          padding: '4px',
+          borderRadius: '2px'
+        }}
+      >
+        {current.date()}
+      </div>
+    );
   };
 
   return (
     <Modal
       title="Tạo Đặt Phòng"
       open={visible}
-      onCancel={() => {
-        console.log('Modal bị hủy');
-        onCancel();
-      }}
+      onCancel={onCancel}
       footer={[
-        <Button key="cancel" onClick={onCancel} disabled={loading}>
+        <Button key="cancel" onClick={onCancel} disabled={submitting}>
           Hủy
         </Button>,
         <Button 
           key="submit" 
           type="primary" 
-          onClick={() => {
-            console.log('Nút Xác nhận được nhấn');
-            handleFinish();
-          }}
-          loading={loading}
-          disabled={form.getFieldsError().some(field => field.errors.length > 0)}
+          onClick={handleSubmit}
+          loading={submitting}
         >
           Xác nhận
         </Button>,
       ]}
       width={800}
       centered
+      destroyOnClose
     >
-      <Form 
-        form={form}
-        layout="vertical"
-        initialValues={{
-          title: initialValues.title || 'Cuộc họp nhóm dự án',
-          description: initialValues.description || 'Thảo luận về kế hoạch phát triển sản phẩm mới',
-          participants: initialValues.participants?.filter((id: string) => isValidObjectId(id)) || [],
-        }}
-        onFieldsChange={() => {
-          console.log('Trường form thay đổi, lỗi:', form.getFieldsError());
-        }}
-      >
-        <Form.Item 
-          name="title" 
-          label="Tiêu đề" 
-          rules={[{ required: true, message: 'Vui lòng nhập tiêu đề!' }]}
-        >
-          <Input placeholder="Nhập tiêu đề cuộc họp" />
-        </Form.Item>
-
-        <Form.Item name="description" label="Mô tả">
-          <TextArea 
-            rows={3} 
-            placeholder="Nhập mô tả chi tiết cuộc họp"
-          />
-        </Form.Item>
-
-        <div style={{ marginBottom: 16 }}>
-          {selectedStartDate && (
-            <Tag color="blue" style={{ marginRight: 8 }}>
-              Bắt đầu: {selectedStartDate.format('DD/MM/YYYY')}
-            </Tag>
-          )}
-          {selectedEndDate && (
-            <Tag color="green">
-              Kết thúc: {selectedEndDate.format('DD/MM/YYYY')}
-            </Tag>
-          )}
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
+          <Spin />
         </div>
-
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              name="startDate"
-              label="Ngày bắt đầu"
-              rules={[
-                { required: true, message: 'Vui lòng chọn ngày bắt đầu!' },
-                { validator: futureDateValidator },
-              ]}
-            >
-              <DatePicker 
-                format="DD/MM/YYYY"
-                style={{ width: '100%' }}
-                placeholder="Chọn ngày bắt đầu"
-                cellRender={(current) => dateCellRender(current, 'start')}
-                disabledDate={(current) => current && current.isBefore(moment(), 'day')}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="startTime"
-              label="Giờ bắt đầu"
-              rules={[{ required: true, message: 'Vui lòng chọn giờ bắt đầu!' }]}
-            >
-              <TimePicker 
-                format="HH:mm" 
-                minuteStep={15} 
-                style={{ width: '100%' }}
-                placeholder="Chọn giờ bắt đầu"
-              />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              name="endDate"
-              label="Ngày kết thúc"
-              rules={[
-                { required: true, message: 'Vui lòng chọn ngày kết thúc!' },
-                { validator: futureDateValidator },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    if (!value || !getFieldValue('startDate') || value.isSameOrAfter(getFieldValue('startDate'), 'day')) {
-                      return Promise.resolve();
-                    }
-                    return Promise.reject('Ngày kết thúc phải từ ngày bắt đầu trở đi');
-                  },
-                }),
-              ]}
-            >
-              <DatePicker 
-                format="DD/MM/YYYY"
-                style={{ width: '100%' }}
-                placeholder="Chọn ngày kết thúc"
-                cellRender={(current) => dateCellRender(current, 'end')}
-                disabledDate={(current) => {
-                  const startDate = form.getFieldValue('startDate');
-                  return startDate ? current.isBefore(startDate, 'day') : current.isBefore(moment(), 'day');
-                }}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="endTime"
-              label="Giờ kết thúc"
-              rules={[
-                { required: true, message: 'Vui lòng chọn giờ kết thúc!' },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    const startDate = getFieldValue('startDate');
-                    const endDate = getFieldValue('endDate');
-                    const startTime = getFieldValue('startTime');
-                    
-                    if (startDate && endDate && startDate.isSame(endDate, 'day') && 
-                        value && startTime && value.isBefore(startTime)) {
-                      return Promise.reject('Giờ kết thúc phải sau giờ bắt đầu');
-                    }
-                    return Promise.resolve();
-                  },
-                }),
-              ]}
-            >
-              <TimePicker 
-                format="HH:mm" 
-                minuteStep={15} 
-                style={{ width: '100%' }}
-                placeholder="Chọn giờ kết thúc"
-              />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Form.Item 
-          name="participants" 
-          label="Người tham gia"
-        >
-          <Select 
-            mode="multiple" 
-            allowClear 
-            style={{ width: '100%' }} 
-            placeholder="Chọn người tham gia"
-            optionFilterProp="children"
-            filterOption={(input, option) => {
-              const children = option?.children?.toString() || '';
-              return children.toLowerCase().includes(input.toLowerCase());
-            }}
-            tagRender={(props) => {
-              const { label, value, closable, onClose } = props;
-              const user = users.find(u => u._id === value);
-              return (
-                <Tag 
-                  closable={closable} 
-                  onClose={onClose}
-                  style={{ marginRight: 3 }}
-                >
-                  {user?.name || label}
-                </Tag>
-              );
-            }}
+      ) : (
+        <Form form={form} layout="vertical">
+          <Form.Item 
+            name="title" 
+            label="Tiêu đề" 
+            rules={[{ required: true, message: 'Vui lòng nhập tiêu đề!' }]}
           >
-            {users.map((user) => (
-              <Option key={user._id} value={user._id}>
-                {user.name}
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
+            <Input placeholder="Nhập tiêu đề cuộc họp" />
+          </Form.Item>
 
-        {fetchError && (
-          <Text type="danger" style={{ display: 'block', marginBottom: 16 }}>
-            Lỗi: {fetchError}
-          </Text>
-        )}
-      </Form>
+          <Form.Item name="description" label="Mô tả">
+            <TextArea rows={3} placeholder="Nhập mô tả chi tiết cuộc họp" />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="startDate"
+                label="Ngày bắt đầu"
+                rules={[
+                  { required: true, message: 'Vui lòng chọn ngày bắt đầu!' },
+                  () => ({
+                    validator(_, value) {
+                      if (!value || value.isSameOrAfter(moment(), 'day')) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject('Ngày phải trong tương lai');
+                    },
+                  }),
+                ]}
+              >
+                <DatePicker 
+                  format="DD/MM/YYYY"
+                  style={{ width: '100%' }}
+                  placeholder="Chọn ngày bắt đầu"
+                  cellRender={(current) => dateCellRender(current, 'start')}
+                  disabledDate={(current) => current.isBefore(moment(), 'day')}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="startTime"
+                label="Giờ bắt đầu"
+                rules={[{ required: true, message: 'Vui lòng chọn giờ bắt đầu!' }]}
+              >
+                <TimePicker 
+                  format="HH:mm" 
+                  minuteStep={15}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="endDate"
+                label="Ngày kết thúc"
+                rules={[
+                  { required: true, message: 'Vui lòng chọn ngày kết thúc!' },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const startDate = getFieldValue('startDate');
+                      if (!value || !startDate || value.isSameOrAfter(startDate, 'day')) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject('Ngày kết thúc phải từ ngày bắt đầu trở đi');
+                    },
+                  }),
+                ]}
+              >
+                <DatePicker 
+                  format="DD/MM/YYYY"
+                  style={{ width: '100%' }}
+                  placeholder="Chọn ngày kết thúc"
+                  cellRender={(current) => dateCellRender(current, 'end')}
+                  disabledDate={(current) => {
+                    const startDate = form.getFieldValue('startDate');
+                    return current.isBefore(startDate || moment(), 'day');
+                  }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="endTime"
+                label="Giờ kết thúc"
+                rules={[
+                  { required: true, message: 'Vui lòng chọn giờ kết thúc!' },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const startDate = getFieldValue('startDate');
+                      const endDate = getFieldValue('endDate');
+                      const startTime = getFieldValue('startTime');
+                      
+                      if (startDate?.isSame(endDate, 'day') && 
+                          value?.isBefore(startTime)) {
+                        return Promise.reject('Giờ kết thúc phải sau giờ bắt đầu');
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
+              >
+                <TimePicker 
+                  format="HH:mm" 
+                  minuteStep={15}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item name="participants" label="Người tham gia">
+            <Select 
+              mode="multiple" 
+              allowClear
+              placeholder="Chọn người tham gia"
+              options={users.map(user => ({
+                value: user._id,
+                label: user.name
+              }))}
+              optionFilterProp="label"
+              filterOption={(input, option) => 
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
+
+          {currentUser && (
+            <div style={{ marginBottom: 16 }}>
+              <Text strong>Người đặt: </Text>
+              <Tag color="blue">{currentUser.name} ({currentUser.email})</Tag>
+            </div>
+          )}
+        </Form>
+      )}
     </Modal>
   );
 };

@@ -14,7 +14,8 @@ import {
   EditOutlined, 
   CloseOutlined, 
   DeleteOutlined, 
-  InfoCircleOutlined 
+  InfoCircleOutlined,
+  ReloadOutlined
 } from '@ant-design/icons';
 import BookingForm from '@/components/BookingForm';
 import _ from 'lodash';
@@ -58,7 +59,7 @@ const Bookings = () => {
   const router = useRouter();
   const { roomId } = useParams();
   const { token } = useUserStore();
-  const userRole = useUserStore((state) => state.role) || 'ADMIN'; // Giả định role, test với ADMIN
+  const userRole = useUserStore((state) => state.role) || 'ADMIN';
 
   const NESTJS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -79,14 +80,17 @@ const Bookings = () => {
     if (!token) {
       const errorMsg = 'Vui lòng đăng nhập để xem thông tin phòng.';
       setError(errorMsg);
-      Modal.error({ title: 'Lỗi', content: errorMsg });
+      Modal.error({ 
+        title: 'Lỗi', 
+        content: errorMsg,
+        onOk: () => router.push('/login')
+      });
       return;
     }
 
     setAuthToken(token);
     setLoading(true);
     try {
-      console.log('Đang lấy dữ liệu phòng và đặt phòng...');
       const [roomResponse, bookingsResponse] = await Promise.all([
         api.get(`${NESTJS_API_URL}/api/rooms/${roomId}`),
         api.get(`${NESTJS_API_URL}/api/bookings/findAll`, {
@@ -94,9 +98,6 @@ const Bookings = () => {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
-
-      console.log('Phản hồi phòng:', roomResponse.data);
-      console.log('Phản hồi đặt phòng:', bookingsResponse.data);
 
       if (roomResponse.data?.success) {
         setRoom(roomResponse.data.data);
@@ -106,28 +107,36 @@ const Bookings = () => {
 
       if (bookingsResponse.data.success) {
         const filteredBookings = bookingsResponse.data.data.filter((booking: Booking) => booking.status !== 'deleted');
-        console.log('Filtered bookings:', filteredBookings);
         setBookings(filteredBookings);
       } else {
         throw new Error(bookingsResponse.data?.message || 'Không thể tải danh sách đặt phòng.');
       }
+      setError(null);
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || error.message || 'Lỗi không xác định khi tải dữ liệu.';
-      console.error('Lỗi khi tải dữ liệu:', errorMsg);
-      setError(`Lỗi khi tải dữ liệu: ${errorMsg}`);
-      Modal.error({ title: 'Lỗi', content: errorMsg });
+      console.error('Lỗi khi tải dữ liệu:', error);
+      setError(errorMsg);
+      Modal.error({ 
+        title: 'Lỗi', 
+        content: errorMsg,
+        onOk: () => router.push('/login')
+      });
     } finally {
       setLoading(false);
     }
-  }, [token, roomId, NESTJS_API_URL]);
+  }, [token, roomId, NESTJS_API_URL, router]);
 
   const debouncedFetchData = useMemo(() => _.debounce(fetchData, 300), [fetchData]);
 
+  const refreshData = () => {
+    setLoading(true);
+    debouncedFetchData();
+  };
+
   useEffect(() => {
-    console.log('User role:', userRole);
     debouncedFetchData();
     return () => debouncedFetchData.cancel();
-  }, [debouncedFetchData, userRole]);
+  }, [debouncedFetchData]);
 
   const handleYearChange = (value: number) => {
     setSelectedYear(value);
@@ -152,18 +161,26 @@ const Bookings = () => {
   };
 
   const handleDateSelect = (date: Moment) => {
-    const currentDate = moment().startOf('day'); // 01:04 AM +07, 17/07/2025
+    const currentDate = moment().startOf('day');
     const startTime = date.clone().set({ hour: 9, minute: 0, second: 0 });
     const endTime = date.clone().set({ hour: 17, minute: 0, second: 0 });
 
     if (date.isBefore(currentDate)) {
-      Modal.error({ title: 'Lỗi', content: 'Không thể đặt lịch từ quá khứ. Vui lòng chọn ngày từ hôm nay trở đi.' });
+      Modal.error({ 
+        title: 'Lỗi', 
+        content: 'Không thể đặt lịch từ quá khứ. Vui lòng chọn ngày từ hôm nay trở đi.',
+        okText: 'Đã hiểu'
+      });
       return;
     }
 
     if (selectionPhase === 'start') {
       if (checkBookingConflict(startTime, endTime)) {
-        Modal.error({ title: 'Lỗi', content: 'Ngày này đã có lịch đặt. Vui lòng chọn ngày khác.' });
+        Modal.error({ 
+          title: 'Lỗi', 
+          content: 'Ngày này đã có lịch đặt. Vui lòng chọn ngày khác.',
+          okText: 'Đã hiểu'
+        });
         return;
       }
       setSelectedStartDate(date);
@@ -172,15 +189,27 @@ const Bookings = () => {
       message.info('Đã chọn ngày bắt đầu, vui lòng chọn ngày kết thúc');
     } else {
       if (date.isBefore(selectedStartDate)) {
-        Modal.error({ title: 'Lỗi', content: 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.' });
+        Modal.error({ 
+          title: 'Lỗi', 
+          content: 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.',
+          okText: 'Đã hiểu'
+        });
         return;
       }
       if (date.isBefore(currentDate)) {
-        Modal.error({ title: 'Lỗi', content: 'Không thể đặt lịch từ quá khứ. Vui lòng chọn ngày từ hôm nay trở đi.' });
+        Modal.error({ 
+          title: 'Lỗi', 
+          content: 'Không thể đặt lịch từ quá khứ. Vui lòng chọn ngày từ hôm nay trở đi.',
+          okText: 'Đã hiểu'
+        });
         return;
       }
       if (checkBookingConflict(selectedStartDate!.clone().set({ hour: 9, minute: 0, second: 0 }), endTime)) {
-        Modal.error({ title: 'Lỗi', content: 'Ngày này đã có lịch đặt. Vui lòng chọn ngày khác.' });
+        Modal.error({ 
+          title: 'Lỗi', 
+          content: 'Ngày này đã có lịch đặt. Vui lòng chọn ngày khác.',
+          okText: 'Đã hiểu'
+        });
         return;
       }
       setSelectedEndDate(date);
@@ -191,14 +220,21 @@ const Bookings = () => {
 
   const handleBookingSubmit = async (formData: any) => {
     if (!token) {
-      Modal.error({ title: 'Lỗi', content: 'Vui lòng đăng nhập để đặt phòng.' });
+      Modal.error({ 
+        title: 'Lỗi', 
+        content: 'Vui lòng đăng nhập để đặt phòng.',
+        onOk: () => router.push('/login')
+      });
       return;
     }
 
     try {
       setLoading(true);
-      const url = selectedBooking ? `${NESTJS_API_URL}/api/bookings/${selectedBooking._id}` : `${NESTJS_API_URL}/api/bookings/add-booking`;
+      const url = selectedBooking 
+        ? `${NESTJS_API_URL}/api/bookings/${selectedBooking._id}` 
+        : `${NESTJS_API_URL}/api/bookings/add-booking`;
       const method = selectedBooking ? 'put' : 'post';
+      
       const response = await api[method](url, formData, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -207,8 +243,9 @@ const Bookings = () => {
         Modal.success({
           title: 'Thành công',
           content: `${selectedBooking ? 'Cập nhật' : 'Đặt'} phòng thành công!`,
+          okText: 'OK',
           onOk: () => {
-            debouncedFetchData();
+            refreshData();
             setIsBookingModalVisible(false);
             setSelectedStartDate(null);
             setSelectedEndDate(null);
@@ -216,12 +253,22 @@ const Bookings = () => {
           },
         });
       } else {
-        throw new Error(response.data.message || `${selectedBooking ? 'Cập nhật' : 'Đặt'} phòng thất bại.`);
+        const errorMsg = response.data.message || `${selectedBooking ? 'Cập nhật' : 'Đặt'} phòng thất bại`;
+        Modal.error({
+          title: 'Lỗi',
+          content: errorMsg,
+          okText: 'Đã hiểu',
+        });
       }
     } catch (error: any) {
+      const errorContent = error.response?.data?.message 
+        ? `Lỗi: ${error.response.data.message}`
+        : `Lỗi khi ${selectedBooking ? 'cập nhật' : 'đặt'} phòng: ${error.message}`;
+      
       Modal.error({
         title: 'Lỗi',
-        content: `Lỗi khi ${selectedBooking ? 'cập nhật' : 'đặt'} phòng: ${error.response?.data?.message || error.message}`,
+        content: errorContent,
+        okText: 'Đã hiểu',
       });
     } finally {
       setLoading(false);
@@ -234,42 +281,80 @@ const Bookings = () => {
   };
 
   const handleCancel = async (bookingId: string) => {
-    try {
-      setLoading(true);
-      const userId = JSON.parse(atob(token.split('.')[1])).sub || '';
-      const response = await api.post(`${NESTJS_API_URL}/api/bookings/${bookingId}/cancel`, { userId }, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.data.success) {
-        Modal.success({ title: 'Thành công', content: 'Hủy đặt phòng thành công!' });
-        debouncedFetchData();
-      } else {
-        throw new Error(response.data.message || 'Hủy đặt phòng thất bại.');
+    Modal.confirm({
+      title: 'Xác nhận hủy đặt phòng',
+      content: 'Bạn có chắc chắn muốn hủy đặt phòng này?',
+      okText: 'Xác nhận',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          setLoading(true);
+          const userId = JSON.parse(atob(token.split('.')[1])).sub || '';
+          const response = await api.post(
+            `${NESTJS_API_URL}/api/bookings/${bookingId}/cancel`, 
+            { userId }, 
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+
+          if (response.data.success) {
+            Modal.success({
+              title: 'Thành công',
+              content: 'Hủy đặt phòng thành công!',
+              okText: 'OK',
+              onOk: refreshData
+            });
+          } else {
+            throw new Error(response.data.message || 'Hủy đặt phòng thất bại');
+          }
+        } catch (error: any) {
+          Modal.error({
+            title: 'Lỗi',
+            content: error.response?.data?.message || error.message || 'Lỗi không xác định khi hủy đặt phòng',
+            okText: 'Đã hiểu',
+          });
+        } finally {
+          setLoading(false);
+        }
       }
-    } catch (error: any) {
-      Modal.error({ title: 'Lỗi', content: error.response?.data?.message || 'Lỗi không xác định khi hủy đặt phòng.' });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const handleSoftDelete = async (bookingId: string) => {
-    try {
-      setLoading(true);
-      const response = await api.put(`${NESTJS_API_URL}/api/bookings/${bookingId}/delete`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.data.success) {
-        Modal.success({ title: 'Thành công', content: 'Xóa mềm đặt phòng thành công!' });
-        debouncedFetchData();
-      } else {
-        throw new Error(response.data.message || 'Xóa mềm đặt phòng thất bại.');
+    Modal.confirm({
+      title: 'Xác nhận xóa đặt phòng',
+      content: 'Bạn có chắc chắn muốn xóa đặt phòng này?',
+      okText: 'Xác nhận',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          setLoading(true);
+          const response = await api.put(
+            `${NESTJS_API_URL}/api/bookings/${bookingId}/delete`, 
+            {}, 
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+
+          if (response.data.success) {
+            Modal.success({
+              title: 'Thành công',
+              content: 'Xóa đặt phòng thành công!',
+              okText: 'OK',
+              onOk: refreshData
+            });
+          } else {
+            throw new Error(response.data.message || 'Xóa đặt phòng thất bại');
+          }
+        } catch (error: any) {
+          Modal.error({
+            title: 'Lỗi',
+            content: error.response?.data?.message || error.message || 'Lỗi không xác định khi xóa đặt phòng',
+            okText: 'Đã hiểu',
+          });
+        } finally {
+          setLoading(false);
+        }
       }
-    } catch (error: any) {
-      Modal.error({ title: 'Lỗi', content: error.response?.data?.message || 'Lỗi không xác định khi xóa mềm đặt phòng.' });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const handleViewDetails = (booking: Booking) => {
@@ -285,7 +370,7 @@ const Bookings = () => {
           <p><strong>Tham gia:</strong> {booking.participants.map((p) => p).join(', ') || 'Không có'}</p>
         </div>
       ),
-      onOk() {},
+      okText: 'Đóng',
     });
   };
 
@@ -293,7 +378,7 @@ const Bookings = () => {
     const dateBookings = bookings.filter((booking) =>
       moment(booking.startTime).isSame(value, 'day')
     );
-    console.log('Date bookings for', value.format('DD/MM/YYYY'), ':', dateBookings);
+    
     const hasConflict = dateBookings.some((booking) => {
       if (booking.status === 'deleted') return false;
       const existingStart = moment(booking.startTime);
@@ -345,7 +430,7 @@ const Bookings = () => {
                   onClick={() => handleUpdate(booking)}
                   style={{ marginRight: '8px' }}
                 >
-                  Update
+                  Sửa
                 </Button>
                 <Button
                   icon={<CloseOutlined />}
@@ -353,7 +438,7 @@ const Bookings = () => {
                   style={{ marginRight: '8px' }}
                   danger
                 >
-                  Cancel
+                  Hủy
                 </Button>
                 <Button
                   icon={<DeleteOutlined />}
@@ -361,13 +446,13 @@ const Bookings = () => {
                   style={{ marginRight: '8px' }}
                   danger
                 >
-                  Xóa mềm
+                  Xóa
                 </Button>
                 <Button
                   icon={<InfoCircleOutlined />}
                   onClick={() => handleViewDetails(booking)}
                 >
-                  Xem chi tiết
+                  Chi tiết
                 </Button>
               </div>
             )}
@@ -441,7 +526,11 @@ const Bookings = () => {
       userId = payload.sub || payload.userId || '';
     } catch (e) {
       console.error('Lỗi khi phân tích token:', e);
-      Modal.error({ title: 'Lỗi', content: 'Token không hợp lệ. Vui lòng đăng nhập lại.' });
+      Modal.error({ 
+        title: 'Lỗi', 
+        content: 'Token không hợp lệ. Vui lòng đăng nhập lại.',
+        onOk: () => router.push('/login')
+      });
     }
   }
 
@@ -453,15 +542,20 @@ const Bookings = () => {
     }}>
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-          <Spin size="large" />
+          <Spin size="large" tip="Đang tải dữ liệu..." />
         </div>
       ) : error ? (
         <Card style={{ maxWidth: 500, margin: '40px auto', textAlign: 'center', borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
           <Text type="danger" style={{ fontSize: 20, marginBottom: 16 }}>
             {error}
           </Text>
-          <Button type="primary" onClick={debouncedFetchData} style={{ marginRight: 16 }}>
-            Làm mới
+          <Button 
+            type="primary" 
+            onClick={refreshData} 
+            style={{ marginRight: 16 }}
+            icon={<ReloadOutlined />}
+          >
+            Tải lại
           </Button>
           <Button onClick={() => router.push('/login')}>
             Đăng nhập
@@ -484,8 +578,16 @@ const Bookings = () => {
                 icon={<LeftOutlined />}
                 onClick={() => router.push('/rooms')}
                 size="large"
+                style={{ marginRight: 8 }}
               >
-                Quay lại danh sách phòng
+                Quay lại
+              </Button>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={refreshData}
+                size="large"
+              >
+                Làm mới
               </Button>
             </Col>
           </Row>
