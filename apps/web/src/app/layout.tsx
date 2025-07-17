@@ -9,15 +9,16 @@ import { UserProvider } from "./UserProvider";
 import AuthGuard from "@web/components/AuthGuard";
 import React from "react";
 import ChatWithAdminButton from "@web/components/ChatWithAdminButton";
-import { useUserStore } from "@web/store/user.store";
+import { usePathname } from "next/navigation";
 
 function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const currentUser = useUserStore((state) => state.currentUser);
-  const isAdmin = currentUser?.role === "admin";
+  const pathname = usePathname();
+  const isAdminPage = pathname?.startsWith('/admin');
+  
   return (
     <html lang="en" translate="no">
       <head>
@@ -36,7 +37,7 @@ function RootLayout({
         <ConfigProvider>
           <App>
             <Layout style={{ minHeight: "100vh" }}>
-              {!isAdmin && <Header />}
+              {!isAdminPage && <Header />}
               <Content>
                 <AuthGuard>{children}</AuthGuard>
               </Content>
