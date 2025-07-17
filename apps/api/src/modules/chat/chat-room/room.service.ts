@@ -483,27 +483,31 @@ export class RoomService {
   }
 
   async assignAdminToUser(userId: string) {
-    // 1. Chặn tạo nhiều phòng chờ (pending)
-    const existingPendingRoom = await this.conversationModel.findOne({
+    // 1. Kiểm tra đã có phòng private hỗ trợ nào chưa (dù admin online/offline, pending true/false)
+    const existingRoom = await this.conversationModel.findOne({
       type: 'private',
-      memberIds: [userId],
+      memberIds: userId,
       isDeleted: false,
       isActive: true,
-      pending: true,
     });
-    if (existingPendingRoom) {
-      throw new BadRequestException('Bạn đã có yêu cầu hỗ trợ đang chờ admin. Vui lòng chờ!');
+    let admin = null;
+    if (existingRoom) {
+      // Lấy admin hiện tại nếu có
+      if (existingRoom.currentAdminId) {
+        admin = await this.userModel.findById(existingRoom.currentAdminId);
+      }
+      return { roomId: existingRoom._id, admin, pending: !!existingRoom.pending };
     }
-    // Lấy tất cả admin active
+
+    // 2. Nếu chưa có phòng, kiểm tra admin online
     const admins = await this.userModel.find({ role: 'admin', isActive: true });
-    // Kiểm tra online
     const onlineChecks = await Promise.all(admins.map((a) => this.redisClient.get(`user:online:${a._id.toString()}`)));
     const onlineAdmins = admins.filter((a, idx) => onlineChecks[idx] === '1');
     const user = await this.userModel.findById(userId);
     const userName = user?.name || user?.email || userId;
 
     if (onlineAdmins.length === 0) {
-      // Không có admin online, tạo phòng chờ
+      // Không có admin online, tạo phòng pending
       const room = await this.conversationModel.create({
         name: `Hỗ trợ: ${userName}`,
         type: 'private',
@@ -513,7 +517,7 @@ export class RoomService {
         currentAdminId: null,
         isTemporary: true,
         isActive: true,
-        pending: true, // nếu muốn
+        pending: true,
       });
       // Đảm bảo user là member trong ConversationMember
       const existingUserMember = await this.conversationMemberModel.findOne({
@@ -531,36 +535,19 @@ export class RoomService {
       return { roomId: room._id, admin: null, pending: true };
     }
 
+    // Có admin online, tạo phòng và gán admin
     const assignedAdmin = onlineAdmins[0];
-    // 2. Chặn tạo nhiều phòng active với cùng admin
-    const existingActiveRoom = await this.conversationModel.findOne({
+    const room = await this.conversationModel.create({
+      name: `Hỗ trợ: ${userName}`,
       type: 'private',
-      memberIds: { $all: [userId, assignedAdmin._id], $size: 2 },
-      isDeleted: false,
+      creatorId: new Types.ObjectId(userId),
+      memberIds: [userId, assignedAdmin._id],
+      assignedAdmins: [assignedAdmin._id],
+      currentAdminId: assignedAdmin._id,
+      isTemporary: true,
       isActive: true,
       pending: false,
     });
-    if (existingActiveRoom) {
-      throw new BadRequestException('Bạn đã có phòng hỗ trợ với admin này. Vui lòng sử dụng phòng hiện tại!');
-    }
-    // Tìm hoặc tạo phòng 1-1
-    let room = await this.conversationModel.findOne({
-      type: 'private',
-      memberIds: { $all: [userId, assignedAdmin._id], $size: 2 },
-    });
-
-    if (!room) {
-      room = await this.conversationModel.create({
-        name: `Hỗ trợ: ${userName}`,
-        type: 'private',
-        creatorId: new Types.ObjectId(userId),
-        memberIds: [userId, assignedAdmin._id],
-        assignedAdmins: [assignedAdmin._id],
-        currentAdminId: assignedAdmin._id,
-        isTemporary: true,
-        isActive: true,
-      });
-    }
     // Đảm bảo user là member trong ConversationMember
     const existingUserMember = await this.conversationMemberModel.findOne({
       userId: new Types.ObjectId(userId),
@@ -589,7 +576,7 @@ export class RoomService {
     }
     // Set timeout chờ admin phản hồi (5 phút)
     await this.redisClient.setex(`support:room:${String(room._id)}:waiting_admin`, 300, String(assignedAdmin._id));
-    return { roomId: room._id, admin: assignedAdmin };
+    return { roomId: room._id, admin: assignedAdmin, pending: false };
   }
 
   async assignPendingRoomsToAdmins() {
@@ -816,6 +803,39 @@ export class RoomService {
     return result;
   }
 
+  /**
+   * Lấy tất cả các phòng hỗ trợ đang pending (chưa có admin), kèm thông tin user
+   */
+  async getAllPendingSupportRooms(): Promise<Array<{ roomId: string; userId?: string; userName: string; userEmail: string }>> {
+    const pendingRooms = await this.conversationModel.find({
+      pending: true,
+      isActive: true,
+      isDeleted: false,
+      type: 'private',
+    });
+    const result: Array<{ roomId: string; userId?: string; userName: string; userEmail: string }> = [];
+    for (const room of pendingRooms) {
+      // Lấy userId là thành viên duy nhất (chưa có admin)
+      const memberIds = room.memberIds.map((id) => id.toString());
+      let userId: string | undefined = undefined;
+      if (memberIds.length === 1) {
+        userId = memberIds[0];
+      } else if (room.currentAdminId) {
+        userId = memberIds.find((id) => id !== room.currentAdminId.toString());
+      } else {
+        userId = memberIds[0];
+      }
+      const user = userId ? await this.userModel.findById(userId) : null;
+      result.push({
+        roomId: String(room._id),
+        userId: userId || undefined,
+        userName: user?.name || user?.email || userId || '',
+        userEmail: user?.email || '',
+      });
+    }
+    return result;
+  }
+
   async getAllUsersWithPagination(query: PaginationQueryDto & { conversationId?: string }): Promise<{
     success: boolean;
     data: any[];
@@ -827,7 +847,6 @@ export class RoomService {
     const limit = Number(query.limit) || 20;
     let filter: FilterQuery<UserDocument> = {};
     if (query.conversationId) {
-      console.log('BE getAllUsersWithPagination received conversationId:', query.conversationId, typeof query.conversationId);
       // Ưu tiên lấy memberIds từ Conversation
       const conversation = await this.conversationModel.findById(query.conversationId).select('memberIds');
       let memberIds: string[] = [];

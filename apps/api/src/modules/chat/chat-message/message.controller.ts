@@ -21,7 +21,6 @@ export class MessageController {
   // 1. Gửi tin nhắn mới
   @Post()
   async createMessage(@Body() createMessageDto: CreateMessageDto, @Query('userId') userId: string, @Query('roomId') roomId: string) {
-    console.log('[DEBUG] API nhận body:', createMessageDto, 'userId:', userId, 'roomId:', roomId);
     // Nếu có fileData (base64), fileName, fileType thì xử lý upload như handler
     if (createMessageDto.fileData) {
       const buffer = Buffer.from(createMessageDto.fileData, 'base64');
@@ -44,7 +43,6 @@ export class MessageController {
       delete createMessageDto.fileData;
     }
     const message = await this.messageService.createMessage(createMessageDto, userId, roomId);
-    console.log(message);
     return { success: true, data: message };
   }
 

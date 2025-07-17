@@ -5,7 +5,6 @@ import { Row, Col, message } from "antd";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
 import WelcomeSection from "@web/components/home/WelcomeSection";
-import ConnectSection from "@web/components/home/ConnectSection";
 import RightSidebar from "@web/components/home/RightSidebar";
 
 export default function Home() {
@@ -43,8 +42,7 @@ export default function Home() {
               onStartChat={handleStartChat}
               onFindPeople={handleFindPeople}
             />
-          )}
-          <ConnectSection />
+          )} 
         </Col>
  
         <Col xs={24} lg={6}>

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Typography, Card, Row, Col } from "antd";
+import { Typography, Card, Row, Col, Input } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
 
 import LoadingCard from "./LoadingCard";
@@ -12,7 +12,7 @@ import { useConnectSection } from "./useConnectSection";
 
 const { Title } = Typography;
 
-export default function ConnectSection() {
+export default function ConnectSection({ showSearchBox = false, searchValue = "", onSearchChange }: { showSearchBox?: boolean; searchValue?: string; onSearchChange?: (v: string) => void } = {}) {
   const {
     loading,
     refreshing,
@@ -28,7 +28,7 @@ export default function ConnectSection() {
     contextHolder,
     handleShowMoreOffline,
     showAllOfflineUsers,
-  } = useConnectSection();
+  } = useConnectSection(searchValue);
 
   if (loading) {
     return <LoadingCard />;
@@ -80,6 +80,15 @@ export default function ConnectSection() {
             }
             style={{ minHeight: "400px" }}
           >
+            {showSearchBox && (
+              <Input.Search
+                placeholder="Nhập tên, email hoặc ID người dùng..."
+                value={searchValue}
+                onChange={e => onSearchChange?.(e.target.value)}
+                style={{ marginBottom: 12 }}
+                allowClear
+              />
+            )}
             <UsersList
               onlineUsers={onlineUsers}
               offlineUsers={offlineUsers}

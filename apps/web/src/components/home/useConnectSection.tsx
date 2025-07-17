@@ -23,7 +23,7 @@ const usersCache = new Map<
 >();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-export function useConnectSection() {
+export function useConnectSection(searchValue?: string) {
   const [api, contextHolder] = notification.useNotification();
 
   const allOnline = useChatStore((s) => s.allOnline);
@@ -333,6 +333,17 @@ export function useConnectSection() {
   const offlineUsersLimited = showAllOfflineUsers ? offlineUsers : offlineUsers.slice(0, 10);
   const handleShowMoreOffline = () => setShowAllOfflineUsers(true);
 
+  // Thêm filter khi showSearchBox
+  const filteredUsers = useMemo(() => {
+    if (!searchValue) return users;
+    const v = searchValue.trim().toLowerCase();
+    return users.filter(u =>
+      u.name?.toLowerCase().includes(v) ||
+      u.userId?.toLowerCase().includes(v) ||
+      u.email?.toLowerCase().includes(v)
+    );
+  }, [users, searchValue]);
+
   // Initial fetch
   useEffect(() => {
     fetchUsers();
@@ -393,8 +404,8 @@ export function useConnectSection() {
     error,
     users,
     invitations,
-    onlineUsers,
-    offlineUsers: offlineUsersLimited,
+    onlineUsers: filteredUsers.filter(u => u.isOnline),
+    offlineUsers: filteredUsers.filter(u => !u.isOnline),
     // Actions
     handleSendInvitation,
     handleAcceptInvitation,

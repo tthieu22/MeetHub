@@ -205,4 +205,9 @@ export class ChatService {
   public getActiveAdminRoomPairsByUserId(userId: string) {
     return this.roomService.getActiveAdminRoomPairsByUserId(userId);
   }
+
+  // Lấy tất cả các phòng hỗ trợ đang pending (chưa có admin), kèm thông tin user
+  async getAllPendingSupportRooms() {
+    return await this.roomService.getAllPendingSupportRooms();
+  }
 }

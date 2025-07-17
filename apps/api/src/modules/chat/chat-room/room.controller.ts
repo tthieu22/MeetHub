@@ -32,7 +32,6 @@ export class RoomController {
   // Lấy tất cả user với phân trang
   @Get('all-users')
   async getAllUsers(@Query() query: PaginationQueryDto & { conversationId?: string }) {
-    console.log('Controller getAllUsers received:', query);
     return await this.roomService.getAllUsersWithPagination(query);
   }
 

@@ -71,19 +71,16 @@ export class ConnectionHandler {
     await client.join(`user:${user._id}`);
 
     if (user.role === 'admin') {
-      const assignedRooms = await this.chatService.assignPendingRoomsToAdmins();
-      const assignedRoom = assignedRooms?.[0];
-      if (assignedRoom) {
-        server.to(`user:${assignedRoom.userId}`).emit(WS_RESPONSE_EVENTS.SUPPORT_ROOM_ASSIGNED, {
-          roomId: String(assignedRoom.roomId),
-          admin: {
-            _id: user._id,
-            name: user.name,
-          },
-        });
+      // Gửi notification cho admin về các phòng pending
+      const pendingRooms = (await this.chatService.getAllPendingSupportRooms()) as Array<{ roomId: string; userId: string; userName: string; userEmail: string }>;
+      for (const pending of pendingRooms) {
         server.to(`user:${user._id}`).emit(WS_RESPONSE_EVENTS.SUPPORT_TICKET_ASSIGNED, {
-          roomId: String(assignedRoom.roomId),
-          userId: String(assignedRoom.userId),
+          roomId: pending.roomId,
+          userId: pending.userId,
+          userName: pending.userName,
+          userEmail: pending.userEmail,
+          message: 'Yêu cầu hỗ trợ mới đang chờ admin',
+          code: 'PENDING_SUPPORT',
         });
       }
     }

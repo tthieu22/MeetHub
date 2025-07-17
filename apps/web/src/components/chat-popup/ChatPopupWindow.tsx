@@ -26,6 +26,7 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
   const rooms = useChatStore((s) => s.rooms);
   const room = rooms.find(r => r.lastMessage?.conversationId === conversationId);
   const setAllMember = useChatStore((s) => s.setAllMember);
+  const setCurrentRoomId = useChatStore((s) => s.setCurrentRoomId);
 
   // State cho file, reply
   const [file, setFile] = useState<File | null>(null);
@@ -74,6 +75,12 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
       socket.off("room_joined", handleRoomJoined);
     };
   }, [socket, conversationId, setAllMember]);
+
+  useEffect(() => {
+    if (conversationId) {
+      setCurrentRoomId(conversationId);
+    }
+  }, [conversationId, setCurrentRoomId]);
 
   // Gửi tin nhắn
   const handleSend = useCallback(async (text: string, file?: File) => {
@@ -189,6 +196,7 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
           membersArr.map((m) => {
             const member = m as Record<string, unknown>;
             const user = member['userId'];
+            const role = member['role'] as string | undefined;
             if (typeof user === 'object' && user !== null) {
               const u = user as { _id: string; name?: string; email?: string; avatarURL?: string; avatar?: string };
               return [
@@ -199,6 +207,7 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
                   email: u.email || '',
                   avatarURL: u.avatarURL || u.avatar || '',
                   isOnline: false,
+                  role,
                 }
               ];
             } else {
@@ -210,12 +219,13 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
                   email: '',
                   avatarURL: '',
                   isOnline: false,
+                  role,
                 }
               ];
             }
           })
         ).values()
-      ); 
+      );
       setAllMember(conversationId, normalized as UsersOnline[]);
     } catch {}
     setShowMembers(true);
@@ -261,6 +271,7 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
         onlineUsers={onlineUsers}
         conversationId={conversationId} 
         handleGetMember={handleShowMembers}
+        currentUserId={currentUser?._id}
       />
     </div>
   );

@@ -13,9 +13,12 @@ interface ChatRoomMembersModalProps {
   allUsers?: Array<{ userId: string; name: string; email: string; avatarURL?: string }>;
   conversationId?: string;
   handleGetMember?: () => void;
+  currentUserId?: string;
 }
 
-const ChatRoomMembersModal: React.FC<ChatRoomMembersModalProps> = ({ open, onClose, members, onlineUsers, onAddMemberClick, allUsers, conversationId, handleGetMember }) => {
+type UsersOnlineWithRole = UsersOnline & { role?: string };
+
+const ChatRoomMembersModal: React.FC<ChatRoomMembersModalProps> = ({ open, onClose, members, onlineUsers, onAddMemberClick, allUsers, conversationId, handleGetMember, currentUserId }) => {
   const [showSelectUsersModal, setShowSelectUsersModal] = useState(false);
   const [selectedToRemove, setSelectedToRemove] = useState<string[]>([]);
   const [removing, setRemoving] = useState(false);
@@ -50,6 +53,8 @@ const ChatRoomMembersModal: React.FC<ChatRoomMembersModalProps> = ({ open, onClo
       }
     }
   };
+  // Kiểm tra role admin
+  const isAdmin = (members as UsersOnlineWithRole[]).some(m => m.userId === currentUserId && m.role === 'admin');
   return (
     <>
       <div style={{
@@ -76,15 +81,17 @@ const ChatRoomMembersModal: React.FC<ChatRoomMembersModalProps> = ({ open, onClo
         {members.length === 0 && <div>Không có thành viên</div>}
         {members.length > 0 && (
           <>
-            <div style={{marginBottom:8}}>
-              <button disabled={selectedToRemove.length === 0 || removing} onClick={handleRemoveMembers} style={{padding:'4px 12px',borderRadius:4,background:'#ff4d4f',color:'#fff',border:'none',cursor:'pointer',fontWeight:500}}>
-                Xoá thành viên đã chọn
-              </button>
-            </div>
+            {isAdmin && (
+              <div style={{marginBottom:8}}>
+                <button disabled={selectedToRemove.length === 0 || removing} onClick={handleRemoveMembers} style={{padding:'4px 12px',borderRadius:4,background:'#ff4d4f',color:'#fff',border:'none',cursor:'pointer',fontWeight:500}}>
+                  Xoá thành viên đã chọn
+                </button>
+              </div>
+            )}
             {/* Online trước */}
             {members.filter(m => onlineUsers[m.userId]).map(m => (
               <div key={m.userId} style={{color:'#1890ff',fontWeight:500,marginBottom:4,display:'flex',alignItems:'center'}}>
-                <input type="checkbox" checked={selectedToRemove.includes(m.userId)} onChange={() => handleToggleRemove(m.userId)} style={{marginRight:8}} />
+                {isAdmin && <input type="checkbox" checked={selectedToRemove.includes(m.userId)} onChange={() => handleToggleRemove(m.userId)} style={{marginRight:8}} />}
                 <span style={{marginRight:8,display:'inline-block',width:8,height:8,borderRadius:4,background:'#52c41a'}}></span>
                 {m.name || m.email}
                 <span style={{fontSize:12,marginLeft:6}}>(Online)</span>
@@ -93,7 +100,7 @@ const ChatRoomMembersModal: React.FC<ChatRoomMembersModalProps> = ({ open, onClo
             {/* Offline sau */}
             {members.filter(m => !onlineUsers[m.userId]).map(m => (
               <div key={m.userId} style={{color:'#888',marginBottom:4,display:'flex',alignItems:'center'}}>
-                <input type="checkbox" checked={selectedToRemove.includes(m.userId)} onChange={() => handleToggleRemove(m.userId)} style={{marginRight:8}} />
+                {isAdmin && <input type="checkbox" checked={selectedToRemove.includes(m.userId)} onChange={() => handleToggleRemove(m.userId)} style={{marginRight:8}} />}
                 <span style={{marginRight:8,display:'inline-block',width:8,height:8,borderRadius:4,background:'#ccc'}}></span>
                 {m.name || m.email}
                 <span style={{fontSize:12,marginLeft:6}}>(Offline)</span>

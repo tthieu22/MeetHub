@@ -30,6 +30,7 @@ import { ChatPopupList } from "@web/components/chat-popup";
 import { useChatStore } from "@web/store/chat.store";
 import { Badge } from "antd";
 import ChatPopups from "@web/components/chat-popup/ChatPopups";
+import ChatWithAdminButton from "@web/components/ChatWithAdminButton";
 
 const UserAvatar = memo(() => {
   const { logout, currentUser } = useUserStore();
@@ -41,6 +42,7 @@ const UserAvatar = memo(() => {
   const [form] = Form.useForm();
   const [newAvatarFile, setNewAvatarFile] = useState<File | null>(null);
   const [previewAvatarURL, setPreviewAvatarURL] = useState<string>("");  
+  const router = useRouter();
   useEffect(() => {
     const fetchMe = async () => {
       try {
@@ -55,11 +57,11 @@ const UserAvatar = memo(() => {
 
     fetchMe();
   }, [form]);
-
   const handleLogout = useCallback(() => {
     disconnect();
     logout();
-  }, [disconnect, logout]);
+    router.push('/login');  
+  }, [disconnect, logout, router]);
 
   const handleSave = async () => {
     try {
@@ -232,6 +234,16 @@ const Header = memo(() => {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [chatOpen, socket, rooms]);
 
+  // Khi rooms thay đổi, lấy online cho từng phòng
+  useEffect(() => {
+    if (!socket || !rooms || rooms.length === 0) return;
+    rooms.forEach(room => {
+      if (room.roomId) {
+        socket.emit("get_room_online_members", { roomId: room.roomId });
+      }
+    });
+  }, [rooms, socket]);
+
   // Đếm tổng số tin nhắn chưa đọc
   const totalUnread = Object.values(unreadCounts || {}).reduce((a, b) => a + b, 0);
 
@@ -307,6 +319,8 @@ const Header = memo(() => {
             )}
           </div>
         )}
+        {/* Nút chat với admin */}
+        {currentUser && <ChatWithAdminButton />}
         {/* {currentUser && <UnreadCountBadge />} */}
         {currentUser && <ConnectionStatus />}
         {currentUser && <UserAvatar />}

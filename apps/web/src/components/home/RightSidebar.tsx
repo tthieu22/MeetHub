@@ -9,7 +9,7 @@ import {
   ScheduleOutlined,
 } from "@ant-design/icons";
 import CustomButton from "@web/components/CustomButton";
-
+import ConnectSection from "@web/components/home/ConnectSection";
 interface RightSidebarProps {
   onBookRoom: () => void;
   onStartChat: () => void;
@@ -22,6 +22,8 @@ export default function RightSidebar({
   onFindPeople,
 }: RightSidebarProps) {
   const [loading, setLoading] = useState(true);
+  const [showSearchBox, setShowSearchBox] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
 
   useEffect(() => {
     // Simulate loading time
@@ -31,6 +33,12 @@ export default function RightSidebar({
 
     return () => clearTimeout(timer);
   }, []);
+
+  const handleFindPeople = () => {
+    setShowSearchBox(true);
+    setSearchValue("");
+    onFindPeople();
+  };
 
   if (loading) {
     return (
@@ -64,14 +72,19 @@ export default function RightSidebar({
           <CustomButton icon={<MessageOutlined />} block onClick={onStartChat}>
             New Chat
           </CustomButton>
-          <CustomButton icon={<SearchOutlined />} block onClick={onFindPeople}>
+          <CustomButton icon={<SearchOutlined />} block onClick={handleFindPeople}>
             Find People
           </CustomButton>
           <CustomButton icon={<ScheduleOutlined />} block>
             My Bookings
           </CustomButton>
         </Space>
-      </Card>
+      </Card> 
+      <ConnectSection
+        showSearchBox={showSearchBox}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+      />
     </>
   );
 }
