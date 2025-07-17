@@ -12,7 +12,11 @@ interface ChatPopupListProps {
   onClose?: () => void;
 }
 
-const ChatPopupList: React.FC<ChatPopupListProps> = ({ rooms, onRoomSelect, onClose }) => {
+const ChatPopupList: React.FC<ChatPopupListProps> = ({
+  rooms,
+  onRoomSelect,
+  onClose,
+}) => {
   const socket = useWebSocketStore((s) => s.socket);
   const setUnreadCount = useChatStore((s) => s.setUnreadCount);
   const currentUser = useUserStore((s) => s.currentUser);
@@ -36,19 +40,21 @@ const ChatPopupList: React.FC<ChatPopupListProps> = ({ rooms, onRoomSelect, onCl
   return (
     <List
       itemLayout="horizontal"
-      dataSource={
-        [...rooms].sort((a, b) => {
-          // Phòng có unreadCount > 0 và lastMessage mới nhất lên đầu
-          const aUnread = a.unreadCount || 0;
-          const bUnread = b.unreadCount || 0;
-          const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
-          const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
-          if (aUnread > 0 && bUnread === 0) return -1;
-          if (aUnread === 0 && bUnread > 0) return 1;
-          // Nếu cả hai đều có hoặc đều không có unread, so sánh thời gian
-          return bTime - aTime;
-        })
-      }
+      dataSource={[...rooms].sort((a, b) => {
+        // Phòng có unreadCount > 0 và lastMessage mới nhất lên đầu
+        const aUnread = a.unreadCount || 0;
+        const bUnread = b.unreadCount || 0;
+        const aTime = a.lastMessage?.createdAt
+          ? new Date(a.lastMessage.createdAt).getTime()
+          : 0;
+        const bTime = b.lastMessage?.createdAt
+          ? new Date(b.lastMessage.createdAt).getTime()
+          : 0;
+        if (aUnread > 0 && bUnread === 0) return -1;
+        if (aUnread === 0 && bUnread > 0) return 1;
+        // Nếu cả hai đều có hoặc đều không có unread, so sánh thời gian
+        return bTime - aTime;
+      })}
       style={{ padding: 0, width: "100%", overflowX: "hidden" }}
       renderItem={(room) => {
         const onlineCount = room.onlineMemberIds?.length || 0;
@@ -59,7 +65,7 @@ const ChatPopupList: React.FC<ChatPopupListProps> = ({ rooms, onRoomSelect, onCl
             onClick={() => {
               if (socket && room.roomId) {
                 socket.emit("mark_room_read", { roomId: room.roomId });
-                setUnreadCount(room.roomId, 0); 
+                setUnreadCount(room.roomId, 0);
               }
               onRoomSelect?.(room.roomId);
               if (onClose) setTimeout(onClose, 500);
@@ -73,12 +79,33 @@ const ChatPopupList: React.FC<ChatPopupListProps> = ({ rooms, onRoomSelect, onCl
             }}
           >
             <List.Item.Meta
-              avatar={<Avatar icon={<UserOutlined />} style={{ background: "#bfbfbf" }} />}
+              avatar={
+                <Avatar
+                  icon={<UserOutlined />}
+                  style={{ background: "#bfbfbf" }}
+                />
+              }
               title={
-                <span style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    fontSize: 14,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    display: "block",
+                  }}
+                >
                   {room.name}
                   {unread > 0 && (
-                    <span style={{ color: "#f5222d", fontWeight: 500, marginLeft: 8, fontSize: 12 }}>
+                    <span
+                      style={{
+                        color: "#f5222d",
+                        fontWeight: 500,
+                        marginLeft: 8,
+                        fontSize: 12,
+                      }}
+                    >
                       {unread} chưa đọc
                     </span>
                   )}
@@ -86,7 +113,13 @@ const ChatPopupList: React.FC<ChatPopupListProps> = ({ rooms, onRoomSelect, onCl
               }
               description={
                 <div style={{ fontSize: 12, color: lastMsg ? "#333" : "#aaa" }}>
-                  <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div
+                    style={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
                     {lastMsg ? lastMsg.text : "Chưa có tin nhắn"}
                     {lastMsg?.createdAt && (
                       <span style={{ marginLeft: 8, color: "#888" }}>
@@ -105,4 +138,4 @@ const ChatPopupList: React.FC<ChatPopupListProps> = ({ rooms, onRoomSelect, onCl
   );
 };
 
-export default React.memo(ChatPopupList); 
+export default React.memo(ChatPopupList);

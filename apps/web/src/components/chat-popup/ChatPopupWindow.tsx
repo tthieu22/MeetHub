@@ -1,5 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
-import { useRoomMessages, useRoomAllMembers } from "@web/store/selectors/chatSelectors";
+import {
+  useRoomMessages,
+  useRoomAllMembers,
+} from "@web/store/selectors/chatSelectors";
 import { useChatStore } from "@web/store/chat.store";
 import { useWebSocketStore } from "@web/store/websocket.store";
 import chatApiService from "@web/services/api/chat.api";
@@ -10,6 +13,7 @@ import ChatPopupHeader from "./ChatPopupHeader";
 import { useUserStore } from "@web/store/user.store";
 import { roomChatApiService } from "@web/services/api/room.chat.api";
 import ChatRoomMembersModal from "./ChatRoomMembersModal";
+import { webSocketService } from "@web/services/websocket/websocket.service";
 
 interface ChatPopupWindowProps {
   conversationId: string;
@@ -17,16 +21,25 @@ interface ChatPopupWindowProps {
   onClose?: () => void;
 }
 
-export default function ChatPopupWindow({ conversationId, index = 0, onClose }: ChatPopupWindowProps) {
+export default function ChatPopupWindow({
+  conversationId,
+  index = 0,
+  onClose,
+}: ChatPopupWindowProps) {
   const messages = useRoomMessages(conversationId);
   const setMessages = useChatStore((s) => s.setMessages);
   const addMessage = useChatStore((s) => s.addMessage);
   const socket = useWebSocketStore((s) => s.socket);
   const currentUser = useUserStore((s) => s.currentUser);
   const rooms = useChatStore((s) => s.rooms);
-  const room = rooms.find(r => r.lastMessage?.conversationId === conversationId);
+  const room = rooms.find(
+    (r) => r.lastMessage?.conversationId === conversationId
+  );
   const setAllMember = useChatStore((s) => s.setAllMember);
   const setCurrentRoomId = useChatStore((s) => s.setCurrentRoomId);
+  const updateRoom = useChatStore((s) => s.updateRoom);
+  const updateUnreadCount = useChatStore((s) => s.updateUnreadCount);
+  const unreadCounts = useChatStore((s) => s.unreadCounts);
 
   // State cho file, reply
   const [file, setFile] = useState<File | null>(null);
@@ -36,7 +49,7 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
   // State cho hiển thị thành viên, danh sách thành viên, online
   const [showMembers, setShowMembers] = useState(false);
   const allMember = useRoomAllMembers(conversationId);
-  const onlineUsers = useChatStore(s => s.onlineUsers);
+  const onlineUsers = useChatStore((s) => s.onlineUsers);
 
   // Lấy tin nhắn qua API khi mở popup
   useEffect(() => {
@@ -49,17 +62,65 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
   useEffect(() => {
     if (!socket) return;
     const handleNewMessage = (msg: Message) => {
+      const myId = currentUser?._id;
+      const senderId =
+        typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
+      // Chỉ update lastMessage nếu khác messageId hiện tại
       if (msg.conversationId === conversationId) {
         addMessage(conversationId, msg);
+        if (msg._id !== room?.lastMessage?.messageId) {
+          updateRoom(conversationId, {
+            lastMessage: {
+              messageId: msg._id,
+              conversationId: msg.conversationId,
+              senderId: senderId,
+              senderEmail:
+                typeof msg.senderId === "object" && msg.senderId !== null
+                  ? msg.senderId.email
+                  : undefined,
+              senderName:
+                typeof msg.senderId === "object" && msg.senderId !== null
+                  ? msg.senderId.name ||
+                    msg.senderId.username ||
+                    msg.senderId.email
+                  : undefined,
+              text: msg.text,
+              createdAt: msg.createdAt,
+              fileUrl: msg.fileUrl || undefined,
+              fileName: msg.fileName || undefined,
+              fileType: msg.fileType || undefined,
+            },
+          });
+        }
+        // Chỉ đánh dấu đã đọc nếu là tin nhắn của mình
+        if (myId && senderId === myId) {
+          webSocketService.emitMarkRoomRead(conversationId);
+          updateUnreadCount(conversationId, 0);
+        }
+      } else {
+        // Nếu popup này không phải phòng nhận tin nhắn, chỉ tăng unread nếu là tin nhắn của người khác
+        if (myId && senderId !== myId) {
+          const prev = unreadCounts[msg.conversationId] || 0;
+          updateUnreadCount(msg.conversationId, prev + 1);
+        }
       }
     };
     socket.on("new_message", handleNewMessage);
-    socket.on("message_created", handleNewMessage);  
+    socket.on("message_created", handleNewMessage);
     return () => {
       socket.off("new_message", handleNewMessage);
-      socket.off("message_created", handleNewMessage); 
+      socket.off("message_created", handleNewMessage);
     };
-  }, [socket, conversationId, addMessage]);
+  }, [
+    socket,
+    conversationId,
+    addMessage,
+    currentUser?._id,
+    updateRoom,
+    updateUnreadCount,
+    unreadCounts,
+    room?.lastMessage?.messageId,
+  ]);
 
   // Join room khi mở popup hoặc đổi conversationId
   useEffect(() => {
@@ -79,77 +140,131 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
   useEffect(() => {
     if (conversationId) {
       setCurrentRoomId(conversationId);
+      updateUnreadCount(conversationId, 0);
     }
-  }, [conversationId, setCurrentRoomId]);
+  }, [conversationId, setCurrentRoomId, updateUnreadCount]);
 
   // Gửi tin nhắn
-  const handleSend = useCallback(async (text: string, file?: File) => {
-    if (!text.trim() && !file) return;
-    if (!currentUser) return;
-    if (socket && isJoined) {
-      let fileData: string | undefined = undefined;
-      let fileName: string | undefined = undefined;
-      let fileType: string | undefined = undefined;
-      if (file) {
-        fileName = file.name;
-        fileType = file.type;
-        fileData = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve((reader.result as string).split(",")[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
+  const handleSend = useCallback(
+    async (text: string, file?: File) => {
+      if (!text.trim() && !file) return;
+      if (!currentUser) return;
+      if (socket && isJoined) {
+        let fileData: string | undefined = undefined;
+        let fileName: string | undefined = undefined;
+        let fileType: string | undefined = undefined;
+        if (file) {
+          fileName = file.name;
+          fileType = file.type;
+          fileData = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () =>
+              resolve((reader.result as string).split(",")[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        }
+        socket.emit("create_message", {
+          roomId: conversationId,
+          text,
+          fileData,
+          fileName,
+          fileType,
+          replyTo: replyTo?._id,
         });
-      }
-      socket.emit("create_message", {
-        roomId: conversationId,
-        text,
-        fileData,
-        fileName,
-        fileType,
-        replyTo: replyTo?._id,
-      });
-    } else {
-      let fileData: string | undefined = undefined;
-      let fileName: string | undefined = undefined;
-      let fileType: string | undefined = undefined;
-      if (file) {
-        fileName = file.name;
-        fileType = file.type;
-        fileData = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve((reader.result as string).split(",")[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
+        webSocketService.emitMarkRoomRead(conversationId);
+        // Cập nhật lastMessage
+        updateRoom(conversationId, {
+          lastMessage: {
+            messageId: "temp", // Có thể dùng tạm, sẽ được cập nhật lại khi nhận từ server
+            conversationId,
+            senderId: currentUser._id,
+            senderEmail: currentUser.email,
+            senderName:
+              currentUser.name || currentUser.username || currentUser.email,
+            text,
+            createdAt: new Date().toISOString(),
+            fileUrl: undefined,
+            fileName: file?.name,
+            fileType: file?.type,
+          },
         });
+        updateUnreadCount(conversationId, 0);
+      } else {
+        let fileData: string | undefined = undefined;
+        let fileName: string | undefined = undefined;
+        let fileType: string | undefined = undefined;
+        if (file) {
+          fileName = file.name;
+          fileType = file.type;
+          fileData = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () =>
+              resolve((reader.result as string).split(",")[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        }
+        const res = await chatApiService.sendMessage({
+          roomId: conversationId,
+          text,
+          fileName,
+          fileType,
+          fileData,
+          replyTo: replyTo?._id,
+          userId: currentUser._id,
+        });
+        if (res && res.data && res.data._id) {
+          addMessage(conversationId, res.data);
+          webSocketService.emitMarkRoomRead(conversationId);
+          // Cập nhật lastMessage
+          updateRoom(conversationId, {
+            lastMessage: {
+              messageId: res.data._id,
+              conversationId,
+              senderId: currentUser._id,
+              senderEmail: currentUser.email,
+              senderName:
+                currentUser.name || currentUser.username || currentUser.email,
+              text: res.data.text,
+              createdAt: res.data.createdAt,
+              fileUrl: res.data.fileUrl,
+              fileName: res.data.fileName,
+              fileType: res.data.fileType,
+            },
+          });
+          updateUnreadCount(conversationId, 0);
+        }
       }
-      const res = await chatApiService.sendMessage({
-        roomId: conversationId,
-        text,
-        fileName,
-        fileType,
-        fileData,
-        replyTo: replyTo?._id,
-        userId: currentUser._id,
-      });
-      if (res && res.data && res.data._id) {
-        addMessage(conversationId, res.data);
-      }
-    }
-    setFile(null);
-    setReplyTo(null);
-  }, [socket, conversationId, replyTo, isJoined, currentUser, addMessage]);
+      setFile(null);
+      setReplyTo(null);
+    },
+    [
+      socket,
+      conversationId,
+      replyTo,
+      isJoined,
+      currentUser,
+      addMessage,
+      updateRoom,
+      updateUnreadCount,
+    ]
+  );
 
   // Xoá hàm handleEmoji, handleFile, biến input
 
   // Gửi emoji reaction
-  const handleReact = useCallback((message: Message, emoji: string) => {
-    if (socket) {
-      socket.emit("react_to_message", {
-        messageId: message._id,
-        emoji,
-      });
-    }
-  }, [socket]);
+  const handleReact = useCallback(
+    (message: Message, emoji: string) => {
+      if (socket) {
+        socket.emit("react_to_message", {
+          messageId: message._id,
+          emoji,
+        });
+      }
+    },
+    [socket]
+  );
 
   // Chọn reply
   const handleReply = (msg: Message) => {
@@ -169,7 +284,8 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
   const handleReport = () => {};
   const handleLoadMore = async () => {
     const firstMsg = messages[0];
-    if (!firstMsg || typeof firstMsg !== "object" || !('createdAt' in firstMsg)) return;
+    if (!firstMsg || typeof firstMsg !== "object" || !("createdAt" in firstMsg))
+      return;
 
     const res = await chatApiService.getMessages({
       roomId: conversationId,
@@ -178,49 +294,52 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
 
     // Nếu có tin nhắn mới, prepend vào messages
     if (res && Array.isArray(res.data) && res.data.length > 0) {
-      setMessages(conversationId, [
-        ...res.data,
-        ...messages,
-      ]);
-    } 
+      setMessages(conversationId, [...res.data, ...messages]);
+    }
   };
 
   // Hiển thị danh sách thành viên khi click
   const handleShowMembers = async () => {
     try {
       const res = await roomChatApiService.getRoomMembers(conversationId);
-      const membersArr: unknown[] = Array.isArray(res) ? res : []; 
-      membersArr.forEach((m, i) => console.log('member', i, m));
+      const membersArr: unknown[] = Array.isArray(res) ? res : [];
+      membersArr.forEach((m, i) => console.log("member", i, m));
       const normalized = Array.from(
         new Map(
           membersArr.map((m) => {
             const member = m as Record<string, unknown>;
-            const user = member['userId'];
-            const role = member['role'] as string | undefined;
-            if (typeof user === 'object' && user !== null) {
-              const u = user as { _id: string; name?: string; email?: string; avatarURL?: string; avatar?: string };
+            const user = member["userId"];
+            const role = member["role"] as string | undefined;
+            if (typeof user === "object" && user !== null) {
+              const u = user as {
+                _id: string;
+                name?: string;
+                email?: string;
+                avatarURL?: string;
+                avatar?: string;
+              };
               return [
                 u._id,
                 {
                   userId: u._id,
-                  name: u.name || u.email || '',
-                  email: u.email || '',
-                  avatarURL: u.avatarURL || u.avatar || '',
+                  name: u.name || u.email || "",
+                  email: u.email || "",
+                  avatarURL: u.avatarURL || u.avatar || "",
                   isOnline: false,
                   role,
-                }
+                },
               ];
             } else {
               return [
                 user as string,
                 {
                   userId: user as string,
-                  name: '',
-                  email: '',
-                  avatarURL: '',
+                  name: "",
+                  email: "",
+                  avatarURL: "",
                   isOnline: false,
                   role,
-                }
+                },
               ];
             }
           })
@@ -232,7 +351,22 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
   };
 
   return (
-    <div style={{ position: "fixed", bottom: 20, right: 20 + (index * 340), zIndex: 9999, width: 320, height: 420, background: "#fff", border: "1px solid #eee", borderRadius: 8, display: "flex", flexDirection: "column", boxShadow: "0 4px 24px rgba(0,0,0,0.12)" }}>
+    <div
+      style={{
+        position: "fixed",
+        bottom: 20,
+        right: 20 + index * 340,
+        zIndex: 9999,
+        width: 320,
+        height: 420,
+        background: "#fff",
+        border: "1px solid #eee",
+        borderRadius: 8,
+        display: "flex",
+        flexDirection: "column",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
+      }}
+    >
       {/* Header popup */}
       <ChatPopupHeader
         roomName={room?.name || "Phòng chat"}
@@ -269,7 +403,7 @@ export default function ChatPopupWindow({ conversationId, index = 0, onClose }: 
         onClose={() => setShowMembers(false)}
         members={allMember}
         onlineUsers={onlineUsers}
-        conversationId={conversationId} 
+        conversationId={conversationId}
         handleGetMember={handleShowMembers}
         currentUserId={currentUser?._id}
       />

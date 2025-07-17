@@ -9,7 +9,7 @@ export const useChat = () => {
     unreadCounts,
     currentRoomId,
     onlineUsers,
-    setCurrentRoom,
+    setCurrentRoomId,
     // setMessages,
     // addMessage,
     // updateUnreadCount,
@@ -103,7 +103,7 @@ export const useChat = () => {
     (roomId: string) => {
       if (isConnected) {
         wsJoinRoom(roomId);
-        setCurrentRoom(roomId);
+        setCurrentRoomId(roomId);
 
         // Load messages for the room
         loadMessages(roomId);
@@ -112,13 +112,13 @@ export const useChat = () => {
         loadUnreadCount(roomId);
       }
     },
-    [isConnected, wsJoinRoom, setCurrentRoom, loadMessages, loadUnreadCount]
+    [isConnected, wsJoinRoom, setCurrentRoomId, loadMessages, loadUnreadCount]
   );
 
   // Leave current room
   const leaveCurrentRoom = useCallback(() => {
-    setCurrentRoom(null);
-  }, [setCurrentRoom]);
+    setCurrentRoomId("");
+  }, [setCurrentRoomId]);
 
   // Check if user is online
   const isUserOnline = useCallback(

@@ -4,8 +4,9 @@ interface User {
   _id: string;
   email: string;
   username?: string;
+  name?: string;
   avatar?: string;
-  role?: string; // thêm dòng này
+  role?: string;
 }
 
 interface UserState {
