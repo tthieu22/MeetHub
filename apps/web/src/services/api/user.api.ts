@@ -37,7 +37,7 @@ export interface AllUserRespon {
   page: number;
   limit: number;
   totalPages: number;
-  data: [Me];
+  data: Me[];
 }
 class UserApiService {
   async getMeAPI(): Promise<Me> {

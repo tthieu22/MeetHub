@@ -20,6 +20,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import EditUserModal from "./user.model";
+import UserFilter, { UserFilterParams } from "./UserFilter";
 
 export enum UserRole {
   ADMIN = "admin",
@@ -31,7 +32,7 @@ export interface DataType {
   name: string;
   email: string;
   role: UserRole;
-  avatarURL?: string;
+  avatarURL?: string | undefined;
   isActive: boolean;
 }
 interface UserTableComponentProps {
@@ -56,26 +57,40 @@ const UserTableComponent: React.FC<UserTableComponentProps> = ({
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
+  const [filterParams, setFilterParams] = useState<UserFilterParams>({
+    page: 1,
+    limit: 10,
+    sort: JSON.stringify({ createdAt: -1 }),
+  });
   const [api, contextHolder] = notification.useNotification();
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (params?: UserFilterParams) => {
     try {
       setLoading(true);
-      const res = await userApiService.getUsers({
-        page,
-        limit: 10,
-        sort: JSON.stringify({ createdAt: -1 }),
-      });
-      const transformed: DataType[] = res.data.map((user) => ({
-        key: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isActive: user.isActive,
-        avatarURL: user.avatarURL ?? "",
-      }));
-      setData(transformed);
-      setTotal(res.total);
+      const queryParams = {
+        page: params?.page || filterParams.page || 1,
+        limit: params?.limit || filterParams.limit || 10,
+        sort: params?.sort || filterParams.sort || JSON.stringify({ createdAt: -1 }),
+        ...(params?.name && { name: params.name }),
+        ...(params?.email && { email: params.email }),
+        ...(params?.role && { role: params.role }),
+        ...(params?.isActive !== undefined && { isActive: params.isActive }),
+      };
+      
+      const res = await userApiService.getUsers(queryParams);
+      
+      if (res.success) {
+        const transformed: DataType[] = res.data.map((user: any) => ({
+          key: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role as UserRole,
+          isActive: user.isActive,
+          avatarURL: user.avatarURL || undefined,
+        }));
+        setData(transformed);
+        setTotal(res.total);
+      }
       setLoading(false);
     } catch (err) {
       setLoading(false);
@@ -86,6 +101,12 @@ const UserTableComponent: React.FC<UserTableComponentProps> = ({
   useEffect(() => {
     fetchUsers();
   }, [page]);
+
+  const handleFilter = (params: UserFilterParams) => {
+    setFilterParams(params);
+    setPage(1); // Reset về trang đầu khi filter
+    fetchUsers(params);
+  };
 
   const deleteUser = async (id: string) => {
     try {
@@ -110,16 +131,22 @@ const UserTableComponent: React.FC<UserTableComponentProps> = ({
     }
     setModalLoading(true);
     try {
-      const res = await userApiService.updateUser(editingUser!.key, values, imageFormData);
+      const res = await userApiService.updateUser(
+        editingUser!.key,
+        values,
+        imageFormData
+      );
       console.log("res", res);
       if (res.success) {
-        api.success({ message: "Cập nhật người dùng thành công", });
+        api.success({ message: "Cập nhật người dùng thành công" });
         fetchUsers();
         setIsModalOpen(false);
         setEditingUser(null);
-      }
-      else {
-        api.error({ message: "Cập nhật người dùng thất bại", description: res.message[0] });
+      } else {
+        api.error({
+          message: "Cập nhật người dùng thất bại",
+          description: res.message[0],
+        });
       }
     } catch (err) {
       api.error({ message: "Cập nhật thất bại" });
@@ -225,12 +252,18 @@ const UserTableComponent: React.FC<UserTableComponentProps> = ({
   ];
 
   return (
-    <div style={{ padding: "24px", background: "#f0f2f5", minHeight: "100vh" }}>
+    <div style={{ minHeight: "100vh" }}>
       {contextHolder}
-      <Card
-        title="Quản lý người dùng"
-        style={{ borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
-      >
+      
+      <UserFilter onFilter={handleFilter} loading={loading} />
+      
+              <Card
+          style={{
+            borderRadius: 12,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+          }}
+          styles={{ body: { padding: "0" } }}
+        >
         <Table<DataType>
           columns={columns}
           dataSource={data}
@@ -240,11 +273,12 @@ const UserTableComponent: React.FC<UserTableComponentProps> = ({
             pageSize: 10,
             onChange: (p) => setPage(p),
           }}
-          rowKey="key"  
+          rowKey="key"
           loading={loading}
+          style={{ minHeight: "400px" }}
         />
         <EditUserModal
-         loading={modalLoading}  
+          loading={modalLoading}
           open={isModalOpen}
           mode={modalMode}
           user={editingUser}

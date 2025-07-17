@@ -65,7 +65,6 @@ export class UsersService {
     totalPages: number;
     data: UserDocument[];
   }> {
-    console.log('heee');
     try {
       const {
         page = 1,
@@ -87,12 +86,18 @@ export class UsersService {
       }
       // Nếu không còn field nào thì sort mặc định
       if (Object.keys(sortObj).length === 0) {
-        sortObj = { fullName: 1 }; // fallback
+        sortObj = { createdAt: -1 };
       }
+
       const pageNum = Math.max(Number(page) || 1, 1);
       const limitNum = Math.max(Number(limit) || 10, 1);
       const skip = (pageNum - 1) * limitNum;
-      const [data, totalRecords] = await Promise.all([this.userDocumentModel.find(filters).sort(sortObj).skip(skip).limit(limitNum).exec(), this.userDocumentModel.countDocuments(filters)]);
+
+      const [data, totalRecords] = await Promise.all([
+        this.userDocumentModel.find(filterObj).sort(sortObj).skip(skip).limit(limitNum).exec(),
+        this.userDocumentModel.countDocuments(filterObj)
+      ]);
+
       const totalPages = Math.ceil(totalRecords / limitNum);
 
       return {
