@@ -13,7 +13,8 @@ import {
   Typography,
   Tag,
   Button,
-  Spin
+  Spin,
+  message
 } from 'antd';
 import { api } from '@/lib/api';
 import moment, { Moment } from 'moment';
@@ -45,6 +46,12 @@ interface User {
   isActive: boolean;
 }
 
+interface ApiResponse {
+  success: boolean;
+  message: string;
+  errors?: any[];
+}
+
 const isValidObjectId = (id: string): boolean => {
   return /^[0-9a-fA-F]{24}$/.test(id);
 };
@@ -61,6 +68,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [apiErrors, setApiErrors] = useState<any>(null);
 
   const fetchCurrentUser = useCallback(async () => {
     try {
@@ -160,6 +168,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
+      setApiErrors(null);
       const values = await form.validateFields();
 
       const startDateTime = values.startDate.clone()
@@ -178,38 +187,22 @@ const BookingForm: React.FC<BookingFormProps> = ({
 
       // Validation checks
       if (startDateTime.isBefore(moment())) {
-        Modal.error({
-          title: 'Lỗi',
-          content: 'Thời gian bắt đầu phải trong tương lai',
-          okText: 'Đã hiểu',
-        });
+        message.error('Thời gian bắt đầu phải trong tương lai');
         return;
       }
 
       if (endDateTime.isBefore(startDateTime)) {
-        Modal.error({
-          title: 'Lỗi',
-          content: 'Thời gian kết thúc phải sau thời gian bắt đầu',
-          okText: 'Đã hiểu',
-        });
+        message.error('Thời gian kết thúc phải sau thời gian bắt đầu');
         return;
       }
 
       if (checkBookingConflict(startDateTime, endDateTime)) {
-        Modal.error({
-          title: 'Lỗi',
-          content: 'Phòng đã được đặt trong khoảng thời gian này',
-          okText: 'Đã hiểu',
-        });
+        message.error('Phòng đã được đặt trong khoảng thời gian này');
         return;
       }
 
       if (!currentUser) {
-        Modal.error({
-          title: 'Lỗi',
-          content: 'Không tìm thấy thông tin người đặt',
-          okText: 'Đã hiểu',
-        });
+        message.error('Không tìm thấy thông tin người đặt');
         return;
       }
 
@@ -226,16 +219,34 @@ const BookingForm: React.FC<BookingFormProps> = ({
 
       try {
         await onSubmit(submitData);
+        message.success('Đặt phòng thành công!');
         form.resetFields();
         onCancel();
       } catch (error: any) {
         // Handle API response error
-        if (error.response?.data?.success === false) {
-          Modal.error({
-            title: 'Lỗi đặt phòng',
-            content: error.response.data.message || 'Đặt phòng thất bại',
-            okText: 'Đã hiểu',
-          });
+        if (error.response?.data) {
+          const responseData: ApiResponse = error.response.data;
+          
+          if (responseData.success === false) {
+            // Hiển thị thông báo lỗi từ server
+            message.error(responseData.message || 'Đặt phòng thất bại');
+            
+            // Nếu có errors chi tiết, hiển thị trên form
+            if (responseData.errors && responseData.errors.length > 0) {
+              const errorFields: any = {};
+              responseData.errors.forEach((err: any) => {
+                if (err.field) {
+                  errorFields[err.field] = {
+                    errors: [new Error(err.message)]
+                  };
+                }
+              });
+              form.setFields(errorFields);
+              setApiErrors(responseData.errors);
+            }
+          } else {
+            throw error;
+          }
         } else {
           throw error;
         }
@@ -243,11 +254,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
     } catch (error: any) {
       console.error('Booking submission error:', error);
       if (!error.response) {
-        Modal.error({
-          title: 'Lỗi',
-          content: error.message || 'Đặt phòng thất bại. Vui lòng thử lại.',
-          okText: 'Đã hiểu',
-        });
+        message.error(error.message || 'Đặt phòng thất bại. Vui lòng thử lại.');
       }
     } finally {
       setSubmitting(false);
@@ -301,6 +308,17 @@ const BookingForm: React.FC<BookingFormProps> = ({
         </div>
       ) : (
         <Form form={form} layout="vertical">
+          {/* Hiển thị lỗi API tổng quan nếu có */}
+          {apiErrors && (
+            <div style={{ marginBottom: 16 }}>
+              {apiErrors.map((err: any, index: number) => (
+                <Text key={index} type="danger" style={{ display: 'block' }}>
+                  {err.message}
+                </Text>
+              ))}
+            </div>
+          )}
+
           <Form.Item 
             name="title" 
             label="Tiêu đề" 

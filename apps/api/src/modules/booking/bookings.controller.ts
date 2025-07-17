@@ -59,7 +59,6 @@ async findAll(
 
   @Get(':id')
   @UseGuards(AuthGuard ,RolesGuard )
-  @Roles(UserRole.ADMIN)
   async findOne(@Param('id') id: string) {
     const booking = await this.bookingService.findOne(id);
     return {

@@ -76,7 +76,7 @@ const Bookings = () => {
     });
   };
 
-  const fetchData = useCallback(async () => {
+  const fetchDataImmediately = useCallback(async () => {
     if (!token) {
       const errorMsg = 'Vui lòng đăng nhập để xem thông tin phòng.';
       setError(errorMsg);
@@ -95,8 +95,8 @@ const Bookings = () => {
         api.get(`${NESTJS_API_URL}/api/rooms/${roomId}`),
         api.get(`${NESTJS_API_URL}/api/bookings/findAll`, {
           params: { 
-            roomId, // Gửi roomId qua query param
-            filter: JSON.stringify({}) // Gửi filter rỗng nếu không có filter khác
+            roomId,
+            filter: JSON.stringify({})
           },
           headers: { Authorization: `Bearer ${token}` },
         }),
@@ -129,17 +129,17 @@ const Bookings = () => {
     }
   }, [token, roomId, NESTJS_API_URL, router]);
 
-  const debouncedFetchData = useMemo(() => _.debounce(fetchData, 300), [fetchData]);
+  const debouncedFetchData = useMemo(() => _.debounce(fetchDataImmediately, 300), [fetchDataImmediately]);
 
   const refreshData = () => {
     setLoading(true);
-    debouncedFetchData();
+    fetchDataImmediately();
   };
 
   useEffect(() => {
-    debouncedFetchData();
+    fetchDataImmediately();
     return () => debouncedFetchData.cancel();
-  }, [debouncedFetchData]);
+  }, [fetchDataImmediately, debouncedFetchData]);
 
   const handleYearChange = (value: number) => {
     setSelectedYear(value);
@@ -243,12 +243,12 @@ const Bookings = () => {
       });
 
       if (response.data.success) {
+        await fetchDataImmediately();
         Modal.success({
           title: 'Thành công',
           content: `${selectedBooking ? 'Cập nhật' : 'Đặt'} phòng thành công!`,
           okText: 'OK',
           onOk: () => {
-            refreshData();
             setIsBookingModalVisible(false);
             setSelectedStartDate(null);
             setSelectedEndDate(null);
@@ -300,11 +300,11 @@ const Bookings = () => {
           );
 
           if (response.data.success) {
+            await fetchDataImmediately();
             Modal.success({
               title: 'Thành công',
               content: 'Hủy đặt phòng thành công!',
               okText: 'OK',
-              onOk: refreshData
             });
           } else {
             throw new Error(response.data.message || 'Hủy đặt phòng thất bại');
@@ -338,11 +338,11 @@ const Bookings = () => {
           );
 
           if (response.data.success) {
+            await fetchDataImmediately();
             Modal.success({
               title: 'Thành công',
               content: 'Xóa đặt phòng thành công!',
               okText: 'OK',
-              onOk: refreshData
             });
           } else {
             throw new Error(response.data.message || 'Xóa đặt phòng thất bại');
