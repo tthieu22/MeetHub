@@ -93,10 +93,8 @@ export class UsersService {
       const limitNum = Math.max(Number(limit) || 10, 1);
       const skip = (pageNum - 1) * limitNum;
 
-      const [data, totalRecords] = await Promise.all([
-        this.userDocumentModel.find(filterObj).sort(sortObj).skip(skip).limit(limitNum).exec(),
-        this.userDocumentModel.countDocuments(filterObj)
-      ]);
+      const filterObj = { ...filters };
+      const [data, totalRecords] = await Promise.all([this.userDocumentModel.find(filterObj).sort(sortObj).skip(skip).limit(limitNum).exec(), this.userDocumentModel.countDocuments(filterObj)]);
 
       const totalPages = Math.ceil(totalRecords / limitNum);
 

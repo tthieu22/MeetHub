@@ -70,15 +70,18 @@ const UserTableComponent: React.FC<UserTableComponentProps> = ({
       const queryParams = {
         page: params?.page || filterParams.page || 1,
         limit: params?.limit || filterParams.limit || 10,
-        sort: params?.sort || filterParams.sort || JSON.stringify({ createdAt: -1 }),
+        sort:
+          params?.sort ||
+          filterParams.sort ||
+          JSON.stringify({ createdAt: -1 }),
         ...(params?.name && { name: params.name }),
         ...(params?.email && { email: params.email }),
         ...(params?.role && { role: params.role }),
         ...(params?.isActive !== undefined && { isActive: params.isActive }),
       };
-      
+
       const res = await userApiService.getUsers(queryParams);
-      
+
       if (res.success) {
         const transformed: DataType[] = res.data.map((user: any) => ({
           key: user._id,
@@ -136,7 +139,6 @@ const UserTableComponent: React.FC<UserTableComponentProps> = ({
         values,
         imageFormData
       );
-      console.log("res", res);
       if (res.success) {
         api.success({ message: "Cập nhật người dùng thành công" });
         fetchUsers();
@@ -254,16 +256,16 @@ const UserTableComponent: React.FC<UserTableComponentProps> = ({
   return (
     <div style={{ minHeight: "100vh" }}>
       {contextHolder}
-      
+
       <UserFilter onFilter={handleFilter} loading={loading} />
-      
-              <Card
-          style={{
-            borderRadius: 12,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-          }}
-          styles={{ body: { padding: "0" } }}
-        >
+
+      <Card
+        style={{
+          borderRadius: 12,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+        }}
+        styles={{ body: { padding: "0" } }}
+      >
         <Table<DataType>
           columns={columns}
           dataSource={data}

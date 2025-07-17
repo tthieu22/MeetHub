@@ -89,7 +89,6 @@ export class UsersController {
     totalPages: number;
     data: UserDocument[];
   }> {
-    console.log(queryParams);
     return this.usersService.findByFilter(queryParams);
   }
 }

@@ -11,15 +11,14 @@ const UserFilterDemo: React.FC = () => {
 
   const handleFilter = (params: UserFilterParams) => {
     setFilterParams(params);
-    console.log("Filter params:", params);
   };
 
   return (
     <div style={{ padding: "20px" }}>
       <Title level={3}>Demo User Filter</Title>
-      
+
       <UserFilter onFilter={handleFilter} />
-      
+
       <Card title="Filter Parameters" style={{ marginTop: "20px" }}>
         <pre>{JSON.stringify(filterParams, null, 2)}</pre>
       </Card>
@@ -27,4 +26,4 @@ const UserFilterDemo: React.FC = () => {
   );
 };
 
-export default UserFilterDemo; 
+export default UserFilterDemo;

@@ -42,7 +42,6 @@ export default function LoginPage() {
   }, []);
 
   const onFinish = async (values: LoginForm) => {
-    console.log("Bắt đầu đăng nhập");
     try {
       setLoading(true);
       const response: LoginResponse = await authApiService.loginAPI(values);

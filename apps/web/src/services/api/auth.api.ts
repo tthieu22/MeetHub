@@ -84,7 +84,6 @@ class AuthApiService {
     newPass: string;
     newPassAgain: string;
   }) {
-    console.log(payload);
     const URL_BACKEND = `/api/password-reset/verify`;
     const response = await axios.post(URL_BACKEND, payload);
     return response;

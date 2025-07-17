@@ -58,8 +58,7 @@ export default function RegisterPage() {
         email,
         code: values.code,
       });
-      console.log(values);
-      console.log(email);
+
       if (res?.success) {
         toast.success("Xác minh thành công!");
         setModalVisible(false);
