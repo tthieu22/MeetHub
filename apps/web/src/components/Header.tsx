@@ -8,6 +8,8 @@ import {
   Form,
   Input,
   Upload,
+  Popover,
+  Spin,
   // message,
 } from "antd";
 import {
@@ -18,6 +20,7 @@ import {
   UploadOutlined,
   // CloseOutlined,
   MessageOutlined,
+  BellOutlined,
 } from "@ant-design/icons";
 import { useUserStore } from "@web/store/user.store";
 import { useWebSocketStore } from "@web/store/websocket.store";
@@ -30,6 +33,10 @@ import { ChatPopupList } from "@web/components/chat-popup";
 import { useChatStore } from "@web/store/chat.store";
 import { Badge } from "antd";
 import ChatPopupWindow from "@web/components/chat-popup/ChatPopupWindow";
+import { NotificationItemComponent } from "./notification/NotificationItemComponent";
+import NotificationList from "./notification/NotificationList";
+import { getMyNotifications, markAllNotificationsRead } from "@web/services/api/notification.api";
+import { useNotification } from "@web/hooks/useNotification";
 
 const UserAvatar = memo(() => {
   const { logout, currentUser } = useUserStore();
@@ -40,7 +47,7 @@ const UserAvatar = memo(() => {
   const [isSaving, setIsSaving] = useState(false);
   const [form] = Form.useForm();
   const [newAvatarFile, setNewAvatarFile] = useState<File | null>(null);
-  const [previewAvatarURL, setPreviewAvatarURL] = useState<string>("");  
+  const [previewAvatarURL, setPreviewAvatarURL] = useState<string>("");
   useEffect(() => {
     const fetchMe = async () => {
       try {
@@ -99,7 +106,7 @@ const UserAvatar = memo(() => {
   const handleBeforeUpload = (file: File) => {
     setNewAvatarFile(file);
     setPreviewAvatarURL(URL.createObjectURL(file));
-    return false; 
+    return false;
   };
 
   const handleCancelEdit = () => {
@@ -201,6 +208,45 @@ const UserAvatar = memo(() => {
   );
 });
 
+const Notification = () => {
+  const [notiOpen, setNotiOpen] = useState(false);
+
+  const { currentUser } = useUserStore();
+  const { notifications, unreadCount, loading, fetchNotifications } = useNotification();
+  
+
+
+  return (
+    <Badge count={unreadCount} size="small">
+      <Popover
+        content={loading ? <Spin /> : <NotificationList notifications={notifications} />}
+        onOpenChange={async (open) => {
+          setNotiOpen(open);
+          if (open) {
+            await markAllNotificationsRead();
+            fetchNotifications();
+          }
+        }}
+        title="Thông báo"
+        trigger="click"
+        placement="bottomRight"
+      >
+        <BellOutlined
+          style={{
+            fontSize: 20,
+            padding: 10,
+            borderRadius: 50,
+            background: notiOpen ? "rgb(196 218 249)" : "#ccc",
+            cursor: "pointer",
+            color: notiOpen ? "#1677ff" : "#000",
+          }}
+          onClick={() => setNotiOpen((v) => !v)}
+        />
+      </Popover>
+    </Badge>
+  );
+};
+
 UserAvatar.displayName = "UserAvatar";
 
 // ------------------- Header Component -------------------
@@ -218,7 +264,7 @@ const Header = memo(() => {
   const handleLogoClick = useCallback(() => {
     router.push("/");
   }, [router]);
- 
+
   useEffect(() => {
     if (!chatOpen) return;
     const handleClick = (e: MouseEvent) => {
@@ -235,7 +281,10 @@ const Header = memo(() => {
   }, [chatOpen, socket, rooms]);
 
   // Đếm tổng số tin nhắn chưa đọc
-  const totalUnread = Object.values(unreadCounts || {}).reduce((a, b) => a + b, 0);
+  const totalUnread = Object.values(unreadCounts || {}).reduce(
+    (a, b) => a + b,
+    0
+  );
 
   return (
     <header
@@ -263,13 +312,23 @@ const Header = memo(() => {
           MeetHub
         </h1>
       </div>
+
       <Space size="middle">
+        <Notification />
+
         {/* Icon chat */}
         {currentUser && (
           <div style={{ position: "relative" }}>
             <Badge count={totalUnread} size="small">
               <MessageOutlined
-                style={{ fontSize: 20, padding:10, borderRadius:50,background:chatOpen ? "rgb(196 218 249)" : "#ccc", cursor: "pointer", color: chatOpen ? "#1677ff" : "#000" }}
+                style={{
+                  fontSize: 20,
+                  padding: 10,
+                  borderRadius: 50,
+                  background: chatOpen ? "rgb(196 218 249)" : "#ccc",
+                  cursor: "pointer",
+                  color: chatOpen ? "#1677ff" : "#000",
+                }}
                 onClick={() => setChatOpen((v) => !v)}
               />
             </Badge>
@@ -291,13 +350,20 @@ const Header = memo(() => {
                   overflow: "hidden auto",
                 }}
               >
-                <div style={{ fontWeight: 600, fontSize: 16, padding: "12px 16px", borderBottom: "1px solid #f0f0f0" }}>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    fontSize: 16,
+                    padding: "12px 16px",
+                    borderBottom: "1px solid #f0f0f0",
+                  }}
+                >
                   Cuộc trò chuyện
                 </div>
                 <ChatPopupList
                   rooms={rooms}
                   onRoomSelect={(roomId) => {
-                    const room = rooms.find(r => r.roomId === roomId);
+                    const room = rooms.find((r) => r.roomId === roomId);
                     const conversationId = room?.lastMessage?.conversationId;
                     if (conversationId) {
                       addPopup(conversationId);
