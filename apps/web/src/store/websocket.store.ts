@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { Socket } from "socket.io-client";
 import { io } from "socket.io-client";
-
 const SOCKET_URL = process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8000";
 
 interface WebSocketState {
@@ -17,6 +16,7 @@ interface WebSocketState {
   setConnecting: (connecting: boolean) => void;
 }
 
+// Quản lý kết nối socket
 export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   isConnected: false,
   isConnecting: false,
@@ -25,12 +25,11 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
   connect: () => {
     const { socket, isConnecting } = get();
-
-    // Prevent multiple simultaneous connection attempts
+    // Đang connecting
     if (isConnecting) {
       return socket;
     }
-
+    // Nếu đã kết nối
     if (socket?.connected) {
       return socket;
     }
@@ -49,7 +48,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
       });
       return null;
     }
-
+    // Khởi tạo 1 soket
     const newSocket = io(SOCKET_URL, {
       transports: ["websocket"],
       autoConnect: false,
@@ -59,21 +58,21 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
       },
     });
 
-    // Setup event listeners
+    // Threads connect
     newSocket.on("connect", () => {
       const { isConnected } = get();
       if (!isConnected) {
         set({ isConnected: true, isConnecting: false, error: null });
       }
     });
-
+    // Threads disconnect
     newSocket.on("disconnect", () => {
       const { isConnected } = get();
       if (isConnected) {
         set({ isConnected: false, isConnecting: false });
       }
     });
-
+    // Threads Error
     newSocket.on("connect_error", () => {
       const { error: currentError } = get();
       const newError = "Kết nối WebSocket thất bại";
@@ -85,13 +84,14 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         });
       }
     });
-
+    // Connect
     newSocket.connect();
-
+    // Set socket only one
     set({ socket: newSocket });
+    // Return socket
     return newSocket;
   },
-
+  // Disconnect
   disconnect: () => {
     const { socket } = get();
     if (socket) {

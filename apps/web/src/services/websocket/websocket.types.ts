@@ -1,5 +1,5 @@
 import { WsResponse, WebSocketEventName } from "@web/types/websocket";
-import { Message, ChatRoom } from "@web/types/chat";
+import { Message, ChatRoom, UsersOnline } from "@web/types/chat";
 
 // WebSocket service interface
 export interface WebSocketServiceInterface {
@@ -14,6 +14,10 @@ export interface WebSocketServiceInterface {
   emitMarkRoomRead(roomId: string): void;
   emitGetUnreadCount(roomId: string): void;
   emitJoinRoom(roomId: string): void;
+  // ===== Support/Admin event emitters =====
+  emitUserRequestSupport(): void; // Emit yêu cầu hỗ trợ tới admin
+  emitAdminJoinSupportRoom(roomId: string): void; // Admin join vào phòng support
+  emitCloseSupportRoom(roomId: string): void; // Đóng phòng support
 
   // Event listeners
   onConnectionSuccess(
@@ -39,6 +43,30 @@ export interface WebSocketServiceInterface {
   ): void;
   onError(callback: (data: WsResponse) => void): void;
   onAuthError(callback: (data: WsResponse) => void): void;
+  // ===== Support/Admin event listeners =====
+  onSupportRoomPending(callback: () => void): void; // Khi phòng support đang pending (chưa có admin)
+  onSupportRoomAssigned(
+    callback: (data: {
+      roomId: string;
+      admin?: { name?: string; _id?: string };
+    }) => void
+  ): void; // Khi user được gán admin
+  onSupportAdminJoined(
+    callback: (data: {
+      roomId: string;
+      admin?: { name?: string; _id?: string };
+    }) => void
+  ): void; // Khi admin join vào phòng
+  onSupportTicketAssigned(
+    callback: (data: { roomId: string; userId: string }) => void
+  ): void; // Khi admin nhận ticket hỗ trợ
+  onSupportAdminChanged(
+    callback: (data: {
+      roomId: string;
+      userId: string;
+      newAdminId: string;
+    }) => void
+  ): void; // Khi admin bị đổi do timeout
 
   // Remove listeners
   off(event: WebSocketEventName): void;
@@ -75,6 +103,29 @@ export interface WebSocketEventHandlers {
   ) => void;
   onError?: (data: WsResponse) => void;
   onAuthError?: (data: WsResponse) => void;
+  // ===== Room event listeners =====
+  onRoomOnlineMembers?: (
+    data: WsResponse<{ roomId: string; onlineMemberIds: string[] }>
+  ) => void;
+  onRoomMarkedRead?: (data: WsResponse<{ roomId: string }>) => void;
+  // ===== User event listeners =====
+  onAllOnlineUsers?: (data: WsResponse<UsersOnline[]>) => void;
+  // ===== Support/Admin event listeners =====
+  onSupportRoomPending?: () => void;
+  onSupportRoomAssigned?: (data: {
+    roomId: string;
+    admin?: { name?: string; _id?: string };
+  }) => void;
+  onSupportAdminJoined?: (data: {
+    roomId: string;
+    admin?: { name?: string; _id?: string };
+  }) => void;
+  onSupportTicketAssigned?: (data: { roomId: string; userId: string }) => void;
+  onSupportAdminChanged?: (data: {
+    roomId: string;
+    userId: string;
+    newAdminId: string;
+  }) => void;
 }
 
 // WebSocket service configuration
