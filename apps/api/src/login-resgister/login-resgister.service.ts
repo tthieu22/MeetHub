@@ -48,6 +48,7 @@ export class LoginResgisterService {
     return { sussess: true, message: 'Đã gửi mã xác thực về email' };
   }
   async verifyCode(dto: VerifyCodeDto, type: VerifyCodeType, ResetDto?: PasswordResetDto) {
+    console.log('thông tin: ', dto, type, ResetDto);
     const record: VerifyCode | null = await this.verifyCodeModel.findOne({ email: dto.email, type });
     if (!record || record.code !== dto.code) {
       throw new BadRequestException('Mã xác thực không đúng hoặc đã hết hạn');
@@ -67,6 +68,7 @@ export class LoginResgisterService {
     await Promise.all([this.userDocumentModel.updateOne({ email }, { isActive: true }), this.verifyCodeModel.deleteMany({ email, type: VerifyCodeType.VERIFY_ACCOUNT })]);
   }
   private async resetPassword(ResetDto: PasswordResetDto) {
+    console.log(ResetDto);
     if (!ResetDto.newPass) {
       throw new BadRequestException('Vui lòng cung cấp mật khẩu mới');
     }

@@ -42,13 +42,15 @@ export default function LoginPage() {
   }, []);
 
   const onFinish = async (values: LoginForm) => {
+    console.log("Bắt đầu đăng nhập");
     try {
       setLoading(true);
-      const response = await authApiService.loginAPI(values);
-      const data: LoginResponse | undefined = response?.data;
-      if (data?.success && data.access_token) {
-        localStorage.setItem("access_token", data.access_token || "");
-        const payload = JSON.parse(atob(data.access_token!.split(".")[1]));
+      const response: LoginResponse = await authApiService.loginAPI(values);
+
+      const data = response.data;
+      if (response?.success && data?.access_token) {
+        localStorage.setItem("access_token", data.access_token);
+        const payload = JSON.parse(atob(data.access_token.split(".")[1]));
         setCurrentUser({
           _id: payload._id,
           email: payload.email || payload.name,
@@ -56,6 +58,7 @@ export default function LoginPage() {
           avatar: "",
           role: payload.role,
         });
+
         api.success({
           message: "Đăng nhập thành công",
           placement: "topRight",
@@ -67,7 +70,7 @@ export default function LoginPage() {
         }
       } else if (!data?.success) {
         api.error({
-          message: "Sai email hoặc password",
+          message: data?.message || "Sai email hoặc password",
           placement: "topRight",
         });
       } else {
@@ -80,7 +83,7 @@ export default function LoginPage() {
     } catch (error) {
       api.error({
         message: "Lỗi Đăng nhập",
-        description: `Lỗi  ${error}`,
+        description: `Lỗi: ${error}`,
         placement: "topRight",
       });
     } finally {

@@ -1,62 +1,78 @@
-// apps/web/src/components/user/modal.resetpassword.tsx
 import { Modal, Form, Input, Button } from "antd";
-import { useState } from "react";
+import { useEffect } from "react";
 
 interface ModalResetPasswordProps {
-  open: boolean;
+  open: boolean; // ✅ Đổi tên prop cho đúng
   onCancel: () => void;
-  onSubmit: (values: { password: string; confirmPassword: string }) => void;
+  onSubmit: (values: {
+    password: string;
+    confirmPassword: string;
+    code: string;
+  }) => void;
   loading?: boolean;
+  email: string;
+  onResendCode: () => void;
 }
 
 const ModalResetPassword: React.FC<ModalResetPasswordProps> = ({
-  open,
+  open, // ✅ Nhận đúng tên prop
   onCancel,
   onSubmit,
   loading,
+  email,
+  onResendCode,
 }) => {
   const [form] = Form.useForm();
+
+  const handleSubmit = () => {
+    form.validateFields().then((values) => {
+      onSubmit(values);
+    });
+  };
+
+  useEffect(() => {
+    if (!open) {
+      form.resetFields();
+    }
+  }, [open]);
 
   return (
     <Modal
       open={open}
       onCancel={onCancel}
-      footer={null}
-      closable={false}
+      onOk={handleSubmit}
+      confirmLoading={loading}
+      okText="Đổi mật khẩu"
+      cancelText="Hủy"
       centered
-      bodyStyle={{
-        background: "#181818",
-        color: "#fff",
-        border: "1px solid #aaa",
-        borderRadius: 8,
-        textAlign: "center",
-      }}
     >
-      <div style={{ color: "#fff", marginBottom: 16, marginTop: 8 }}>
-        Nhập mật khẩu
-      </div>
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={onSubmit}
-        style={{ color: "#fff" }}
-      >
+      <p>
+        Mã xác minh đã gửi tới email: <b>{email}</b>
+      </p>
+
+      <Form form={form} layout="vertical" onFinish={onSubmit}>
         <Form.Item
-          label={<span style={{ color: "#fff" }}>Password mới</span>}
-          name="password"
+          name="code"
+          rules={[{ required: true, message: "Vui lòng nhập mã xác minh" }]}
+        >
+          <Input placeholder="Mã xác minh" />
+        </Form.Item>
+
+        <Form.Item
+          name="newPass"
           rules={[{ required: true, message: "Nhập mật khẩu mới" }]}
         >
-          <Input.Password style={{ background: "#181818", color: "#fff" }} />
+          <Input.Password placeholder="Mật khẩu mới" />
         </Form.Item>
+
         <Form.Item
-          label={<span style={{ color: "#fff" }}>Nhập lại Password</span>}
-          name="confirmPassword"
-          dependencies={["password"]}
+          name="newPassAgain"
+          dependencies={["newPass"]}
           rules={[
             { required: true, message: "Nhập lại mật khẩu" },
             ({ getFieldValue }) => ({
               validator(_, value) {
-                if (!value || getFieldValue("password") === value) {
+                if (!value || getFieldValue("newPass") === value) {
                   return Promise.resolve();
                 }
                 return Promise.reject(new Error("Mật khẩu không khớp"));
@@ -64,25 +80,12 @@ const ModalResetPassword: React.FC<ModalResetPasswordProps> = ({
             }),
           ]}
         >
-          <Input.Password style={{ background: "#181818", color: "#fff" }} />
+          <Input.Password placeholder="Xác nhận mật khẩu" />
         </Form.Item>
-        <Form.Item>
-          <Button
-            htmlType="submit"
-            loading={loading}
-            style={{
-              borderRadius: "50%",
-              width: 60,
-              height: 60,
-              float: "right",
-              background: "transparent",
-              border: "1px solid #fff",
-              color: "#fff",
-            }}
-          >
-            ENTER
-          </Button>
-        </Form.Item>
+
+        <Button type="link" onClick={onResendCode}>
+          Gửi lại mã
+        </Button>
       </Form>
     </Modal>
   );
