@@ -19,6 +19,7 @@ import {
 } from '@ant-design/icons';
 import BookingForm from '@/components/BookingForm';
 import _ from 'lodash';
+import BookingDetail from '../../../components/BookingDetail';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -60,6 +61,9 @@ const Bookings = () => {
   const { roomId } = useParams();
   const { token } = useUserStore();
   const userRole = useUserStore((state) => state.role) || 'ADMIN';
+  const [detailModalVisible, setDetailModalVisible] = useState(false); // bật/tắt modal
+const [detailBookingId, setDetailBookingId] = useState<string | null>(null); // lưu id booking
+
 
   const NESTJS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -360,22 +364,12 @@ const Bookings = () => {
     });
   };
 
-  const handleViewDetails = (booking: Booking) => {
-    Modal.info({
-      title: 'Chi tiết đặt phòng',
-      content: (
-        <div>
-          <p><strong>Tiêu đề:</strong> {booking.title || 'Không có tiêu đề'}</p>
-          <p><strong>Mô tả:</strong> {booking.description || 'Không có mô tả'}</p>
-          <p><strong>Thời gian:</strong> {moment(booking.startTime).format('HH:mm DD/MM/YYYY')} - {moment(booking.endTime).format('HH:mm DD/MM/YYYY')}</p>
-          <p><strong>Trạng thái:</strong> {booking.status === 'confirmed' ? 'Đã xác nhận' : booking.status === 'cancelled' ? 'Đã hủy' : booking.status === 'pending' ? 'Chờ duyệt' : booking.status === 'completed' ? 'Hoàn thành' : 'Đã xóa'}</p>
-          <p><strong>Người đặt:</strong> {booking.user.name}</p>
-          <p><strong>Tham gia:</strong> {booking.participants.map((p) => p).join(', ') || 'Không có'}</p>
-        </div>
-      ),
-      okText: 'Đóng',
-    });
-  };
+const handleViewDetails = (booking: Booking) => {
+  console.log('Viewing details for booking:', booking);
+  setDetailBookingId(booking._id);
+  setDetailModalVisible(true);
+};
+
 
   const cellRender = (value: Moment) => {
     const dateBookings = bookings.filter((booking) =>
@@ -453,7 +447,9 @@ const Bookings = () => {
                 </Button>
                 <Button
                   icon={<InfoCircleOutlined />}
-                  onClick={() => handleViewDetails(booking)}
+                  onClick={() => handleViewDetails(booking)
+                    
+                  }
                 >
                   Chi tiết
                 </Button>
@@ -766,7 +762,18 @@ const Bookings = () => {
           />
         </>
       ) : null}
+      <Modal
+  title="Chi tiết đặt phòng"
+  open={detailModalVisible}
+  onCancel={() => setDetailModalVisible(false)}
+  footer={null}
+  width={600}
+>
+  {detailBookingId && <BookingDetail bookingId={detailBookingId} />}
+</Modal>
+
     </div>
+    
   );
 };
 
