@@ -94,7 +94,10 @@ const Bookings = () => {
       const [roomResponse, bookingsResponse] = await Promise.all([
         api.get(`${NESTJS_API_URL}/api/rooms/${roomId}`),
         api.get(`${NESTJS_API_URL}/api/bookings/findAll`, {
-          params: { roomId },
+          params: { 
+            roomId, // Gửi roomId qua query param
+            filter: JSON.stringify({}) // Gửi filter rỗng nếu không có filter khác
+          },
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
