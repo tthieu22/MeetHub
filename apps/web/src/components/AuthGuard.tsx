@@ -10,7 +10,7 @@ interface AuthGuardProps {
 }
 
 // Danh sách các trang không cần authentication
-const PUBLIC_PAGES = ["/login", "/register", "/"];
+const PUBLIC_PAGES = ["/login", "/register", "/forgetPass", "/"];
 
 export default function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();

@@ -17,14 +17,19 @@ import {
   EditOutlined,
   UploadOutlined,
   // CloseOutlined,
+  MessageOutlined,
 } from "@ant-design/icons";
 import { useUserStore } from "@web/store/user.store";
 import { useWebSocketStore } from "@web/store/websocket.store";
 import { useRouter } from "next/navigation";
-// import ConnectionStatus from "@web/app/ConnectionStatus";
-import UnreadCountBadge from "./UnreadCountBadge";
+import ConnectionStatus from "@web/app/ConnectionStatus";
+// import UnreadCountBadge from "./UnreadCountBadge";
 import userApiService, { Me } from "@web/services/api/user.api";
 import { toast, ToastContainer } from "react-toastify";
+import { ChatPopupList } from "@web/components/chat-popup";
+import { useChatStore } from "@web/store/chat.store";
+import { Badge } from "antd";
+import ChatPopupWindow from "@web/components/chat-popup/ChatPopupWindow";
 
 const UserAvatar = memo(() => {
   const { logout, currentUser } = useUserStore();
@@ -35,8 +40,7 @@ const UserAvatar = memo(() => {
   const [isSaving, setIsSaving] = useState(false);
   const [form] = Form.useForm();
   const [newAvatarFile, setNewAvatarFile] = useState<File | null>(null);
-  const [previewAvatarURL, setPreviewAvatarURL] = useState<string>("");
-
+  const [previewAvatarURL, setPreviewAvatarURL] = useState<string>("");  
   useEffect(() => {
     const fetchMe = async () => {
       try {
@@ -59,7 +63,7 @@ const UserAvatar = memo(() => {
 
   const handleSave = async () => {
     try {
-      setIsSaving(true); // 🔄 Bắt đầu loading
+      setIsSaving(true);
       const values = await form.validateFields();
       let uploadedURL = values.avatarURL;
 
@@ -95,7 +99,7 @@ const UserAvatar = memo(() => {
   const handleBeforeUpload = (file: File) => {
     setNewAvatarFile(file);
     setPreviewAvatarURL(URL.createObjectURL(file));
-    return false; // Không upload tự động
+    return false; 
   };
 
   const handleCancelEdit = () => {
@@ -204,10 +208,34 @@ UserAvatar.displayName = "UserAvatar";
 const Header = memo(() => {
   const { currentUser } = useUserStore();
   const router = useRouter();
-
+  const rooms = useChatStore((state) => state.rooms);
+  const unreadCounts = useChatStore((state) => state.unreadCounts);
+  const [chatOpen, setChatOpen] = useState(false);
+  const socket = useWebSocketStore((state) => state.socket);
+  const openedPopups = useChatStore((state) => state.openedPopups);
+  const addPopup = useChatStore((state) => state.addPopup);
+  // const removePopup = useChatStore((state) => state.removePopup);
   const handleLogoClick = useCallback(() => {
     router.push("/");
   }, [router]);
+ 
+  useEffect(() => {
+    if (!chatOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (socket && socket.connected && (!rooms || rooms.length === 0)) {
+        socket.emit("get_rooms");
+      }
+      const chatPopup = document.getElementById("chat-popup-header");
+      if (chatPopup && !chatPopup.contains(e.target as Node)) {
+        setChatOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [chatOpen, socket, rooms]);
+
+  // Đếm tổng số tin nhắn chưa đọc
+  const totalUnread = Object.values(unreadCounts || {}).reduce((a, b) => a + b, 0);
 
   return (
     <header
@@ -219,6 +247,7 @@ const Header = memo(() => {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
+        position: "relative",
       }}
     >
       <div style={{ display: "flex", alignItems: "center" }}>
@@ -234,11 +263,64 @@ const Header = memo(() => {
           MeetHub
         </h1>
       </div>
-      <Space>
-        {currentUser && <UnreadCountBadge />}
-        {/* {currentUser && <ConnectionStatus />} */}
+      <Space size="middle">
+        {/* Icon chat */}
+        {currentUser && (
+          <div style={{ position: "relative" }}>
+            <Badge count={totalUnread} size="small">
+              <MessageOutlined
+                style={{ fontSize: 20, padding:10, borderRadius:50,background:chatOpen ? "rgb(196 218 249)" : "#ccc", cursor: "pointer", color: chatOpen ? "#1677ff" : "#000" }}
+                onClick={() => setChatOpen((v) => !v)}
+              />
+            </Badge>
+            {chatOpen && (
+              <div
+                id="chat-popup-header"
+                style={{
+                  position: "absolute",
+                  top: 40,
+                  right: 0,
+                  width: 340,
+                  maxHeight: 420,
+                  background: "#fff",
+                  border: "1px solid #f0f0f0",
+                  borderRadius: 8,
+                  boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
+                  zIndex: 2000,
+                  padding: 0,
+                  overflow: "hidden auto",
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: 16, padding: "12px 16px", borderBottom: "1px solid #f0f0f0" }}>
+                  Cuộc trò chuyện
+                </div>
+                <ChatPopupList
+                  rooms={rooms}
+                  onRoomSelect={(roomId) => {
+                    const room = rooms.find(r => r.roomId === roomId);
+                    const conversationId = room?.lastMessage?.conversationId;
+                    if (conversationId) {
+                      addPopup(conversationId);
+                      useChatStore.getState().setCurrentRoomId(conversationId);
+                    }
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+        {/* {currentUser && <UnreadCountBadge />} */}
+        {currentUser && <ConnectionStatus />}
         {currentUser && <UserAvatar />}
       </Space>
+      {/* Render các popup chat ở góc màn hình */}
+      {openedPopups.map((conversationId, idx) => (
+        <ChatPopupWindow
+          key={conversationId}
+          conversationId={conversationId}
+          index={idx}
+        />
+      ))}
     </header>
   );
 });

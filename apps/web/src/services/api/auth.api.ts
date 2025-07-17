@@ -16,7 +16,9 @@ export interface LoginResponse {
   success: boolean;
   message?: string;
   errors?: string[];
-  access_token?: string;
+  data: {
+    access_token?: string;
+  };
 }
 export interface RegisterResponse {
   success?: boolean;
@@ -66,6 +68,27 @@ class AuthApiService {
     const response = await axios.post(URL_BACKEND, payload);
     return response;
   }
+
+  async loginGG() {
+    const URL_BACKEND = `/api/auth/google/redirect`;
+    return await axios.get(URL_BACKEND);
+  }
+  async sendVerifiPassCodeAPI(payload: { email: string }) {
+    const URL_BACKEND = `/api/password-reset/sendcode`;
+    const response = await axios.post(URL_BACKEND, payload);
+    return response;
+  }
+  async resetPasswordAPI(payload: {
+    email: string;
+    code: string;
+    newPass: string;
+    newPassAgain: string;
+  }) {
+    const URL_BACKEND = `/api/password-reset/verify`;
+    const response = await axios.post(URL_BACKEND, payload);
+    return response;
+  }
+
   // async logout(): Promise<void> {
   //   return this.request<void>("/api/auth/logout", {
   //     method: "POST",

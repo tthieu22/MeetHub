@@ -36,7 +36,6 @@ export class AuthController {
   @UseGuards(AuthGuard('google'))
   googleRedirect(@Req() req: Request, @Res() res: Response) {
     const userProfile = (req as unknown as { user: GoogleUserProfile }).user;
-    console.log(userProfile);
     return this.authService.googleLogin(userProfile, res);
   }
 }

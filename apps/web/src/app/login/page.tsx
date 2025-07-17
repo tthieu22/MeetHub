@@ -1,13 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import {
-  Form,
-  Input,
-  Card,
-  Typography,
-  notification,
-} from "antd";
+import React, { useEffect, useState } from "react";
+import { Form, Input, Card, Typography, notification } from "antd";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
@@ -26,21 +20,44 @@ export default function LoginPage() {
   const [form] = Form.useForm();
   const [api, contextHolder] = notification.useNotification();
 
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get("access_token");
+    if (token) {
+      localStorage.setItem("access_token", token);
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      setCurrentUser({
+        _id: payload._id,
+        email: payload.email || payload.name,
+        username: payload.name,
+        avatar: "",
+      });
+      api.success({
+        message: "Đăng nhập Google thành công",
+        placement: "topRight",
+      });
+
+      router.push("/");
+    }
+  }, []);
+
   const onFinish = async (values: LoginForm) => {
     try {
       setLoading(true);
-      const response = await authApiService.loginAPI(values);
-      const data: LoginResponse | undefined = response?.data; 
-      if (data && data.access_token) {
-        localStorage.setItem("access_token", data.access_token || "");
-        const payload = JSON.parse(atob(data.access_token!.split(".")[1]));
+      const response: LoginResponse = await authApiService.loginAPI(values);
+
+      const data = response.data;
+      if (response?.success && data?.access_token) {
+        localStorage.setItem("access_token", data.access_token);
+        const payload = JSON.parse(atob(data.access_token.split(".")[1]));
         setCurrentUser({
           _id: payload._id,
           email: payload.email || payload.name,
           username: payload.name,
           avatar: "",
-          role: payload.role
+          role: payload.role,
         });
+
         api.success({
           message: "Đăng nhập thành công",
           placement: "topRight",
@@ -50,9 +67,9 @@ export default function LoginPage() {
         } else {
           router.push("/");
         }
-      } else if (data && !data.success) {
+      } else if (!data?.success) {
         api.error({
-          message: "Sai email hoặc password",
+          message: data?.message || "Sai email hoặc password",
           placement: "topRight",
         });
       } else {
@@ -65,7 +82,7 @@ export default function LoginPage() {
     } catch (error) {
       api.error({
         message: "Lỗi Đăng nhập",
-        description: `Lỗi  ${error}`,
+        description: `Lỗi: ${error}`,
         placement: "topRight",
       });
     } finally {
@@ -166,28 +183,26 @@ export default function LoginPage() {
           </Form.Item>
         </Form>
 
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: 12,
+          }}
+        >
           <Link href="/register" style={{ color: "#1677ff" }}>
             Bạn chưa có tài khoản?
           </Link>
-          <button
-            type="button"
-            style={{
-              background: "none",
-              border: "none",
-              color: "#1677ff",
-              cursor: "pointer",
-              padding: 0,
-              fontSize: 14,
-            }}
-          >
+          <Link href="/forgetPass" style={{ color: "#1677ff" }}>
             Quên mật khẩu?
-          </button>
+          </Link>
         </div>
 
         <button
           type="button"
-          onClick={() => router.push("http://localhost:8000/api/auth/google/redirect")}
+          onClick={() =>
+            router.push("http://localhost:8000/api/auth/google/redirect")
+          }
           style={{
             width: "100%",
             height: 44,
@@ -217,4 +232,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

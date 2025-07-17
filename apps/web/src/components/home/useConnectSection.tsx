@@ -37,10 +37,11 @@ export function useConnectSection() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [showAllOfflineUsers, setShowAllOfflineUsers] = useState(false);
 
   // Fetch users from API with caching
   const fetchUsers = useCallback(
-    async (forceRefresh = false) => {
+    async (forceRefresh = false) => { 
       try {
         // Check cache first
         const cacheKey = `users_${currentUser?._id || "anonymous"}`;
@@ -61,8 +62,7 @@ export function useConnectSection() {
 
         const result = await usersApiService.getUsers({ limit: 100, page: 1 });
 
-        if (result.success && result.data) {
-          // Merge with online status from WebSocket store - realtime
+        if (result.success && result.data) { 
           const usersWithStatus: UserWithStatus[] = result.data.map(
             (user: User) => ({
               ...user,
@@ -72,21 +72,18 @@ export function useConnectSection() {
               chated: user?.chated || false,
             })
           );
-
-          // Filter out current user and sort by online status
+ 
           const filteredUsers = usersWithStatus
             .filter((user) => user.userId !== currentUser?._id)
-            .sort((a, b) => {
-              // Online users first, then by name
+            .sort((a, b) => { 
               if (a.isOnline && !b.isOnline) return -1;
               if (!a.isOnline && b.isOnline) return 1;
               return a.name.localeCompare(b.name);
             })
-            .slice(0, 20); // Limit to 20 users for testing
+            .slice(0, 20);  
 
           setUsers(filteredUsers);
-
-          // Update cache
+ 
           usersCache.set(cacheKey, {
             data: filteredUsers,
             timestamp: Date.now(),
@@ -95,16 +92,9 @@ export function useConnectSection() {
           throw new Error(result.message || "Failed to fetch users");
         }
       } catch (error) {
-        console.error("Error fetching users:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to load users";
-        setError(errorMessage);
-        api.error({
-          message: "Lỗi tải dữ liệu",
-          description: errorMessage,
-          placement: "topRight",
-          duration: 5,
-        });
+        const errorMessage = error instanceof Error ? error.message : "Failed to load users";
+        setError(errorMessage); // chỉ set state, không gọi api.error ở đây
+     
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -112,8 +102,16 @@ export function useConnectSection() {
     },
     [allOnline, currentUser?._id]
   );
-
-  // Fetch invitations from API
+   useEffect(() => {
+    if (error) {
+      api.error({
+        message: "Lỗi tải dữ liệu",
+        description: error,
+        placement: "topRight",
+      });
+    }
+  }, [error]);
+  
   const fetchInvitations = useCallback(async () => {
     try {
       const result = await invitationApiService.getReceivedInvitations();
@@ -125,8 +123,7 @@ export function useConnectSection() {
       console.error("Error fetching invitations:", error);
     }
   }, []);
-
-  // Handle invitation responses
+ 
   const handleAcceptInvitation = useCallback(
     async (invitationId: string) => {
       try {
@@ -142,8 +139,7 @@ export function useConnectSection() {
               "Lời mời đã được chấp nhận và cuộc trò chuyện đã được tạo.",
             placement: "topRight",
             duration: 3,
-          });
-          // Refresh invitations and users
+          }); 
           fetchInvitations();
           fetchUsers(true);
 
@@ -334,6 +330,9 @@ export function useConnectSection() {
     [users]
   );
 
+  const offlineUsersLimited = showAllOfflineUsers ? offlineUsers : offlineUsers.slice(0, 10);
+  const handleShowMoreOffline = () => setShowAllOfflineUsers(true);
+
   // Initial fetch
   useEffect(() => {
     fetchUsers();
@@ -395,15 +394,15 @@ export function useConnectSection() {
     users,
     invitations,
     onlineUsers,
-    offlineUsers,
-
+    offlineUsers: offlineUsersLimited,
     // Actions
     handleSendInvitation,
     handleAcceptInvitation,
     handleDeclineInvitation,
     handleChat,
     handleRefresh,
-
+    handleShowMoreOffline,
+    showAllOfflineUsers,
     // Notification context
     contextHolder,
   };

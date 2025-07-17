@@ -79,8 +79,7 @@ function FilePreview({ fileUrl, fileType }: { fileUrl: string; fileType?: string
         {textPreview}
       </pre>
     );
-  }
-  return null;
+  } 
 }
 
 export default function ChatMessage({

@@ -26,6 +26,8 @@ export default function ConnectSection() {
     handleChat,
     handleRefresh,
     contextHolder,
+    handleShowMoreOffline,
+    showAllOfflineUsers,
   } = useConnectSection();
 
   if (loading) {
@@ -84,6 +86,12 @@ export default function ConnectSection() {
               onSendInvitation={handleSendInvitation}
               onChat={handleChat}
             />
+            {/* Nút xem thêm offline */}
+            {!showAllOfflineUsers && offlineUsers.length >= 10 && (
+              <div style={{ textAlign: 'center', marginTop: 12 }}>
+                <CustomButton onClick={handleShowMoreOffline} size="small">Xem thêm</CustomButton>
+              </div>
+            )}
           </Card>
         </Col>
 

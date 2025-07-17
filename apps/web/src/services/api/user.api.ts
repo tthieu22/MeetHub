@@ -5,6 +5,7 @@ export interface Me {
   email: string;
   avatarURL?: string;
   role: "user" | "admin";
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -24,6 +25,20 @@ export interface Image {
   createdAt: Date;
   updatedAt: Date;
 }
+export interface queryParams {
+  limit: number;
+  page: number;
+  sort?: string;
+  [key: string]: any;
+}
+export interface AllUserRespon {
+  success: boolean;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  data: Me[];
+}
 class UserApiService {
   async getMeAPI(): Promise<Me> {
     const URL_BACKEND = `/api/users/me`;
@@ -41,6 +56,72 @@ class UserApiService {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return response;
+  }
+  async getUsers(params: queryParams): Promise<AllUserRespon> {
+    const URL_BACKEND = `/api/users/find-by-query`;
+    const res = await axios.get(URL_BACKEND, { params });
+    return res;
+  }
+  async removeUser(id: string) {
+    const URL_BACKEND = `/api/users/remove/${id}`;
+    const res = await axios.post(URL_BACKEND);
+    return res;
+  }
+
+  async updateUser(
+    id: string,
+    data: Partial<Me>,
+    imageFormData?: FormData
+  ): Promise<any> {
+    const formData = new FormData();
+
+    // Gộp text fields vào formData
+    for (const key in data) {
+      if (data[key] !== undefined) {
+        formData.append(key, data[key] as string);
+      }
+    }
+
+    // Gắn thêm file nếu có
+    if (imageFormData) {
+      const imageFile = imageFormData.get("image");
+      console.log("Image file from FormData:", imageFile); // vì Upload bạn đang dùng key là 'image'
+      if (imageFile) {
+        formData.append("avatar", imageFile);
+      }
+    }
+
+    const res = await axios.patch(`/api/users/update/${id}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return res;
+  }
+  async createUser(data: Partial<Me>, imageFormData?: FormData): Promise<any> {
+    const URL_BACKEND = `/api/users`;
+    const formData = new FormData();
+
+    // Gộp text fields vào formData
+    for (const key in data) {
+      if (data[key] !== undefined) {
+        formData.append(key, data[key] as string);
+      }
+    }
+
+    // Gắn thêm file nếu có
+    if (imageFormData) {
+      const imageFile = imageFormData.get("image");
+      console.log("Image file from FormData:", imageFile); // vì Upload bạn đang dùng key là 'image'
+      if (imageFile) {
+        formData.append("avatar", imageFile);
+      }
+    }
+
+    const res = await axios.post(URL_BACKEND, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return res;
   }
 }
 // Create singleton instance
