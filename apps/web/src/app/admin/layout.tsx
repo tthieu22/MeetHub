@@ -20,6 +20,7 @@ import { useUserStore } from "@web/store/user.store";
 import { useChatStore } from "@web/store/chat.store";
 import { useWebSocketStore } from "@web/store/websocket.store";
 import ChatIcon from "@web/components/ChatIcon";
+import Notification from "@web/components/IconNotification";
 
 const { Sider, Content } = AntLayout;
 const { Title } = Typography;
@@ -149,6 +150,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <Notification />
             {currentUser && (
               <ChatIcon
                 totalUnread={totalUnread}

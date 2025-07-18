@@ -10,6 +10,7 @@ import ChatWithAdminButton from "@web/components/ChatWithAdminButton";
 import Logo from "@web/components/Logo";
 import ChatIcon from "@web/components/ChatIcon";
 import UserAvatar from "@web/components/UserAvatar";
+import Notification from "./IconNotification";
 
 // ------------------- Header Component -------------------
 
@@ -50,6 +51,7 @@ const HeaderCus = memo(() => {
         <Logo onClick={handleLogoClick} />
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <Notification />
         {/* Icon chat */}
         {currentUser && (
           <ChatIcon
