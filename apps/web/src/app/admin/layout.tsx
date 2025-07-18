@@ -1,15 +1,23 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Layout as AntLayout, Menu, Typography, Avatar, Space, theme } from 'antd';
+import React, { useState } from "react";
+import {
+  Layout as AntLayout,
+  Menu,
+  Typography,
+  Avatar,
+  Space,
+  theme,
+} from "antd";
 import {
   UserOutlined,
   TeamOutlined,
   CalendarOutlined,
   DashboardOutlined,
   LogoutOutlined,
-} from '@ant-design/icons';
-import { useRouter, usePathname } from 'next/navigation';
+} from "@ant-design/icons";
+import { useRouter, usePathname } from "next/navigation";
+import HeaderCus from "@web/components/Header";
 
 const { Header, Sider, Content } = AntLayout;
 const { Title } = Typography;
@@ -24,56 +32,56 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const menuItems = [
     {
-      key: '/admin',
+      key: "/admin",
       icon: <DashboardOutlined />,
-      label: 'Dashboard',
+      label: "Dashboard",
     },
     {
-      key: '/admin/users',
+      key: "/admin/users",
       icon: <UserOutlined />,
-      label: 'Quản lý người dùng',
+      label: "Quản lý người dùng",
     },
     {
-      key: '/admin/rooms',
+      key: "/admin/rooms",
       icon: <TeamOutlined />,
-      label: 'Quản lý phòng họp',
+      label: "Quản lý phòng họp",
     },
     {
-      key: '/admin/bookings',
+      key: "/admin/bookings",
       icon: <CalendarOutlined />,
-      label: 'Quản lý booking',
+      label: "Quản lý booking",
     },
   ];
 
   const handleMenuClick = ({ key }: { key: string }) => {
-    if (key === 'logout') {
-      router.push('/login');
+    if (key === "logout") {
+      router.push("/login");
     } else {
       router.push(key);
     }
   };
 
   return (
-    <AntLayout style={{ minHeight: '100vh' }}>
+    <AntLayout style={{ minHeight: "100vh" }}>
       <Sider
         trigger={null}
         collapsible
         collapsed={collapsed}
         style={{
           background: colorBgContainer,
-          borderRight: '1px solid #f0f0f0',
+          borderRight: "1px solid #f0f0f0",
         }}
       >
         <div
           style={{
             padding: 16,
-            textAlign: 'center',
-            borderBottom: '1px solid #f0f0f0',
+            textAlign: "center",
+            borderBottom: "1px solid #f0f0f0",
             marginBottom: 16,
           }}
         >
-          <Title level={4} style={{ margin: 0, color: '#1890ff' }}>
-            {collapsed ? 'MH' : 'MeetHub Admin'}
+          <Title level={4} style={{ margin: 0, color: "#1890ff" }}>
+            {collapsed ? "MH" : "MeetHub Admin"}
           </Title>
         </div>
         <Menu
@@ -81,15 +89,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           selectedKeys={[pathname]}
           items={menuItems}
           onClick={handleMenuClick}
-          style={{ border: 'none' }}
+          style={{ border: "none" }}
         />
         <div
           style={{
-            position: 'absolute',
+            position: "absolute",
             bottom: 0,
-            width: '100%',
+            width: "100%",
             padding: 16,
-            borderTop: '1px solid #f0f0f0',
+            borderTop: "1px solid #f0f0f0",
             background: colorBgContainer,
           }}
         >
@@ -97,46 +105,45 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             mode="inline"
             items={[
               {
-                key: 'logout',
+                key: "logout",
                 icon: <LogoutOutlined />,
-                label: 'Đăng xuất',
+                label: "Đăng xuất",
               },
             ]}
             onClick={handleMenuClick}
-            style={{ border: 'none' }}
+            style={{ border: "none" }}
           />
         </div>
       </Sider>
       <AntLayout>
         <Header
           style={{
-            padding: '0 24px',
+            padding: "0 24px",
             background: colorBgContainer,
-            borderBottom: '1px solid #f0f0f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            borderBottom: "1px solid #f0f0f0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
         >
           <div
             style={{
               fontSize: 18,
-              fontWeight: 'bold',
-              color: '#1890ff',
-              cursor: 'pointer',
+              fontWeight: "bold",
+              color: "#1890ff",
+              cursor: "pointer",
             }}
             onClick={() => setCollapsed(!collapsed)}
           >
-            {collapsed ? '☰' : '✕'}
+            {collapsed ? "☰" : "✕"}
           </div>
           <Space>
-            <Avatar icon={<UserOutlined />} />
-            <span>Admin</span>
+            <HeaderCus />
           </Space>
         </Header>
         <Content
           style={{
-            margin: '24px 16px',
+            margin: "24px 16px",
             padding: 24,
             background: colorBgContainer,
             borderRadius: borderRadiusLG,
@@ -148,4 +155,4 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </AntLayout>
     </AntLayout>
   );
-} 
+}

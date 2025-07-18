@@ -35,7 +35,10 @@ import { Badge } from "antd";
 import ChatPopupWindow from "@web/components/chat-popup/ChatPopupWindow";
 import { NotificationItemComponent } from "./notification/NotificationItemComponent";
 import NotificationList from "./notification/NotificationList";
-import { getMyNotifications, markAllNotificationsRead } from "@web/services/api/notification.api";
+import {
+  getMyNotifications,
+  markAllNotificationsRead,
+} from "@web/services/api/notification.api";
 import { useNotification } from "@web/hooks/useNotification";
 
 const UserAvatar = memo(() => {
@@ -212,14 +215,19 @@ const Notification = () => {
   const [notiOpen, setNotiOpen] = useState(false);
 
   const { currentUser } = useUserStore();
-  const { notifications, unreadCount, loading, fetchNotifications } = useNotification();
-  
-
+  const { notifications, unreadCount, loading, fetchNotifications } =
+    useNotification();
 
   return (
     <Badge count={unreadCount} size="small">
       <Popover
-        content={loading ? <Spin /> : <NotificationList notifications={notifications} />}
+        content={
+          loading ? (
+            <Spin />
+          ) : (
+            <NotificationList notifications={notifications} />
+          )
+        }
         onOpenChange={async (open) => {
           setNotiOpen(open);
           if (open) {
@@ -251,7 +259,7 @@ UserAvatar.displayName = "UserAvatar";
 
 // ------------------- Header Component -------------------
 
-const Header = memo(() => {
+const HeaderCus = memo(() => {
   const { currentUser } = useUserStore();
   const router = useRouter();
   const rooms = useChatStore((state) => state.rooms);
@@ -391,6 +399,6 @@ const Header = memo(() => {
   );
 });
 
-Header.displayName = "Header";
+HeaderCus.displayName = "Header";
 
-export default Header;
+export default HeaderCus;

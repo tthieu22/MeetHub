@@ -31,6 +31,7 @@ export default function LoginPage() {
         email: payload.email || payload.name,
         username: payload.name,
         avatar: "",
+        role: payload.role,
       });
       api.success({
         message: "Đăng nhập Google thành công",

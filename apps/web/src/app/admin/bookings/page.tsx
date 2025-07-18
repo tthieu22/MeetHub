@@ -83,7 +83,14 @@ export default function BookingPage() {
           },
         }
       );
-      api.success({ message: "Hủy booking thành công!" });
+      if (res.success) {
+        api.success({ message: "Hủy booking thành công!" });
+      } else {
+        api.error({
+          message: "Hủy booking không thành công!",
+          description: res.message,
+        });
+      }
       fetchBookings(); // reload lại danh sách
     } catch (err: any) {
       api.error({
