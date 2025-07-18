@@ -61,39 +61,59 @@ export default function ChatPopupWindow({
   // Lắng nghe socket để nhận tin nhắn mới realtime
   useEffect(() => {
     if (!socket) return;
-    const handleNewMessage = (msg: Message) => {
+    const handler = (payload: { data?: Message } | Message) => {
+      console.log('[socket] new_message event - raw payload:', payload);
+      const msg = (typeof payload === 'object' && 'data' in payload && payload.data) ? payload.data : payload;
+      if (!msg || typeof msg !== 'object' || !('conversationId' in msg) || !('senderId' in msg) || !('_id' in msg)) {
+        console.warn('[socket] Invalid message payload', msg);
+        return;
+      }
+      const message = msg as Message;
+      console.log('[socket] new_message - message fields:', {
+        _id: message._id,
+        conversationId: message.conversationId,
+        senderId: message.senderId,
+        text: message.text,
+        createdAt: message.createdAt,
+        fileUrl: message.fileUrl,
+        fileName: message.fileName,
+        fileType: message.fileType,
+      });
       const myId = currentUser?._id;
       const senderId =
-        typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
+        typeof message.senderId === "string" ? message.senderId : message.senderId?._id;
       // Chỉ update lastMessage nếu khác messageId hiện tại
-      if (msg.conversationId === conversationId) {
-        addMessage(conversationId, msg);
-        if (msg._id !== room?.lastMessage?.messageId) {
+      if (message.conversationId === conversationId) {
+        addMessage(conversationId, message);
+        if (message._id !== room?.lastMessage?.messageId) {
           updateRoom(conversationId, {
             lastMessage: {
-              messageId: msg._id,
-              conversationId: msg.conversationId,
+              messageId: message._id,
+              conversationId: message.conversationId,
               senderId: senderId,
               senderEmail:
-                typeof msg.senderId === "object" && msg.senderId !== null
-                  ? msg.senderId.email
+                typeof message.senderId === "object" && message.senderId !== null
+                  ? message.senderId.email
                   : undefined,
               senderName:
-                typeof msg.senderId === "object" && msg.senderId !== null
-                  ? msg.senderId.name ||
-                    msg.senderId.username ||
-                    msg.senderId.email
+                typeof message.senderId === "object" && message.senderId !== null
+                  ? message.senderId.name ||
+                    message.senderId.username ||
+                    message.senderId.email
                   : undefined,
-              text: msg.text,
-              createdAt: msg.createdAt,
-              fileUrl: msg.fileUrl || undefined,
-              fileName: msg.fileName || undefined,
-              fileType: msg.fileType || undefined,
+              text: message.text,
+              createdAt: message.createdAt,
+              fileUrl: message.fileUrl || undefined,
+              fileName: message.fileName || undefined,
+              fileType: message.fileType || undefined,
             },
           });
         }
         // Chỉ đánh dấu đã đọc nếu là tin nhắn của mình
+          console.log('[mark as read] Đánh dấu đã đọc phòng:', conversationId, 'myId:', myId, 'senderId:', senderId);
+
         if (myId && senderId === myId) {
+          console.log('[mark as read] Đánh dấu đã đọc phòng:', conversationId, 'myId:', myId, 'senderId:', senderId);
           webSocketService.emitMarkRoomRead(conversationId);
           updateUnreadCount(conversationId, 0);
         }
@@ -101,15 +121,14 @@ export default function ChatPopupWindow({
         // Nếu popup này không phải phòng nhận tin nhắn, chỉ tăng unread nếu là tin nhắn của người khác
         if (myId && senderId !== myId) {
           const prev = unreadCounts[msg.conversationId] || 0;
+          console.log('[unread] Tăng unread cho phòng:', msg.conversationId, 'từ', prev, 'thành', prev + 1, 'myId:', myId, 'senderId:', senderId);
           updateUnreadCount(msg.conversationId, prev + 1);
         }
-      }
+      } 
     };
-    socket.on("new_message", handleNewMessage);
-    socket.on("message_created", handleNewMessage);
+    socket.on("new_message", handler); 
     return () => {
-      socket.off("new_message", handleNewMessage);
-      socket.off("message_created", handleNewMessage);
+      socket.off("new_message", handler); 
     };
   }, [
     socket,

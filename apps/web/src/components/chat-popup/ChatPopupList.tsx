@@ -1,26 +1,25 @@
 import React, { useEffect } from "react";
 import { List, Avatar } from "antd";
 import { UserOutlined } from "@ant-design/icons";
-import { ChatRoom } from "@web/types/chat";
 import { useWebSocketStore } from "@web/store/websocket.store";
 import { useChatStore } from "@web/store/chat.store";
 import { useUserStore } from "@web/store/user.store";
 
-interface ChatPopupListProps {
-  rooms: ChatRoom[];
+interface ChatPopupListProps { 
   onRoomSelect?: (roomId: string) => void;
   onClose?: () => void;
 }
 
-const ChatPopupList: React.FC<ChatPopupListProps> = ({
-  rooms,
+const ChatPopupList: React.FC<ChatPopupListProps> = ({ 
   onRoomSelect,
   onClose,
 }) => {
   const socket = useWebSocketStore((s) => s.socket);
   const setUnreadCount = useChatStore((s) => s.setUnreadCount);
   const currentUser = useUserStore((s) => s.currentUser);
-  const currentRoomId = useChatStore((s) => s.currentRoomId);
+  const currentRoomId = useChatStore((s) => s.currentRoomId); 
+  const rooms = useChatStore((s) => s.rooms);
+  const unreadCounts = useChatStore((s) => s.unreadCounts);
 
   useEffect(() => {
     if (!socket || !currentUser) return;
@@ -59,7 +58,7 @@ const ChatPopupList: React.FC<ChatPopupListProps> = ({
       renderItem={(room) => {
         const onlineCount = room.onlineMemberIds?.length || 0;
         const lastMsg = room.lastMessage;
-        const unread = room.unreadCount || 0;
+        const unread = unreadCounts[room.roomId] || 0;
         return (
           <List.Item
             onClick={() => {

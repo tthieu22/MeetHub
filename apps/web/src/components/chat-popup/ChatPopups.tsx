@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useChatStore } from "@web/store/chat.store";
 import { useWebSocketStore } from "@web/store/websocket.store";
 import ChatPopupWindow from "./ChatPopupWindow";
@@ -104,26 +104,28 @@ const ChatPopups: React.FC = () => {
     setClosedPopups((prev) => prev.filter((id) => id !== conversationId));
   };
 
+  // Di chuyển logic cập nhật unread count và emit mark read vào useEffect
+  useEffect(() => {
+    openedPopups.forEach((conversationId) => {
+      if (typeof conversationId === "string") {
+        webSocketService.emitMarkRoomRead(conversationId);
+        updateUnreadCount(conversationId, 0);
+      }
+    });
+  }, [openedPopups, updateUnreadCount]);
+
   return (
     <>
       {/* Render các popup chat ở góc màn hình */}
       {openedPopups.map((conversationId, idx) =>
-        typeof conversationId === "string"
-          ? ((() => {
-              webSocketService.emitMarkRoomRead(conversationId);
-              // Reset local unread count về 0 khi mở popup
-              updateUnreadCount(conversationId, 0);
-              return null;
-            })(),
-            (
-              <ChatPopupWindow
-                key={conversationId}
-                conversationId={conversationId}
-                index={idx}
-                onClose={() => handleClosePopup(conversationId)}
-              />
-            ))
-          : null
+        typeof conversationId === "string" ? (
+          <ChatPopupWindow
+            key={conversationId}
+            conversationId={conversationId}
+            index={idx}
+            onClose={() => handleClosePopup(conversationId)}
+          />
+        ) : null
       )}
       {/* Nút thu nhỏ cho các popup đã đóng */}
       {closedPopups.map((conversationId, i) => {

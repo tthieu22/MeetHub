@@ -224,11 +224,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   updateUnreadCount: (roomId: string, count: number) => {
+    if (!roomId) {
+      console.warn("[updateUnreadCount] roomId is undefined!", { count });
+      return;
+    }
     const { unreadCounts } = get();
+    const safeCount = Math.max(0, count);
     // Only update if the count actually changed
-    if (unreadCounts[roomId] !== count) {
+    if (unreadCounts[roomId] !== safeCount) {
+      console.log(
+        "[updateUnreadCount]",
+        "roomId:",
+        roomId,
+        "old:",
+        unreadCounts[roomId],
+        "new:",
+        safeCount
+      );
       set({
-        unreadCounts: { ...unreadCounts, [roomId]: count },
+        unreadCounts: { ...unreadCounts, [roomId]: safeCount },
       });
     }
   },

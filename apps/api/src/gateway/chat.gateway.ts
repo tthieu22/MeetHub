@@ -88,7 +88,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = validateClient(client);
     if (!userId) return;
     const response = await this.messageHandler.handleMarkRoomRead(this.server, userId, data);
-    console.log(response);
     client.emit('mark_room_read_success', response);
   }
 

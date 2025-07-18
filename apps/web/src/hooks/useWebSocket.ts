@@ -85,11 +85,8 @@ export const useWebSocket = () => {
           onRoomOnlineMembers: (data) =>
             WebSocketEventHandlers.handleRoomOnlineMembers(data),
         });
-      } else {
-        console.error("[WebSocket] Không khởi tạo được socket");
       }
-    } catch (error) {
-      console.error("Failed to connect WebSocket:", error);
+    } catch {
       hasConnectedRef.current = false;
     }
   }, [connect, isAuthenticated, currentUser, isConnecting]);

@@ -95,7 +95,7 @@ const ChatIcon: React.FC<ChatIconProps> = ({
           >
             Cuộc trò chuyện
           </div>
-          <ChatPopupList rooms={rooms} onRoomSelect={onRoomSelect} />
+          <ChatPopupList onRoomSelect={onRoomSelect} />
         </div>
       )}
     </div>
