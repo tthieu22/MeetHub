@@ -46,7 +46,7 @@ export class CreateBookingDto {
 
   @IsNotEmpty({ message: 'Trường `user` là bắt buộc và không được để trống' })
   @IsMongoId({ message: 'Trường `user` phải là một MongoDB ObjectId hợp lệ' })
-  user: string;
+  user: any;
 
   @IsNotEmpty({ message: 'Trường `startTime` là bắt buộc và không được để trống' })
   @IsDateString({}, { message: 'Trường `startTime` phải là chuỗi ngày giờ ISO 8601 hợp lệ' })

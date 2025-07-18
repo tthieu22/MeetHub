@@ -85,7 +85,6 @@ export class CreateRoomDto {
   capacity: number;
 
   @IsString()
-  @IsIn(['phòng 1901 - tầng 19 - 19 Tố Hữu', 'phòng 1902 - tầng 19 - 19 Tố Hữu', 'tầng 1704 - tầng 17 - 19 Tố Hữu'])
   location: string;
 
   @IsString()

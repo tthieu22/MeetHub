@@ -1,6 +1,6 @@
 "use client";
 
-import RoomList from "../../components/RoomList";
+import RoomList from "@web/components/RoomList";
 
 export default function Rooms() {
   return (

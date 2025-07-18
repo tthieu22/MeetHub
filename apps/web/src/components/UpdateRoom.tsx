@@ -30,7 +30,6 @@ const UpdateRoom: React.FC<UpdateRoomProps> = ({ room, onClose, fetchRooms }) =>
           quantity: device.quantity,
           note: device.note || '',
         })) || [],
-        features: room.features || [],
         status: room.status,
       });
     }
@@ -48,14 +47,13 @@ const UpdateRoom: React.FC<UpdateRoomProps> = ({ room, onClose, fetchRooms }) =>
       const payload = {
         name: values.name.trim(),
         capacity: values.capacity,
-        location: values.location,
+        location: values.location.trim(),
         description: values.description?.trim() || undefined,
         devices: values.devices?.map((device: any) => ({
           name: device.name?.trim(),
           quantity: device.quantity,
           note: device.note?.trim() || undefined,
         })) || [],
-        features: values.features || [],
         status: values.status,
         isActive: values.status !== 'deleted',
       };
@@ -111,12 +109,9 @@ const UpdateRoom: React.FC<UpdateRoomProps> = ({ room, onClose, fetchRooms }) =>
       <Form.Item
         name="location"
         label="Vị trí"
-        rules={[{ required: true, message: 'Vui lòng chọn vị trí!' }]}
+        rules={[{ required: true, message: 'Vui lòng nhập vị trí!' }]}
       >
-        <Select placeholder="Chọn vị trí">
-          <Option value="phòng 1901 - tầng 19 - 19 Tố Hữu">Phòng 1901 - Tầng 19</Option>
-          <Option value="phòng 1902 - tầng 19 - 19 Tố Hữu">Phòng 1902 - Tầng 19</Option>
-        </Select>
+        <Input placeholder="Nhập vị trí" />
       </Form.Item>
       <Form.Item name="description" label="Mô tả">
         <Input.TextArea placeholder="Nhập mô tả phòng" />
@@ -150,14 +145,6 @@ const UpdateRoom: React.FC<UpdateRoomProps> = ({ room, onClose, fetchRooms }) =>
           </>
         )}
       </Form.List>
-      <Form.Item name="features" label="Tính năng">
-        <Select mode="tags" placeholder="Nhập tính năng (ví dụ: Wi-Fi, Máy chiếu)">
-          <Option value="Wi-Fi">Wi-Fi</Option>
-          <Option value="Máy chiếu">Máy chiếu</Option>
-          <Option value="Loa">Loa</Option>
-          <Option value="Bảng trắng">Bảng trắng</Option>
-        </Select>
-      </Form.Item>
       <Form.Item
         name="status"
         label="Trạng thái"
@@ -168,6 +155,7 @@ const UpdateRoom: React.FC<UpdateRoomProps> = ({ room, onClose, fetchRooms }) =>
           <Option value="occupied">Đang sử dụng</Option>
           <Option value="maintenance">Bảo trì</Option>
           <Option value="cleaning">Đang dọn dẹp</Option>
+          <Option value="deleted">Đã xóa</Option>
         </Select>
       </Form.Item>
       <Form.Item>

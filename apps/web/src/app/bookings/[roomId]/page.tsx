@@ -1,12 +1,37 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useUserStore } from '@/store/user.store';
-import { message, Card, Typography, Calendar, Select, Spin, List, Tag, Button, Row, Col } from 'antd';
-import { api, setAuthToken } from '@/lib/api';
-import moment, { Moment } from 'moment';
-import { CalendarOutlined, LeftOutlined } from '@ant-design/icons';
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useUserStore } from "@/store/user.store";
+import {
+  message,
+  Card,
+  Typography,
+  Select,
+  Spin,
+  List,
+  Tag,
+  Button,
+  Row,
+  Col,
+  Modal,
+} from "antd";
+import { api, setAuthToken } from "@/lib/api";
+import moment, { Moment } from "moment";
+import {
+  LeftOutlined,
+  RightOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
+  EditOutlined,
+  CloseOutlined,
+  DeleteOutlined,
+  InfoCircleOutlined,
+  ReloadOutlined,
+} from "@ant-design/icons";
+import BookingForm from "@/components/BookingForm";
+import _ from "lodash";
+import BookingDetail from "../../../components/BookingDetail";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -17,10 +42,10 @@ interface Booking {
   user: { _id: string; name: string };
   startTime: string;
   endTime: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: "confirmed" | "cancelled" | "completed" | "pending" | "deleted";
   title?: string;
   description?: string;
-  participants: { _id: string; name: string }[];
+  participants: string[];
 }
 
 interface Room {
@@ -33,123 +58,454 @@ interface Room {
 const Bookings = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [room, setRoom] = useState<Room | null>(null);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<'day' | 'week' | 'month' | 'year'>('month');
-  const [selectedDate, setSelectedDate] = useState<Moment>(moment());
+  const [selectedYear, setSelectedYear] = useState(moment().year());
+  const [selectedMonth, setSelectedMonth] = useState(moment().month());
+  const [selectedWeek, setSelectedWeek] = useState(moment().startOf("isoWeek"));
+  const [isBookingModalVisible, setIsBookingModalVisible] = useState(false);
+  const [selectedStartDate, setSelectedStartDate] = useState<Moment | null>(
+    null
+  );
+  const [selectedEndDate, setSelectedEndDate] = useState<Moment | null>(null);
+  const [selectionPhase, setSelectionPhase] = useState<"start" | "end">(
+    "start"
+  );
+  const [showDetails, setShowDetails] = useState(true);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const router = useRouter();
   const { roomId } = useParams();
-  const { token, setToken } = useUserStore();
+  const { token } = useUserStore();
+  const userRole = useUserStore((state) => state.role) || "ADMIN";
+  const [detailModalVisible, setDetailModalVisible] = useState(false); // bật/tắt modal
+  const [detailBookingId, setDetailBookingId] = useState<string | null>(null); // lưu id booking
+  const getBookingDetail = async (bookingId: string, token: string) => {
+    const [bookings, setBookings] = useState<Booking[]>([]);
+    const [room, setRoom] = useState<Room | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [cancelModalVisible, setCancelModalVisible] = useState(false);
+    const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const NESTJS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    useEffect(() => {
+      if (currentUserId) {
+        console.log("UserId đã được load:", currentUserId);
+      }
 
-  const fetchRoom = useCallback(async () => {
-    const authToken = token || localStorage.getItem('access_token');
-    if (!authToken) {
-      setError('Vui lòng đăng nhập để xem thông tin phòng.');
-      message.error('Vui lòng đăng nhập để tiếp tục.', 2);
-      router.push('/login');
-      return;
-    }
+      const fetchUserId = async () => {
+        try {
+          const response = await axios.get(`${NESTJS_API_URL}/api/users/me`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (response.data && response.data._id) {
+            setCurrentUserId(response.data._id);
+          }
+        } catch (err) {
+          console.error("Không thể lấy userId:", err);
+        }
+      };
 
-    setAuthToken(authToken);
+      if (token) {
+        fetchUserId();
+      }
+    }, [token]);
+
     try {
-      setLoading(true);
-      const response = await api.get(`/api/rooms/${roomId}`);
+      const response = await axios.get(
+        `http://localhost:8000/api/bookings/${bookingId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-      if (response.data?.success) {
-        setRoom(response.data.data);
-      } else {
-        throw new Error(response.data?.message || 'Lỗi không xác định từ server');
-      }
-    } catch (error: any) {
-      const errorMsg = error.response?.data?.message || error.message;
-      setError(`Lỗi khi lấy thông tin phòng: ${errorMsg}`);
-      message.error(errorMsg, 2);
-      if (error.response?.status === 401) {
-        router.push('/login');
-      }
-    } finally {
-      setLoading(false);
+      console.log("Booking detail:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Lỗi khi gọi API:", error);
+      throw error;
     }
-  }, [token, router, roomId]);
+  };
 
-  const fetchBookings = useCallback(async () => {
-    const authToken = token || localStorage.getItem('access_token');
-    if (!authToken || !room) {
-      return;
-    }
+  const NESTJS_API_URL =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-    setAuthToken(authToken);
-    try {
-      setLoading(true);
-      setError(null);
+  const isStartDate = (day: Moment) =>
+    selectedStartDate && day.isSame(selectedStartDate, "day");
+  const isEndDate = (day: Moment) =>
+    selectedEndDate && day.isSame(selectedEndDate, "day");
+  const isInRange = (day: Moment) =>
+    selectedStartDate &&
+    selectedEndDate &&
+    day.isBetween(selectedStartDate, selectedEndDate, "day", "[]");
 
-      let startDate: Moment, endDate: Moment;
-      if (mode === 'day') {
-        startDate = selectedDate.clone().startOf('day');
-        endDate = selectedDate.clone().endOf('day');
-      } else if (mode === 'week') {
-        startDate = selectedDate.clone().startOf('week');
-        endDate = selectedDate.clone().endOf('week');
-      } else if (mode === 'month') {
-        startDate = selectedDate.clone().startOf('month');
-        endDate = selectedDate.clone().endOf('month');
-      } else {
-        startDate = selectedDate.clone().startOf('year');
-        endDate = selectedDate.clone().endOf('year');
-      }
+  const checkBookingConflict = (start: Moment, end: Moment): boolean => {
+    return bookings.some((booking) => {
+      if (booking.status === "deleted") return false;
+      const existingStart = moment(booking.startTime);
+      const existingEnd = moment(booking.endTime);
+      return !(
+        end.isSameOrBefore(existingStart) || start.isSameOrAfter(existingEnd)
+      );
+    });
+  };
 
-      const response = await api.get(`${NESTJS_API_URL}/api/bookings/findAll`, {
-        params: {
-          roomName: room.name,
-          date: mode !== 'year' ? selectedDate.format('YYYY-MM-DD') : undefined,
-          startTimeFrom: mode === 'year' ? startDate.toISOString() : undefined,
-          startTimeTo: mode === 'year' ? endDate.toISOString() : undefined,
-        },
+  const fetchDataImmediately = useCallback(async () => {
+    if (!token) {
+      const errorMsg = "Vui lòng đăng nhập để xem thông tin phòng.";
+      setError(errorMsg);
+      Modal.error({
+        title: "Lỗi",
+        content: errorMsg,
+        onOk: () => router.push("/login"),
       });
+      return;
+    }
 
-      if (response.data.success) {
-        setBookings(response.data.data || []);
+    setAuthToken(token);
+    setLoading(true);
+    try {
+      const [roomResponse, bookingsResponse] = await Promise.all([
+        api.get(`${NESTJS_API_URL}/api/rooms/${roomId}`),
+        api.get(`${NESTJS_API_URL}/api/bookings/findAll`, {
+          params: {
+            roomId,
+            filter: JSON.stringify({}),
+          },
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      if (roomResponse.data?.success) {
+        setRoom(roomResponse.data.data);
       } else {
-        throw new Error(response.data.message || 'Không tìm thấy đặt phòng');
+        throw new Error(
+          roomResponse.data?.message || "Không thể tải thông tin phòng."
+        );
       }
+
+      if (bookingsResponse.data.success) {
+        const filteredBookings = bookingsResponse.data.data.filter(
+          (booking: Booking) => booking.status !== "deleted"
+        );
+        setBookings(filteredBookings);
+      } else {
+        throw new Error(
+          bookingsResponse.data?.message || "Không thể tải danh sách đặt phòng."
+        );
+      }
+      setError(null);
     } catch (error: any) {
-      const errorMsg = Array.isArray(error.response?.data?.message)
-        ? error.response.data.message.join('; ')
-        : error.response?.data?.message || error.message;
-      setError(`Lỗi khi lấy danh sách đặt phòng: ${errorMsg}`);
-      message.error(errorMsg, 2);
-      if (error.response?.status === 401) {
-        router.push('/login');
-      }
+      const errorMsg =
+        error.response?.data?.message ||
+        error.message ||
+        "Lỗi không xác định khi tải dữ liệu.";
+      console.error("Lỗi khi tải dữ liệu:", error);
+      setError(errorMsg);
+      Modal.error({
+        title: "Lỗi",
+        content: errorMsg,
+        onOk: () => router.push("/login"),
+      });
     } finally {
       setLoading(false);
     }
-  }, [token, router, room, mode, selectedDate, NESTJS_API_URL]);
+  }, [token, roomId, NESTJS_API_URL, router]);
+
+  const debouncedFetchData = useMemo(
+    () => _.debounce(fetchDataImmediately, 300),
+    [fetchDataImmediately]
+  );
+
+  const refreshData = () => {
+    setLoading(true);
+    fetchDataImmediately();
+  };
 
   useEffect(() => {
-    fetchRoom();
-  }, [fetchRoom]);
+    fetchDataImmediately();
+    return () => debouncedFetchData.cancel();
+  }, [fetchDataImmediately, debouncedFetchData]);
 
-  useEffect(() => {
-    if (room) {
-      fetchBookings();
-    }
-  }, [room, mode, selectedDate, fetchBookings]);
+  const handleYearChange = (value: number) => {
+    setSelectedYear(value);
+    setSelectedWeek(
+      moment().year(value).month(selectedMonth).startOf("isoWeek")
+    );
+  };
 
-  const handleModeChange = (value: 'day' | 'week' | 'month' | 'year') => {
-    setMode(value);
+  const handleMonthChange = (value: number) => {
+    setSelectedMonth(value);
+    setSelectedWeek(
+      moment().year(selectedYear).month(value).startOf("isoWeek")
+    );
+  };
+
+  const handleNextWeek = () => {
+    const nextWeek = selectedWeek.clone().add(1, "week");
+    setSelectedWeek(nextWeek);
+    setSelectedMonth(nextWeek.month());
+  };
+
+  const handlePreviousWeek = () => {
+    const prevWeek = selectedWeek.clone().subtract(1, "week");
+    setSelectedWeek(prevWeek);
+    setSelectedMonth(prevWeek.month());
   };
 
   const handleDateSelect = (date: Moment) => {
-    setSelectedDate(date);
+    const currentDate = moment().startOf("day");
+    const startTime = date.clone().set({ hour: 9, minute: 0, second: 0 });
+    const endTime = date.clone().set({ hour: 17, minute: 0, second: 0 });
+
+    if (date.isBefore(currentDate)) {
+      Modal.error({
+        title: "Lỗi",
+        content:
+          "Không thể đặt lịch từ quá khứ. Vui lòng chọn ngày từ hôm nay trở đi.",
+        okText: "Đã hiểu",
+      });
+      return;
+    }
+
+    if (selectionPhase === "start") {
+      if (checkBookingConflict(startTime, endTime)) {
+        Modal.error({
+          title: "Lỗi",
+          content: "Ngày này đã có lịch đặt. Vui lòng chọn ngày khác.",
+          okText: "Đã hiểu",
+        });
+        return;
+      }
+      setSelectedStartDate(date);
+      setSelectedEndDate(null);
+      setSelectionPhase("end");
+      message.info("Đã chọn ngày bắt đầu, vui lòng chọn ngày kết thúc");
+    } else {
+      if (date.isBefore(selectedStartDate)) {
+        Modal.error({
+          title: "Lỗi",
+          content: "Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.",
+          okText: "Đã hiểu",
+        });
+        return;
+      }
+      if (date.isBefore(currentDate)) {
+        Modal.error({
+          title: "Lỗi",
+          content:
+            "Không thể đặt lịch từ quá khứ. Vui lòng chọn ngày từ hôm nay trở đi.",
+          okText: "Đã hiểu",
+        });
+        return;
+      }
+      if (
+        checkBookingConflict(
+          selectedStartDate!.clone().set({ hour: 9, minute: 0, second: 0 }),
+          endTime
+        )
+      ) {
+        Modal.error({
+          title: "Lỗi",
+          content: "Ngày này đã có lịch đặt. Vui lòng chọn ngày khác.",
+          okText: "Đã hiểu",
+        });
+        return;
+      }
+      setSelectedEndDate(date);
+      setSelectionPhase("start");
+      setIsBookingModalVisible(true);
+    }
   };
 
-  const dateCellRender = (value: Moment) => {
+  const handleBookingSubmit = async (formData: any) => {
+    if (!token) {
+      Modal.error({
+        title: "Lỗi",
+        content: "Vui lòng đăng nhập để đặt phòng.",
+        onOk: () => router.push("/login"),
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const url = selectedBooking
+        ? `${NESTJS_API_URL}/api/bookings/${selectedBooking._id}`
+        : `${NESTJS_API_URL}/api/bookings/add-booking`;
+      const method = selectedBooking ? "put" : "post";
+
+      const response = await api[method](url, formData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data.success) {
+        await fetchDataImmediately();
+        Modal.success({
+          title: "Thành công",
+          content: `${selectedBooking ? "Cập nhật" : "Đặt"} phòng thành công!`,
+          okText: "OK",
+          onOk: () => {
+            setIsBookingModalVisible(false);
+            setSelectedStartDate(null);
+            setSelectedEndDate(null);
+            setSelectedBooking(null);
+          },
+        });
+      } else {
+        const errorMsg =
+          response.data.message ||
+          `${selectedBooking ? "Cập nhật" : "Đặt"} phòng thất bại`;
+        Modal.error({
+          title: "Lỗi",
+          content: errorMsg,
+          okText: "Đã hiểu",
+        });
+      }
+    } catch (error: any) {
+      const errorContent = error.response?.data?.message
+        ? `Lỗi: ${error.response.data.message}`
+        : `Lỗi khi ${selectedBooking ? "cập nhật" : "đặt"} phòng: ${error.message}`;
+
+      Modal.error({
+        title: "Lỗi",
+        content: errorContent,
+        okText: "Đã hiểu",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdate = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setIsBookingModalVisible(true);
+  };
+
+  const openCancelModal = (bookingId: string) => {
+    if (!currentUserId) {
+      message.error("Không thể xác định người dùng. Vui lòng thử lại sau.");
+      return;
+    }
+
+    setCancelBookingId(bookingId);
+    setCancelModalVisible(true);
+  };
+
+  const handleCancelBooking = async () => {
+    if (!cancelBookingId || !currentUserId) {
+      message.error(
+        "Không thể hủy vì thiếu thông tin người dùng hoặc booking."
+      );
+      return;
+    }
+
+    console.log("Đang gửi hủy với userId:", currentUserId);
+
+    try {
+      setLoading(true);
+      const response = await axios.post(
+        `${NESTJS_API_URL}/api/bookings/${cancelBookingId}/cancel`,
+        { userId: currentUserId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        Modal.success({
+          title: "Thành công",
+          content: "Hủy đặt phòng thành công!",
+        });
+        setCancelModalVisible(false);
+        await fetchDataImmediately();
+      } else {
+        throw new Error(response.data.message || "Hủy thất bại");
+      }
+    } catch (error: any) {
+      console.error("Lỗi khi huỷ:", error);
+      Modal.error({
+        title: "Lỗi",
+        content:
+          error.response?.data?.message ||
+          error.message ||
+          "Lỗi không xác định",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSoftDelete = async (bookingId: string) => {
+    Modal.confirm({
+      title: "Xác nhận xóa đặt phòng",
+      content: "Bạn có chắc chắn muốn xóa đặt phòng này?",
+      okText: "Xác nhận",
+      cancelText: "Hủy",
+      onOk: async () => {
+        try {
+          setLoading(true);
+          const response = await api.delete(
+            `http://localhost:8000/api/bookings/${bookingId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          if (response.data.success) {
+            await fetchDataImmediately();
+            Modal.success({
+              title: "Thành công",
+              content: "Xóa đặt phòng thành công!",
+              okText: "OK",
+            });
+          } else {
+            throw new Error(response.data.message || "Xóa đặt phòng thất bại");
+          }
+        } catch (error: any) {
+          Modal.error({
+            title: "Lỗi",
+            content:
+              error.response?.data?.message ||
+              error.message ||
+              "Lỗi không xác định khi xóa đặt phòng",
+            okText: "Đã hiểu",
+          });
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+  };
+
+  const handleViewDetails = (booking: Booking) => {
+    console.log("Viewing details for booking:", booking);
+    setDetailBookingId(booking._id);
+    setDetailModalVisible(true);
+  };
+
+  const cellRender = (value: Moment) => {
     const dateBookings = bookings.filter((booking) =>
-      moment(booking.startTime).isSame(value, mode === 'year' ? 'year' : mode)
+      moment(booking.startTime).isSame(value, "day")
     );
+
+    const hasConflict = dateBookings.some((booking) => {
+      if (booking.status === "deleted") return false;
+      const existingStart = moment(booking.startTime);
+      const existingEnd = moment(booking.endTime);
+      const startTime = value.clone().set({ hour: 9, minute: 0, second: 0 });
+      const endTime = value.clone().set({ hour: 17, minute: 0, second: 0 });
+      return !(
+        endTime.isSameOrBefore(existingStart) ||
+        startTime.isSameOrAfter(existingEnd)
+      );
+    });
+
     return (
       <List
         size="small"
@@ -157,208 +513,574 @@ const Bookings = () => {
         renderItem={(booking) => (
           <List.Item
             style={{
-              padding: '8px',
-              borderRadius: '8px',
-              margin: '4px 0',
-              background: booking.status === 'confirmed' ? '#e6f7ff' : booking.status === 'pending' ? '#fffbe6' : '#f6ffed',
-              border: `1px solid ${booking.status === 'confirmed' ? '#1890ff' : booking.status === 'pending' ? '#faad14' : '#52c41a'}`,
-              transition: 'all 0.3s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.02)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = 'none';
+              padding: "8px",
+              borderRadius: "8px",
+              margin: "4px 0",
+              background:
+                booking.status === "confirmed"
+                  ? "#e6f7ff"
+                  : booking.status === "cancelled"
+                    ? "#fffbe6"
+                    : booking.status === "pending"
+                      ? "#fff0f6"
+                      : booking.status === "completed"
+                        ? "#f6ffed"
+                        : "#fff",
+              border: `1px solid ${
+                booking.status === "confirmed"
+                  ? "#1890ff"
+                  : booking.status === "cancelled"
+                    ? "#faad14"
+                    : booking.status === "pending"
+                      ? "#eb2f96"
+                      : booking.status === "completed"
+                        ? "#52c41a"
+                        : "#d9d9d9"
+              }`,
             }}
           >
-            <Text strong style={{ fontSize: '14px', color: '#1d39c4' }}>
-              {booking.title || 'Không có tiêu đề'} ({moment(booking.startTime).format('HH:mm')} - {moment(booking.endTime).format('HH:mm')})
+            <Text strong style={{ fontSize: "14px", color: "#1d39c4" }}>
+              {booking.title || "Không có tiêu đề"} (
+              {moment(booking.startTime).format("HH:mm")} -{" "}
+              {moment(booking.endTime).format("HH:mm")})
             </Text>
             <Tag
-              color={booking.status === 'confirmed' ? '#1890ff' : booking.status === 'pending' ? '#faad14' : '#52c41a'}
-              style={{ marginLeft: '8px' }}
+              color={
+                booking.status === "confirmed"
+                  ? "#1890ff"
+                  : booking.status === "cancelled"
+                    ? "#faad14"
+                    : booking.status === "pending"
+                      ? "#eb2f96"
+                      : booking.status === "completed"
+                        ? "#52c41a"
+                        : "#d9d9d9"
+              }
+              style={{ marginLeft: "8px" }}
             >
-              {booking.status === 'confirmed' ? 'Đã xác nhận' : booking.status === 'pending' ? 'Đang chờ' : 'Hoàn thành'}
+              {booking.status === "confirmed"
+                ? "Đã xác nhận"
+                : booking.status === "cancelled"
+                  ? "Đã hủy"
+                  : booking.status === "pending"
+                    ? "Chờ duyệt"
+                    : booking.status === "completed"
+                      ? "Hoàn thành"
+                      : "Không xác định"}
             </Tag>
+            {userRole === "ADMIN" && (
+              <div style={{ marginTop: "8px" }}>
+                <Button
+                  icon={<EditOutlined />}
+                  onClick={() => handleUpdate(booking)}
+                  style={{ marginRight: "8px" }}
+                >
+                  Sửa
+                </Button>
+                <Button
+                  icon={<CloseOutlined />}
+                  onClick={() => openCancelModal(booking._id)}
+                  style={{ marginRight: "8px" }}
+                  danger
+                >
+                  Hủy
+                </Button>
+
+                <Button
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleSoftDelete(booking._id)}
+                  style={{ marginRight: "8px" }}
+                  danger
+                >
+                  Xóa
+                </Button>
+                <Button
+                  icon={<InfoCircleOutlined />}
+                  onClick={() => handleViewDetails(booking)}
+                >
+                  Chi tiết
+                </Button>
+              </div>
+            )}
           </List.Item>
         )}
       />
     );
   };
 
+  const renderMonthWeeks = (year: number, month: number) => {
+    const startOfMonth = moment().year(year).month(month).startOf("month");
+    const endOfMonth = moment().year(year).month(month).endOf("month");
+
+    const weeks: moment.Moment[] = [];
+    let currentWeek = startOfMonth.clone().startOf("isoWeek");
+
+    while (currentWeek.isBefore(endOfMonth)) {
+      weeks.push(currentWeek.clone());
+      currentWeek.add(1, "week");
+    }
+
+    return weeks;
+  };
+
+  const MonthView = ({
+    year,
+    month,
+    onWeekSelect,
+  }: {
+    year: number;
+    month: number;
+    onWeekSelect: (week: moment.Moment) => void;
+  }) => {
+    const weeks = renderMonthWeeks(year, month);
+
+    return (
+      <div style={{ marginTop: 16 }}>
+        <Title level={4} style={{ color: "#1d39c4" }}>
+          {moment().month(month).format("MMMM")} {year}
+        </Title>
+        <Row gutter={[16, 16]}>
+          {weeks.map((week, index) => {
+            const bookingCount = bookings.filter((b) =>
+              moment(b.startTime).isBetween(
+                week,
+                week.clone().endOf("isoWeek"),
+                "day",
+                "[]"
+              )
+            ).length;
+
+            return (
+              <Col key={index} span={24}>
+                <Card
+                  hoverable
+                  onClick={() => onWeekSelect(week)}
+                  style={{
+                    border: selectedWeek.isSame(week, "week")
+                      ? "2px solid #1890ff"
+                      : "1px solid #d9d9d9",
+                    borderRadius: 8,
+                    backgroundColor: selectedWeek.isSame(week, "week")
+                      ? "#e6f7ff"
+                      : "#fff",
+                  }}
+                >
+                  <Text strong>
+                    Tuần {index + 1}: {week.format("DD/MM")} -{" "}
+                    {week.clone().endOf("isoWeek").format("DD/MM")}
+                  </Text>
+                  <div style={{ marginTop: 8 }}>
+                    <Text type={bookingCount > 0 ? "success" : "secondary"}>
+                      {bookingCount} đặt phòng
+                    </Text>
+                  </div>
+                </Card>
+              </Col>
+            );
+          })}
+        </Row>
+      </div>
+    );
+  };
+
+  let userId = "";
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      userId = payload.sub || payload.userId || "";
+    } catch (e) {
+      console.error("Lỗi khi phân tích token:", e);
+      Modal.error({
+        title: "Lỗi",
+        content: "Token không hợp lệ. Vui lòng đăng nhập lại.",
+        onOk: () => router.push("/login"),
+      });
+    }
+  }
+
   return (
-    <div style={{ 
-      padding: '24px', 
-      width: '100vw', 
-      minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #f0f2f5, #e6f7ff)',
-      overflow: 'auto',
-    }}>
-      <style jsx>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes pulse {
-          0% { opacity: 1; }
-          50% { opacity: 0.6; }
-          100% { opacity: 1; }
-        }
-        .fade-in {
-          animation: fadeIn 0.5s ease-out;
-        }
-      `}</style>
+    <div
+      style={{
+        padding: "24px",
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #f0f2f5, #e6f7ff)",
+      }}
+    >
       {loading ? (
-        <Card 
-          styles={{ 
-            body: { 
-              borderRadius: '16px', 
-              boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
-              border: '1px solid #1890ff',
-              background: '#ffffff',
-              textAlign: 'center',
-              padding: '40px',
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-            },
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "100vh",
           }}
         >
-          <Spin size="large" style={{ marginBottom: '24px' }} />
-          <Text 
-            style={{ 
-              fontSize: '28px', 
-              color: '#1d39c4', 
-              fontWeight: 600,
-              animation: 'pulse 1.5s infinite',
-            }}
-          >
-            Đang tải...
-          </Text>
-        </Card>
+          <Spin size="large" tip="Đang tải dữ liệu..." />
+        </div>
       ) : error ? (
-        <Card styles={{ 
-          body: { 
-            borderRadius: '16px', 
-            boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
-            border: '1px solid #ff4d4f',
-            textAlign: 'center',
-            width: '100%',
-            height: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          },
-        }}>
-          <Text type="danger" style={{ fontSize: '28px', fontWeight: 600, color: '#ff4d4f' }}>{error}</Text>
+        <Card
+          style={{
+            maxWidth: 500,
+            margin: "40px auto",
+            textAlign: "center",
+            borderRadius: 16,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          }}
+        >
+          <Text type="danger" style={{ fontSize: 20, marginBottom: 16 }}>
+            {error}
+          </Text>
+          <Button
+            type="primary"
+            onClick={refreshData}
+            style={{ marginRight: 16 }}
+            icon={<ReloadOutlined />}
+          >
+            Tải lại
+          </Button>
+          <Button onClick={() => router.push("/login")}>Đăng nhập</Button>
         </Card>
       ) : room ? (
         <>
-          <Row justify="space-between" align="middle" style={{ marginBottom: '32px' }}>
+          <Row
+            justify="space-between"
+            align="middle"
+            style={{ marginBottom: 24 }}
+          >
             <Col>
-              <Title level={2} style={{ 
-                color: '#1d39c4',
-                textShadow: '2px 2px 4px rgba(0,0,0,0.1)', 
-                fontSize: '32px',
-                fontWeight: 700,
-                animation: 'fadeIn 0.5s ease-out',
-              }}>
+              <Title level={2} style={{ color: "#1d39c4", marginBottom: 8 }}>
                 Lịch Đặt Phòng - {room.name}
               </Title>
-              <Text style={{ fontSize: '18px', color: '#595959' }}>
+              <Text style={{ fontSize: 16, color: "#595959" }}>
                 Sức chứa: {room.capacity} người | Vị trí: {room.location}
               </Text>
             </Col>
             <Col>
               <Button
-                type="default"
+                type="primary"
                 icon={<LeftOutlined />}
-                onClick={() => router.push('/rooms')}
+                onClick={() => router.push("/admin/rooms")}
                 size="large"
-                style={{
-                  borderRadius: '20px',
-                  background: 'linear-gradient(90deg, #1890ff, #40a9ff)',
-                  border: 'none',
-                  color: '#ffffff',
-                  padding: '12px 24px',
-                  fontSize: '16px',
-                  fontWeight: 500,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.3s ease',
-                  boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(24, 144, 255, 0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(24, 144, 255, 0.3)';
-                }}
+                style={{ marginRight: 8 }}
               >
-                Quay lại danh sách phòng
+                Quay lại
+              </Button>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={refreshData}
+                size="large"
+              >
+                Làm mới
               </Button>
             </Col>
           </Row>
+
           <Card
-            styles={{
-              body: {
-                borderRadius: '16px',
-                boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
-                background: '#ffffff',
-                padding: '24px',
-                animation: 'fadeIn 0.5s ease-out',
-              },
+            style={{
+              borderRadius: 16,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+              marginBottom: 24,
             }}
           >
-            <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+            <Row
+              justify="space-between"
+              align="middle"
+              style={{ marginBottom: 16 }}
+            >
+              <Text
+                type="secondary"
+                style={{
+                  display: "block",
+                  marginBottom: 16,
+                  fontSize: 16,
+                  fontWeight: 500,
+                  color: selectionPhase === "start" ? "#1890ff" : "#52c41a",
+                }}
+              >
+                {selectionPhase === "start"
+                  ? "👉 Đang chọn NGÀY BẮT ĐẦU"
+                  : "👉 Đang chọn NGÀY KẾT THÚC"}
+              </Text>
+              <Button
+                icon={showDetails ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                onClick={() => setShowDetails(!showDetails)}
+                style={{ marginBottom: 16 }}
+              >
+                {showDetails ? "Ẩn chi tiết" : "Hiện chi tiết"}
+              </Button>
+            </Row>
+
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
               <Col xs={24} sm={12} md={8}>
-                <Text strong style={{ fontSize: '18px', color: '#1d39c4' }}>Chế độ hiển thị:</Text>
+                <Text strong style={{ display: "block", marginBottom: 8 }}>
+                  Chọn năm:
+                </Text>
                 <Select
-                  value={mode}
-                  onChange={handleModeChange}
-                  style={{
-                    width: '100%',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    transition: 'all 0.3s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'scale(1.02)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
+                  value={selectedYear}
+                  onChange={handleYearChange}
+                  style={{ width: "100%" }}
                 >
-                  <Option value="day">Ngày</Option>
-                  <Option value="week">Tuần</Option>
-                  <Option value="month">Tháng</Option>
-                  <Option value="year">Năm</Option>
+                  {Array.from(
+                    { length: 10 },
+                    (_, i) => moment().year() - 5 + i
+                  ).map((year) => (
+                    <Option key={year} value={year}>
+                      {year}
+                    </Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <Text strong style={{ display: "block", marginBottom: 8 }}>
+                  Chọn tháng:
+                </Text>
+                <Select
+                  value={selectedMonth}
+                  onChange={handleMonthChange}
+                  style={{ width: "100%" }}
+                >
+                  {Array.from({ length: 12 }, (_, i) => i).map((month) => (
+                    <Option key={month} value={month}>
+                      {moment().month(month).format("MMMM")}
+                    </Option>
+                  ))}
                 </Select>
               </Col>
             </Row>
-            <Calendar
-              mode={mode === 'day' ? 'month' : mode}
-              value={selectedDate}
-              onSelect={handleDateSelect}
-              dateCellRender={dateCellRender}
-              style={{
-                borderRadius: '16px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                padding: '16px',
-                background: '#ffffff',
-              }}
+
+            <MonthView
+              year={selectedYear}
+              month={selectedMonth}
+              onWeekSelect={(week) => setSelectedWeek(week)}
             />
+
+            <Row
+              justify="space-between"
+              align="middle"
+              style={{ margin: "24px 0" }}
+            >
+              <Button icon={<LeftOutlined />} onClick={handlePreviousWeek}>
+                Tuần trước
+              </Button>
+              <Text strong style={{ fontSize: 18 }}>
+                Tuần từ {selectedWeek.startOf("isoWeek").format("DD/MM")} đến{" "}
+                {selectedWeek.endOf("isoWeek").format("DD/MM")}
+              </Text>
+              <Button icon={<RightOutlined />} onClick={handleNextWeek}>
+                Tuần sau
+              </Button>
+            </Row>
+
+            {showDetails && (
+              <>
+                <Row gutter={[8, 8]} style={{ marginBottom: 16 }}>
+                  {Array.from({ length: 7 }, (_, index) => {
+                    const day = selectedWeek
+                      .clone()
+                      .startOf("isoWeek")
+                      .add(index, "days");
+                    const isCurrentMonth =
+                      day.year() === selectedYear &&
+                      day.month() === selectedMonth;
+                    const hasConflict = bookings.some((booking) => {
+                      if (booking.status === "deleted") return false;
+                      const existingStart = moment(booking.startTime);
+                      const existingEnd = moment(booking.endTime);
+                      const startTime = day
+                        .clone()
+                        .set({ hour: 9, minute: 0, second: 0 });
+                      const endTime = day
+                        .clone()
+                        .set({ hour: 17, minute: 0, second: 0 });
+                      return !(
+                        endTime.isSameOrBefore(existingStart) ||
+                        startTime.isSameOrAfter(existingEnd)
+                      );
+                    });
+
+                    return (
+                      <Col
+                        key={index}
+                        xs={24}
+                        sm={24}
+                        md={24}
+                        lg={24}
+                        xl={24}
+                        style={{
+                          backgroundColor: hasConflict
+                            ? "#ff4d4f"
+                            : isStartDate(day)
+                              ? "#1890ff"
+                              : isEndDate(day)
+                                ? "#52c41a"
+                                : isInRange(day)
+                                  ? "#e6f7ff"
+                                  : "#fff",
+                          border: hasConflict
+                            ? "2px solid #ff4d4f"
+                            : isStartDate(day)
+                              ? "2px solid #1890ff"
+                              : isEndDate(day)
+                                ? "2px solid #52c41a"
+                                : "1px solid #d9d9d9",
+                          borderRadius: 8,
+                          padding: 8,
+                          cursor:
+                            hasConflict || day.isBefore(moment().startOf("day"))
+                              ? "not-allowed"
+                              : "pointer",
+                          position: "relative",
+                          minHeight: "120px",
+                        }}
+                        onClick={() => {
+                          if (
+                            !hasConflict &&
+                            !day.isBefore(moment().startOf("day"))
+                          ) {
+                            handleDateSelect(day);
+                          }
+                        }}
+                      >
+                        {isStartDate(day) && (
+                          <Tag
+                            color="blue"
+                            style={{
+                              position: "absolute",
+                              top: 4,
+                              right: 4,
+                              borderRadius: "50%",
+                              padding: "0 6px",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            BĐ
+                          </Tag>
+                        )}
+
+                        {isEndDate(day) && (
+                          <Tag
+                            color="green"
+                            style={{
+                              position: "absolute",
+                              top: 4,
+                              right: 4,
+                              borderRadius: "50%",
+                              padding: "0 6px",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            KT
+                          </Tag>
+                        )}
+
+                        <div
+                          style={{
+                            color:
+                              hasConflict || isStartDate(day) || isEndDate(day)
+                                ? "#fff"
+                                : isCurrentMonth
+                                  ? "#1d39c4"
+                                  : "#595959",
+                            fontWeight: 500,
+                            marginBottom: 8,
+                          }}
+                        >
+                          {day.format("ddd DD/MM")}
+                        </div>
+                        <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                          {cellRender(day)}
+                        </div>
+                      </Col>
+                    );
+                  })}
+                </Row>
+
+                {selectedStartDate && (
+                  <div style={{ marginTop: 16 }}>
+                    <Text strong>Ngày bắt đầu: </Text>
+                    <Tag color="blue">
+                      {selectedStartDate.format("DD/MM/YYYY")}
+                    </Tag>
+                    {selectedEndDate && (
+                      <>
+                        <Text strong style={{ marginLeft: 8 }}>
+                          Ngày kết thúc:{" "}
+                        </Text>
+                        <Tag color="green">
+                          {selectedEndDate.format("DD/MM/YYYY")}
+                        </Tag>
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </Card>
+
+          <BookingForm
+            visible={isBookingModalVisible}
+            onCancel={() => {
+              setIsBookingModalVisible(false);
+              setSelectedStartDate(null);
+              setSelectedEndDate(null);
+              setSelectedBooking(null);
+              setSelectionPhase("start");
+            }}
+            onSubmit={handleBookingSubmit}
+            initialValues={{
+              room: room?._id || "",
+              user: userId,
+              startTime:
+                selectedBooking?.startTime ||
+                (selectedStartDate
+                  ? selectedStartDate
+                      .clone()
+                      .set({ hour: 9, minute: 0, second: 0 })
+                      .toISOString()
+                  : moment()
+                      .add(1, "day")
+                      .set({ hour: 9, minute: 0, second: 0 })
+                      .toISOString()),
+              endTime:
+                selectedBooking?.endTime ||
+                (selectedEndDate
+                  ? selectedEndDate
+                      .clone()
+                      .set({ hour: 17, minute: 0, second: 0 })
+                      .toISOString()
+                  : moment()
+                      .add(1, "day")
+                      .set({ hour: 17, minute: 0, second: 0 })
+                      .toISOString()),
+              title: selectedBooking?.title || "Cuộc họp nhóm dự án",
+              description:
+                selectedBooking?.description ||
+                "Thảo luận kế hoạch phát triển sản phẩm mới",
+              status: selectedBooking?.status || "pending",
+              participants: selectedBooking?.participants || [],
+            }}
+            bookings={bookings}
+          />
         </>
       ) : null}
+      <Modal
+        title="Chi tiết đặt phòng"
+        open={detailModalVisible}
+        onCancel={() => setDetailModalVisible(false)}
+        footer={null}
+        width={600}
+      >
+        {detailBookingId && <BookingDetail bookingId={detailBookingId} />}
+      </Modal>
+
+      <Modal
+        title="Xác nhận hủy đặt phòng"
+        open={cancelModalVisible}
+        onCancel={() => setCancelModalVisible(false)}
+        onOk={handleCancelBooking}
+      >
+        <p>Bạn có chắc chắn muốn hủy đặt phòng này?</p>
+      </Modal>
     </div>
   );
 };

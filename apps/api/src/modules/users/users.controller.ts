@@ -30,7 +30,7 @@ export class UsersController {
     return this.usersService.create(createUserDto);
   }
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  // @Roles(UserRole.ADMIN)
   @Get('/find-all')
   findAll() {
     return this.usersService.findAll();

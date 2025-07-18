@@ -30,13 +30,13 @@ export class RoomsService implements IRoomService {
             }
 
             // Validate location trước khi tạo
-            if (createRoomDto.location === 'tầng 1704 - tầng 17 - 19 Tố Hữu') {
-                throw new BadRequestException({
-                    success: false,
-                    message: 'Vị trí phòng không hợp lệ',
-                    errorCode: 'INVALID_LOCATION'
-                });
-            }
+            // if (createRoomDto.location === 'tầng 1704 - tầng 17 - 19 Tố Hữu') {
+            //     throw new BadRequestException({
+            //         success: false,
+            //         message: 'Vị trí phòng không hợp lệ',
+            //         errorCode: 'INVALID_LOCATION'
+            //     });
+            // }
 
             const createdRoom = new this.roomModel(createRoomDto);
             const savedRoom = await createdRoom.save();
@@ -158,13 +158,13 @@ export class RoomsService implements IRoomService {
             }
 
             // Validate location nếu được cung cấp
-            if (updateRoomDto.location === 'tầng 1704 - tầng 17 - 19 Tố Hữu') {
-                throw new BadRequestException({
-                    success: false,
-                    message: 'Vị trí phòng không hợp lệ',
-                    errorCode: 'INVALID_LOCATION'
-                });
-            }
+            // if (updateRoomDto.location === 'tầng 1704 - tầng 17 - 19 Tố Hữu') {
+            //     throw new BadRequestException({
+            //         success: false,
+            //         message: 'Vị trí phòng không hợp lệ',
+            //         errorCode: 'INVALID_LOCATION'
+            //     });
+            // }
 
             // Validate status nếu được cung cấp
             if (updateRoomDto.status === 'Deleted') {

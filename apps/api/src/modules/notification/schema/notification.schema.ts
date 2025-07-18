@@ -3,11 +3,12 @@ import { User } from '@api/modules/users/schema/user.schema';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 export enum Type {
-  BOOOKING = 'booking',
-  CANCEL = 'cancel',
-  REMINDER = 'reminder',
-  CHAT = 'chat',
-  SYSTEM = 'system',
+  BOOKING = 'booking',
+  BOOKING_UPDATE = 'booking-update',
+  BOOKING_CANCEL = 'booking-cancel',
+  BOOKING_REMINDER = 'booking-reminder',
+  BOOKING_CHAT = 'booking-chat',
+  BOOKING_SYSTEM = 'booking-system',
 }
 
 export type NotificationDocument = Notification & Document;
@@ -41,8 +42,7 @@ export class Notification {
 
   @Prop({
     type: Boolean,
-
-    default: true,
+    default: false,
   })
   isRead: boolean;
 

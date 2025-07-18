@@ -13,6 +13,7 @@ import { SearchBookingsDto } from './dto/search-bookings.dto';
 import { SearchBookingsDetailedDto } from './dto/search-bookings-detailed.dto';
 import { NotificationService } from '../notification/notification.service';
 import { log } from 'console';
+import { Type } from '../notification/schema/notification.schema';
 
 @Injectable()
 export class BookingsService implements IBookingService {
@@ -129,7 +130,7 @@ export class BookingsService implements IBookingService {
           await this.notificationService.notify(
             participantObj._id.toString(),
             `Bạn đã được thêm vào lịch họp "${roomObj.name}" lúc ${createdBooking.startTime.toLocaleString()} do ${userObj.name} tạo `,
-            'booking',
+            Type.BOOKING,
           );
         } catch (err) {
           console.error(`Không thể gửi noti cho ${participantObj._id}:`, err.message);
@@ -373,7 +374,7 @@ export class BookingsService implements IBookingService {
           await this.notificationService.notify(
             (participant as any)._id.toString(),
             `Lịch họp "${updatedBooking.title}" đã được cập nhật: bắt đầu lúc ${new Date(updatedBooking.startTime).toLocaleString()}, kết thúc lúc ${new Date(updatedBooking.endTime).toLocaleString()} tại phòng "${updatedBooking.room.name}"`,
-            'booking-update',
+            Type.BOOKING_UPDATE,
           );
         } catch (err) {
           console.error(`Không thể gửi noti cho ${(participant as any)._id}:`, err.message);

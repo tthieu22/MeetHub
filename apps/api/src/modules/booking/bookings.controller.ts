@@ -40,22 +40,25 @@ export class BookingsController {
     };
   }
 
-  @Get("findAll")
-  @UseGuards(AuthGuard , RolesGuard)
-  // @Roles(UserRole.ADMIN)
-  async findAll(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-    @Query('filter') filter: string = '{}'
-  ) {
-    const parsedFilter = JSON.parse(filter);
-    const result = await this.bookingService.findAll(page, limit, parsedFilter);
-    return result;
+@Get("findAll")
+@UseGuards(AuthGuard, RolesGuard)
+async findAll(
+  @Query('page') page: number = 1,
+  @Query('limit') limit: number = 1000000000,
+  @Query('roomId') roomId?: string,
+  @Query('filter') filter: string = '{}'
+) {
+  const parsedFilter = JSON.parse(filter);
+  // Thêm roomId vào filter nếu có
+  if (roomId) {
+    parsedFilter.room = roomId;
   }
+  const result = await this.bookingService.findAll(page, limit, parsedFilter);
+  return result;
+}
 
   @Get(':id')
   @UseGuards(AuthGuard ,RolesGuard )
-  @Roles(UserRole.ADMIN)
   async findOne(@Param('id') id: string) {
     const booking = await this.bookingService.findOne(id);
     return {
