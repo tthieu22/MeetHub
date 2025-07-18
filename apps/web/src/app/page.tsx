@@ -4,7 +4,7 @@ import React from "react";
 import { Row, Col, message } from "antd";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
-import WelcomeSection from "@web/components/home/WelcomeSection";
+import UserRoomList from "@web/components/UserRoomList"; // Import component UserRoomList
 import RightSidebar from "@web/components/home/RightSidebar";
 
 export default function Home() {
@@ -27,7 +27,7 @@ export default function Home() {
       style={{
         padding: "24px",
         backgroundColor: "#f5f5f5",
-        minHeight: "100%",
+        minHeight: "100vh",
         overflow: "visible",
         position: "relative",
       }}
@@ -35,14 +35,7 @@ export default function Home() {
       <Row gutter={[24, 24]} style={{ position: "relative" }}>
         {/* Main Content */}
         <Col xs={24} lg={18}>
-          {currentUser && (
-            <WelcomeSection
-              currentUser={currentUser}
-              onBookRoom={handleBookRoom}
-              onStartChat={handleStartChat}
-              onFindPeople={handleFindPeople}
-            />
-          )} 
+          {currentUser && <UserRoomList />} {/* Thay WelcomeSection bằng UserRoomList */}
         </Col>
  
         <Col xs={24} lg={6}>

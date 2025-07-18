@@ -80,59 +80,33 @@ const Bookings = () => {
   const { roomId } = useParams();
   const { token } = useUserStore();
   const userRole = useUserStore((state) => state.role) || "ADMIN";
-  const [detailModalVisible, setDetailModalVisible] = useState(false); // bật/tắt modal
-  const [detailBookingId, setDetailBookingId] = useState<string | null>(null); // lưu id booking
-  const getBookingDetail = async (bookingId: string, token: string) => {
-    const [bookings, setBookings] = useState<Booking[]>([]);
-    const [room, setRoom] = useState<Room | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [cancelModalVisible, setCancelModalVisible] = useState(false);
-    const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
-    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [detailBookingId, setDetailBookingId] = useState<string | null>(null);
 
-    useEffect(() => {
-      if (currentUserId) {
-        console.log("UserId đã được load:", currentUserId);
-      }
+  useEffect(() => {
+    if (currentUserId) {
+      console.log("UserId đã được load:", currentUserId);
+    }
 
-      const fetchUserId = async () => {
-        try {
-          const response = await axios.get(`${NESTJS_API_URL}/api/users/me`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          if (response.data && response.data._id) {
-            setCurrentUserId(response.data._id);
-          }
-        } catch (err) {
-          console.error("Không thể lấy userId:", err);
-        }
-      };
-
-      if (token) {
-        fetchUserId();
-      }
-    }, [token]);
-
-    try {
-      const response = await axios.get(
-        `http://localhost:8000/api/bookings/${bookingId}`,
-        {
+    const fetchUserId = async () => {
+      try {
+        const response = await api.get(`${NESTJS_API_URL}/api/users/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+        });
+        if (response.data && response.data._id) {
+          setCurrentUserId(response.data._id);
         }
-      );
+      } catch (err) {
+        console.error("Không thể lấy userId:", err);
+      }
+    };
 
-      console.log("Booking detail:", response.data);
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi khi gọi API:", error);
-      throw error;
+    if (token) {
+      fetchUserId();
     }
-  };
+  }, [token]);
 
   const NESTJS_API_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -151,10 +125,35 @@ const Bookings = () => {
       if (booking.status === "deleted") return false;
       const existingStart = moment(booking.startTime);
       const existingEnd = moment(booking.endTime);
-      return !(
-        end.isSameOrBefore(existingStart) || start.isSameOrAfter(existingEnd)
+      return (
+        start.isBefore(existingEnd) && end.isAfter(existingStart)
       );
     });
+  };
+
+  const isDayFullyBooked = (day: Moment): boolean => {
+    const dayStart = day.clone().startOf("day");
+    const dayEnd = day.clone().endOf("day");
+    const bookingsOnDay = bookings.filter(
+      (booking) =>
+        booking.status !== "deleted" &&
+        moment(booking.startTime).isSame(day, "day")
+    );
+
+    let currentTime = dayStart.clone();
+    while (currentTime.isBefore(dayEnd)) {
+      const nextHour = currentTime.clone().add(1, "hour");
+      const hasBooking = bookingsOnDay.some((booking) => {
+        const bookingStart = moment(booking.startTime);
+        const bookingEnd = moment(booking.endTime);
+        return (
+          currentTime.isBefore(bookingEnd) && nextHour.isAfter(bookingStart)
+        );
+      });
+      if (!hasBooking) return false; // If any hour is free, the day is not fully booked
+      currentTime.add(1, "hour");
+    }
+    return true; // All hours are booked
   };
 
   const fetchDataImmediately = useCallback(async () => {
@@ -262,8 +261,6 @@ const Bookings = () => {
 
   const handleDateSelect = (date: Moment) => {
     const currentDate = moment().startOf("day");
-    const startTime = date.clone().set({ hour: 9, minute: 0, second: 0 });
-    const endTime = date.clone().set({ hour: 17, minute: 0, second: 0 });
 
     if (date.isBefore(currentDate)) {
       Modal.error({
@@ -275,15 +272,16 @@ const Bookings = () => {
       return;
     }
 
+    if (isDayFullyBooked(date)) {
+      Modal.error({
+        title: "Lỗi",
+        content: "Ngày này đã kín lịch cả ngày. Vui lòng chọn ngày khác.",
+        okText: "Đã hiểu",
+      });
+      return;
+    }
+
     if (selectionPhase === "start") {
-      if (checkBookingConflict(startTime, endTime)) {
-        Modal.error({
-          title: "Lỗi",
-          content: "Ngày này đã có lịch đặt. Vui lòng chọn ngày khác.",
-          okText: "Đã hiểu",
-        });
-        return;
-      }
       setSelectedStartDate(date);
       setSelectedEndDate(null);
       setSelectionPhase("end");
@@ -293,28 +291,6 @@ const Bookings = () => {
         Modal.error({
           title: "Lỗi",
           content: "Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.",
-          okText: "Đã hiểu",
-        });
-        return;
-      }
-      if (date.isBefore(currentDate)) {
-        Modal.error({
-          title: "Lỗi",
-          content:
-            "Không thể đặt lịch từ quá khứ. Vui lòng chọn ngày từ hôm nay trở đi.",
-          okText: "Đã hiểu",
-        });
-        return;
-      }
-      if (
-        checkBookingConflict(
-          selectedStartDate!.clone().set({ hour: 9, minute: 0, second: 0 }),
-          endTime
-        )
-      ) {
-        Modal.error({
-          title: "Lỗi",
-          content: "Ngày này đã có lịch đặt. Vui lòng chọn ngày khác.",
           okText: "Đã hiểu",
         });
         return;
@@ -331,6 +307,18 @@ const Bookings = () => {
         title: "Lỗi",
         content: "Vui lòng đăng nhập để đặt phòng.",
         onOk: () => router.push("/login"),
+      });
+      return;
+    }
+
+    const startTime = moment(formData.startTime);
+    const endTime = moment(formData.endTime);
+
+    if (checkBookingConflict(startTime, endTime)) {
+      Modal.error({
+        title: "Lỗi",
+        content: "Khung giờ này đã có lịch đặt. Vui lòng chọn khung giờ khác.",
+        okText: "Đã hiểu",
       });
       return;
     }
@@ -384,11 +372,6 @@ const Bookings = () => {
     }
   };
 
-  const handleUpdate = (booking: Booking) => {
-    setSelectedBooking(booking);
-    setIsBookingModalVisible(true);
-  };
-
   const openCancelModal = (bookingId: string) => {
     if (!currentUserId) {
       message.error("Không thể xác định người dùng. Vui lòng thử lại sau.");
@@ -407,11 +390,9 @@ const Bookings = () => {
       return;
     }
 
-    console.log("Đang gửi hủy với userId:", currentUserId);
-
     try {
       setLoading(true);
-      const response = await axios.post(
+      const response = await api.post(
         `${NESTJS_API_URL}/api/bookings/${cancelBookingId}/cancel`,
         { userId: currentUserId },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -428,7 +409,7 @@ const Bookings = () => {
         throw new Error(response.data.message || "Hủy thất bại");
       }
     } catch (error: any) {
-      console.error("Lỗi khi huỷ:", error);
+      console.error("Lỗi khi hủy:", error);
       Modal.error({
         title: "Lỗi",
         content:
@@ -441,50 +422,7 @@ const Bookings = () => {
     }
   };
 
-  const handleSoftDelete = async (bookingId: string) => {
-    Modal.confirm({
-      title: "Xác nhận xóa đặt phòng",
-      content: "Bạn có chắc chắn muốn xóa đặt phòng này?",
-      okText: "Xác nhận",
-      cancelText: "Hủy",
-      onOk: async () => {
-        try {
-          setLoading(true);
-          const response = await api.delete(
-            `http://localhost:8000/api/bookings/${bookingId}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-
-          if (response.data.success) {
-            await fetchDataImmediately();
-            Modal.success({
-              title: "Thành công",
-              content: "Xóa đặt phòng thành công!",
-              okText: "OK",
-            });
-          } else {
-            throw new Error(response.data.message || "Xóa đặt phòng thất bại");
-          }
-        } catch (error: any) {
-          Modal.error({
-            title: "Lỗi",
-            content:
-              error.response?.data?.message ||
-              error.message ||
-              "Lỗi không xác định khi xóa đặt phòng",
-            okText: "Đã hiểu",
-          });
-        } finally {
-          setLoading(false);
-        }
-      },
-    });
-  };
-
   const handleViewDetails = (booking: Booking) => {
-    console.log("Viewing details for booking:", booking);
     setDetailBookingId(booking._id);
     setDetailModalVisible(true);
   };
@@ -493,18 +431,6 @@ const Bookings = () => {
     const dateBookings = bookings.filter((booking) =>
       moment(booking.startTime).isSame(value, "day")
     );
-
-    const hasConflict = dateBookings.some((booking) => {
-      if (booking.status === "deleted") return false;
-      const existingStart = moment(booking.startTime);
-      const existingEnd = moment(booking.endTime);
-      const startTime = value.clone().set({ hour: 9, minute: 0, second: 0 });
-      const endTime = value.clone().set({ hour: 17, minute: 0, second: 0 });
-      return !(
-        endTime.isSameOrBefore(existingStart) ||
-        startTime.isSameOrAfter(existingEnd)
-      );
-    });
 
     return (
       <List
@@ -571,28 +497,12 @@ const Bookings = () => {
             {userRole === "ADMIN" && (
               <div style={{ marginTop: "8px" }}>
                 <Button
-                  icon={<EditOutlined />}
-                  onClick={() => handleUpdate(booking)}
-                  style={{ marginRight: "8px" }}
-                >
-                  Sửa
-                </Button>
-                <Button
                   icon={<CloseOutlined />}
                   onClick={() => openCancelModal(booking._id)}
                   style={{ marginRight: "8px" }}
                   danger
                 >
                   Hủy
-                </Button>
-
-                <Button
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleSoftDelete(booking._id)}
-                  style={{ marginRight: "8px" }}
-                  danger
-                >
-                  Xóa
                 </Button>
                 <Button
                   icon={<InfoCircleOutlined />}
@@ -882,21 +792,7 @@ const Bookings = () => {
                     const isCurrentMonth =
                       day.year() === selectedYear &&
                       day.month() === selectedMonth;
-                    const hasConflict = bookings.some((booking) => {
-                      if (booking.status === "deleted") return false;
-                      const existingStart = moment(booking.startTime);
-                      const existingEnd = moment(booking.endTime);
-                      const startTime = day
-                        .clone()
-                        .set({ hour: 9, minute: 0, second: 0 });
-                      const endTime = day
-                        .clone()
-                        .set({ hour: 17, minute: 0, second: 0 });
-                      return !(
-                        endTime.isSameOrBefore(existingStart) ||
-                        startTime.isSameOrAfter(existingEnd)
-                      );
-                    });
+                    const isFullyBooked = isDayFullyBooked(day);
 
                     return (
                       <Col
@@ -907,7 +803,7 @@ const Bookings = () => {
                         lg={24}
                         xl={24}
                         style={{
-                          backgroundColor: hasConflict
+                          backgroundColor: isFullyBooked
                             ? "#ff4d4f"
                             : isStartDate(day)
                               ? "#1890ff"
@@ -916,7 +812,7 @@ const Bookings = () => {
                                 : isInRange(day)
                                   ? "#e6f7ff"
                                   : "#fff",
-                          border: hasConflict
+                          border: isFullyBooked
                             ? "2px solid #ff4d4f"
                             : isStartDate(day)
                               ? "2px solid #1890ff"
@@ -926,7 +822,7 @@ const Bookings = () => {
                           borderRadius: 8,
                           padding: 8,
                           cursor:
-                            hasConflict || day.isBefore(moment().startOf("day"))
+                            isFullyBooked || day.isBefore(moment().startOf("day"))
                               ? "not-allowed"
                               : "pointer",
                           position: "relative",
@@ -934,7 +830,7 @@ const Bookings = () => {
                         }}
                         onClick={() => {
                           if (
-                            !hasConflict &&
+                            !isFullyBooked &&
                             !day.isBefore(moment().startOf("day"))
                           ) {
                             handleDateSelect(day);
@@ -976,7 +872,7 @@ const Bookings = () => {
                         <div
                           style={{
                             color:
-                              hasConflict || isStartDate(day) || isEndDate(day)
+                              isFullyBooked || isStartDate(day) || isEndDate(day)
                                 ? "#fff"
                                 : isCurrentMonth
                                   ? "#1d39c4"
@@ -1076,10 +972,13 @@ const Bookings = () => {
       <Modal
         title="Xác nhận hủy đặt phòng"
         open={cancelModalVisible}
-        onCancel={() => setCancelModalVisible(false)}
         onOk={handleCancelBooking}
+        onCancel={() => setCancelModalVisible(false)}
+        okText="Hủy đặt phòng"
+        cancelText="Đóng"
+        okButtonProps={{ danger: true }}
       >
-        <p>Bạn có chắc chắn muốn hủy đặt phòng này?</p>
+        <Text>Bạn có chắc chắn muốn hủy đặt phòng này?</Text>
       </Modal>
     </div>
   );

@@ -14,7 +14,8 @@ import {
   Tag,
   Button,
   Spin,
-  message
+  message,
+  Alert
 } from 'antd';
 import { api } from '@/lib/api';
 import moment, { Moment } from 'moment';
@@ -28,6 +29,7 @@ interface Booking {
   startTime: string;
   endTime: string;
   status: 'confirmed' | 'cancelled' | 'completed' | 'pending';
+  title?: string;
 }
 
 interface BookingFormProps {
@@ -52,6 +54,12 @@ interface ApiResponse {
   errors?: any[];
 }
 
+interface Conflict {
+  title: string;
+  startTime: string;
+  endTime: string;
+}
+
 const isValidObjectId = (id: string): boolean => {
   return /^[0-9a-fA-F]{24}$/.test(id);
 };
@@ -69,6 +77,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [apiErrors, setApiErrors] = useState<any>(null);
+  const [conflicts, setConflicts] = useState<Conflict[]>([]);
 
   const fetchCurrentUser = useCallback(async () => {
     try {
@@ -156,19 +165,28 @@ const BookingForm: React.FC<BookingFormProps> = ({
     }
   }, [visible, form, initialValues, fetchCurrentUser, fetchUsers, onCancel]);
 
-  const checkBookingConflict = (start: Moment, end: Moment): boolean => {
-    return bookings.some(booking => {
-      if (booking.status === 'cancelled') return false;
+  const checkBookingConflict = (start: Moment, end: Moment): Conflict[] => {
+    const conflicts: Conflict[] = [];
+    bookings.forEach((booking) => {
+      if (booking.status === 'cancelled' || booking.status === 'deleted') return;
       const existingStart = moment(booking.startTime);
       const existingEnd = moment(booking.endTime);
-      return !(end.isSameOrBefore(existingStart) || start.isSameOrAfter(existingEnd));
+      if (start.isBefore(existingEnd) && end.isAfter(existingStart)) {
+        conflicts.push({
+          title: booking.title || 'Không có tiêu đề',
+          startTime: existingStart.format('DD/MM/YYYY HH:mm'),
+          endTime: existingEnd.format('DD/MM/YYYY HH:mm'),
+        });
+      }
     });
+    return conflicts;
   };
 
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
       setApiErrors(null);
+      setConflicts([]);
       const values = await form.validateFields();
 
       const startDateTime = values.startDate.clone()
@@ -196,8 +214,9 @@ const BookingForm: React.FC<BookingFormProps> = ({
         return;
       }
 
-      if (checkBookingConflict(startDateTime, endDateTime)) {
-        message.error('Phòng đã được đặt trong khoảng thời gian này');
+      const conflictList = checkBookingConflict(startDateTime, endDateTime);
+      if (conflictList.length > 0) {
+        setConflicts(conflictList);
         return;
       }
 
@@ -223,15 +242,12 @@ const BookingForm: React.FC<BookingFormProps> = ({
         form.resetFields();
         onCancel();
       } catch (error: any) {
-        // Handle API response error
         if (error.response?.data) {
           const responseData: ApiResponse = error.response.data;
           
           if (responseData.success === false) {
-            // Hiển thị thông báo lỗi từ server
             message.error(responseData.message || 'Đặt phòng thất bại');
             
-            // Nếu có errors chi tiết, hiển thị trên form
             if (responseData.errors && responseData.errors.length > 0) {
               const errorFields: any = {};
               responseData.errors.forEach((err: any) => {
@@ -308,7 +324,31 @@ const BookingForm: React.FC<BookingFormProps> = ({
         </div>
       ) : (
         <Form form={form} layout="vertical">
-          {/* Hiển thị lỗi API tổng quan nếu có */}
+          {/* Display conflicts if any */}
+          {conflicts.length > 0 && (
+            <Alert
+              message="Lịch đặt phòng bị trùng"
+              description={
+                <div>
+                  <Text>Khung giờ bạn chọn đã được đặt bởi các lịch sau:</Text>
+                  <ul style={{ marginTop: 8, paddingLeft: 20 }}>
+                    {conflicts.map((conflict, index) => (
+                      <li key={index}>
+                        <Text strong>{conflict.title}</Text>
+                        {' '}({conflict.startTime} - {conflict.endTime})
+                      </li>
+                    ))}
+                  </ul>
+                  <Text>Vui lòng chọn khung giờ khác.</Text>
+                </div>
+              }
+              type="error"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+          )}
+
+          {/* Display API errors if any */}
           {apiErrors && (
             <div style={{ marginBottom: 16 }}>
               {apiErrors.map((err: any, index: number) => (
