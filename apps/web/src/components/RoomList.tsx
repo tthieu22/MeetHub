@@ -8,7 +8,6 @@ import {
   UpOutlined,
   PlusOutlined,
   EditOutlined,
-  CalendarOutlined,
 } from "@ant-design/icons";
 import axios from "axios";
 import { useRouter } from "next/navigation";
@@ -124,7 +123,7 @@ const RoomList = () => {
 
   const isAdmin = role === "admin";
   const NESTJS_API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"; // Đồng bộ cổng 3000
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
   const fetchUserRole = useCallback(async () => {
     const authToken = token || localStorage.getItem("access_token");
@@ -393,13 +392,6 @@ const RoomList = () => {
     [router]
   );
 
-  const handleViewBookings = useCallback(
-    (id: string) => {
-      router.push(`/bookings/${id}`);
-    },
-    [router]
-  );
-
   const handlePageChange = useCallback((newPage: number, pageSize?: number) => {
     setPagination((prev) => ({
       ...prev,
@@ -535,41 +527,6 @@ const RoomList = () => {
       key: "action",
       render: (_: any, record: Room) => (
         <Space size={16}>
-          <Button
-            type="primary"
-            icon={<CalendarOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewBookings(record._id);
-            }}
-            size="large"
-            style={{
-              borderRadius: "20px",
-              background: "linear-gradient(90deg, #722ed1, #9254de)",
-              border: "none",
-              padding: "12px 24px",
-              fontSize: "16px",
-              color: "#ffffff",
-              fontWeight: 500,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "all 0.3s ease",
-              boxShadow: "0 4px 12px rgba(114, 46, 209, 0.3)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "scale(1.05)";
-              e.currentTarget.style.boxShadow =
-                "0 6px 16px rgba(114, 46, 209, 0.4)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "scale(1)";
-              e.currentTarget.style.boxShadow =
-                "0 4px 12px rgba(114, 46, 209, 0.3)";
-            }}
-          >
-            Xem lịch
-          </Button>
           {isAdmin && (
             <>
               <Button

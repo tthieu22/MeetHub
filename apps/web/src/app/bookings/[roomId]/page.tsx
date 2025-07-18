@@ -248,13 +248,13 @@ const Bookings = () => {
   };
 
   const handleNextWeek = () => {
-    const nextWeek = selectedWeek.clone().add(1, "week");
+    const nextWeek = selectedWeek.clone().add(1, "week").startOf("isoWeek");
     setSelectedWeek(nextWeek);
     setSelectedMonth(nextWeek.month());
   };
 
   const handlePreviousWeek = () => {
-    const prevWeek = selectedWeek.clone().subtract(1, "week");
+    const prevWeek = selectedWeek.clone().subtract(1, "week").startOf("isoWeek");
     setSelectedWeek(prevWeek);
     setSelectedMonth(prevWeek.month());
   };
@@ -525,7 +525,7 @@ const Bookings = () => {
     const weeks: moment.Moment[] = [];
     let currentWeek = startOfMonth.clone().startOf("isoWeek");
 
-    while (currentWeek.isBefore(endOfMonth)) {
+    while (currentWeek.isBefore(endOfMonth) || currentWeek.isSame(endOfMonth, "day")) {
       weeks.push(currentWeek.clone());
       currentWeek.add(1, "week");
     }
@@ -669,7 +669,7 @@ const Bookings = () => {
               <Button
                 type="primary"
                 icon={<LeftOutlined />}
-                onClick={() => router.push("/admin/rooms")}
+                onClick={() => router.push("http://localhost:3000/")}
                 size="large"
                 style={{ marginRight: 8 }}
               >
