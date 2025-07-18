@@ -1,18 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Put,
-  Delete,
-  HttpCode,
-  HttpStatus,
-  Query,
-  UseGuards,
-  Inject,
-  Request
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, HttpCode, HttpStatus, Query, UseGuards, Inject, Request } from '@nestjs/common';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { IBookingService } from './interface/booking.service.interface';
 import { UpdateBookingDto } from './dto/update-booking.dto';
@@ -26,11 +12,9 @@ import { SearchBookingsDetailedDto } from './dto/search-bookings-detailed.dto';
 
 @Controller('bookings')
 export class BookingsController {
-  constructor(
-    @Inject(BOOKING_SERVICE_TOKEN) private readonly bookingService: IBookingService
-  ) { }
+  constructor(@Inject(BOOKING_SERVICE_TOKEN) private readonly bookingService: IBookingService) {}
 
-  @Post("add-booking")
+  @Post('add-booking')
   @UseGuards(AuthGuard)
   async create(@Body() createBookingDto: CreateBookingDto) {
     const booking = await this.bookingService.create(createBookingDto);
@@ -40,25 +24,20 @@ export class BookingsController {
     };
   }
 
-@Get("findAll")
-@UseGuards(AuthGuard, RolesGuard)
-async findAll(
-  @Query('page') page: number = 1,
-  @Query('limit') limit: number = 1000000000,
-  @Query('roomId') roomId?: string,
-  @Query('filter') filter: string = '{}'
-) {
-  const parsedFilter = JSON.parse(filter);
-  // Thêm roomId vào filter nếu có
-  if (roomId) {
-    parsedFilter.room = roomId;
+  @Get('findAll')
+  @UseGuards(AuthGuard, RolesGuard)
+  async findAll(@Query('page') page: number = 1, @Query('limit') limit: number = 1000000000, @Query('roomId') roomId?: string, @Query('filter') filter: string = '{}') {
+    const parsedFilter = JSON.parse(filter);
+    // Thêm roomId vào filter nếu có
+    if (roomId) {
+      parsedFilter.room = roomId;
+    }
+    const result = await this.bookingService.findAll(page, limit, parsedFilter);
+    return result;
   }
-  const result = await this.bookingService.findAll(page, limit, parsedFilter);
-  return result;
-}
 
   @Get(':id')
-  @UseGuards(AuthGuard ,RolesGuard )
+  @UseGuards(AuthGuard, RolesGuard)
   async findOne(@Param('id') id: string) {
     const booking = await this.bookingService.findOne(id);
     return {
@@ -87,19 +66,28 @@ async findAll(
     return { success: true };
   }
 
-@Post(':id/cancel')
-@UseGuards(AuthGuard)
-async cancel(
-  @Param('id') id: string,
-  @Body('userId') userId: string, // Lấy trực tiếp userId từ body
-) {
-  const booking = await this.bookingService.cancelBooking(id, userId);
-  return {
-    success: true,
-    data: booking,
-  };
-}
-
+  @Post(':id/cancel')
+  @UseGuards(AuthGuard)
+  async cancel(
+    @Param('id') id: string,
+    @Body('userId') userId: string, // Lấy trực tiếp userId từ body
+  ) {
+    const booking = await this.bookingService.cancelBooking(id, userId);
+    return {
+      success: true,
+      data: booking,
+    };
+  }
+  @Post(':id/cancel-admin')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async cancelBookingAdmin(@Param('id') id: string) {
+    const booking = await this.bookingService.cancelBookingAdmin(id);
+    return {
+      success: true,
+      data: booking,
+    };
+  }
   @Get('search')
   @UseGuards(AuthGuard)
   async searchBookings(@Query() dto: SearchBookingsDto) {
@@ -125,23 +113,16 @@ async cancel(
     };
   }
 
-  @Get("exclude-deleted")
+  @Get('exclude-deleted')
   @UseGuards(AuthGuard)
-  async findAllExcludeDeleted(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10
-  ) {
+  async findAllExcludeDeleted(@Query('page') page: number = 1, @Query('limit') limit: number = 10) {
     const result = await this.bookingService.findAllExcludeDeleted(page, limit);
     return result;
   }
 
   @Post(':id/add-participant')
   @UseGuards(AuthGuard)
-  async addParticipant(
-    @Param('id') bookingId: string,
-    @Body('userId') userId: string,
-    @Body('requesterId') requesterId: string
-  ) {
+  async addParticipant(@Param('id') bookingId: string, @Body('userId') userId: string, @Body('requesterId') requesterId: string) {
     const updatedBooking = await this.bookingService.addParticipant(bookingId, userId, requesterId);
     return {
       success: true,

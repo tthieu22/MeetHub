@@ -23,7 +23,7 @@ export class BookingsService implements IBookingService {
     @Inject(forwardRef(() => ROOM_SERVICE_TOKEN))
     private roomService: IRoomService,
     private notificationService: NotificationService,
-  ) { }
+  ) {}
 
   async create(createBookingDto: CreateBookingDto): Promise<IBooking> {
     try {
@@ -57,18 +57,18 @@ export class BookingsService implements IBookingService {
       // VALIDATION: Kiểm tra participants
       const participants: (User & Document)[] = createBookingDto.participants?.length
         ? await Promise.all(
-          createBookingDto.participants.map(async (id) => {
-            const participant = await this.userModel.findById(id);
-            if (!participant) {
-              throw new NotFoundException({
-                success: false,
-                message: `Không tìm thấy người tham gia với ID ${id}`,
-                errorCode: 'PARTICIPANT_NOT_FOUND',
-              });
-            }
-            return participant;
-          }),
-        )
+            createBookingDto.participants.map(async (id) => {
+              const participant = await this.userModel.findById(id);
+              if (!participant) {
+                throw new NotFoundException({
+                  success: false,
+                  message: `Không tìm thấy người tham gia với ID ${id}`,
+                  errorCode: 'PARTICIPANT_NOT_FOUND',
+                });
+              }
+              return participant;
+            }),
+          )
         : [];
 
       // VALIDATION: Kiểm tra sức chứa
@@ -221,13 +221,7 @@ export class BookingsService implements IBookingService {
     const finalFilter = { ...filter, ...timeFilter };
 
     const [data, total] = await Promise.all([
-      this.bookingModel
-        .find(finalFilter)
-        .skip(skip)
-        .limit(limit)
-        .populate('room user participants')
-        .lean()
-        .exec(),
+      this.bookingModel.find(finalFilter).skip(skip).limit(limit).populate('room user participants').lean().exec(),
       this.bookingModel.countDocuments(finalFilter),
     ]);
 
@@ -409,35 +403,47 @@ export class BookingsService implements IBookingService {
       });
     }
   }
-
-async cancelBooking(id: string, userId: string): Promise<IBooking> {
-  // 1. Kiểm tra booking tồn tại
-  const booking = await this.bookingModel.findById(id)
-    .populate('user', '_id') // Chỉ lấy _id của user
-    .exec();
-
-  if (!booking) {
-    throw new NotFoundException('Booking không tồn tại');
+  async cancelBookingAdmin(id: string): Promise<IBooking> {
+    const booking = await this.bookingModel.findById(id).exec();
+    if (!booking) {
+      throw new NotFoundException({
+        success: false,
+        message: `Không tìm thấy đặt phòng với ID ${id}`,
+        errorCode: 'BOOKING_NOT_FOUND',
+      });
+    }
+    booking.status = BookingStatus.CANCELLED;
+    return booking.save();
   }
+  async cancelBooking(id: string, userId: string): Promise<IBooking> {
+    // 1. Kiểm tra booking tồn tại
+    const booking = await this.bookingModel
+      .findById(id)
+      .populate('user', '_id') // Chỉ lấy _id của user
+      .exec();
 
-  // 2. Kiểm tra user có quyền hủy
-  const isCreator = (booking.user as any)._id.toString() == userId.toString();
-  log(`User ID: ${typeof booking.user === 'object' && booking.user !== null && '_id' in booking.user ? (booking.user as any)._id.toString() : booking.user.toString()}`);
- log(`Is creator: ${isCreator}`);
- log(`User ID from booking: ${userId}`);
-  if (isCreator === false) {
-    throw new ForbiddenException('Không có quyền hủy booking này');
+    if (!booking) {
+      throw new NotFoundException('Booking không tồn tại');
+    }
+
+    // 2. Kiểm tra user có quyền hủy
+    const isCreator = (booking.user as any)._id.toString() == userId.toString();
+    log(`User ID: ${typeof booking.user === 'object' && booking.user !== null && '_id' in booking.user ? (booking.user as any)._id.toString() : booking.user.toString()}`);
+    log(`Is creator: ${isCreator}`);
+    log(`User ID from booking: ${userId}`);
+    if (isCreator === false) {
+      throw new ForbiddenException('Không có quyền hủy booking này');
+    }
+
+    // 3. Kiểm tra trạng thái hợp lệ để hủy
+    if ([BookingStatus.CANCELLED, BookingStatus.DELETED].includes(booking.status)) {
+      throw new BadRequestException(`Booking đã ở trạng thái ${booking.status}`);
+    }
+
+    // 4. Cập nhật và trả về kết quả
+    booking.status = BookingStatus.CANCELLED;
+    return booking.save();
   }
-
-  // 3. Kiểm tra trạng thái hợp lệ để hủy
-  if ([BookingStatus.CANCELLED, BookingStatus.DELETED].includes(booking.status)) {
-    throw new BadRequestException(`Booking đã ở trạng thái ${booking.status}`);
-  }
-
-  // 4. Cập nhật và trả về kết quả
-  booking.status = BookingStatus.CANCELLED;
-  return booking.save();
-}
   async searchBookings(dto: SearchBookingsDto): Promise<any> {
     const { page = 1, limit = 10, roomName, userName, date } = dto;
 
@@ -654,16 +660,16 @@ async cancelBooking(id: string, userId: string): Promise<IBooking> {
               ...(userName ? [{ $cond: [{ $regexMatch: { input: '$user.name', regex: userName, options: 'i' } }, 1, 0] }] : []),
               ...(date
                 ? [
-                  {
-                    $cond: [
-                      {
-                        $and: [{ $gte: ['$startTime', filter.startTime.$gte] }, { $lte: ['$startTime', filter.startTime.$lte] }],
-                      },
-                      1,
-                      0,
-                    ],
-                  },
-                ]
+                    {
+                      $cond: [
+                        {
+                          $and: [{ $gte: ['$startTime', filter.startTime.$gte] }, { $lte: ['$startTime', filter.startTime.$lte] }],
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  ]
                 : []),
               ...(title ? [{ $cond: [{ $regexMatch: { input: '$title', regex: title, options: 'i' } }, 1, 0] }] : []),
               ...(description ? [{ $cond: [{ $regexMatch: { input: '$description', regex: description, options: 'i' } }, 1, 0] }] : []),
@@ -717,16 +723,7 @@ async cancelBooking(id: string, userId: string): Promise<IBooking> {
     const skip = (page - 1) * limit;
     const filter = { status: { $ne: BookingStatus.DELETED } };
 
-    const [data, total] = await Promise.all([
-      this.bookingModel
-        .find(filter)
-        .skip(skip)
-        .limit(limit)
-        .populate('room user participants')
-        .lean()
-        .exec(),
-      this.bookingModel.countDocuments(filter),
-    ]);
+    const [data, total] = await Promise.all([this.bookingModel.find(filter).skip(skip).limit(limit).populate('room user participants').lean().exec(), this.bookingModel.countDocuments(filter)]);
 
     const totalPages = Math.ceil(total / limit);
     return {
@@ -770,10 +767,7 @@ async cancelBooking(id: string, userId: string): Promise<IBooking> {
       }
 
       // VALIDATION: Kiểm tra booking tồn tại và không bị xóa
-      const booking = await this.bookingModel
-        .findById(bookingId)
-        .populate('room')
-        .exec();
+      const booking = await this.bookingModel.findById(bookingId).populate('room').exec();
       if (!booking || booking.status === BookingStatus.DELETED) {
         throw new NotFoundException({
           success: false,
@@ -819,7 +813,7 @@ async cancelBooking(id: string, userId: string): Promise<IBooking> {
       }
 
       // VALIDATION: Kiểm tra sức chứa phòng
-      const room = await this.roomService.getRoomById(booking.room.toString()) as Document & { _id: string; capacity: number; status: string };
+      const room = (await this.roomService.getRoomById(booking.room.toString())) as Document & { _id: string; capacity: number; status: string };
       const totalParticipants = booking.participants.length + 1 + 1; // +1 cho người tạo, +1 cho người mới
       if (totalParticipants > room.capacity) {
         throw new BadRequestException({
@@ -843,11 +837,7 @@ async cancelBooking(id: string, userId: string): Promise<IBooking> {
       const updatedBooking = await booking.save();
 
       // Populate dữ liệu trả về
-      const populatedBooking = await this.bookingModel
-        .findById(updatedBooking._id)
-        .populate('room user participants')
-        .lean()
-        .exec();
+      const populatedBooking = await this.bookingModel.findById(updatedBooking._id).populate('room user participants').lean().exec();
 
       if (!populatedBooking) {
         throw new NotFoundException({
@@ -999,16 +989,16 @@ async cancelBooking(id: string, userId: string): Promise<IBooking> {
               ...(userName ? [{ $cond: [{ $regexMatch: { input: '$user.name', regex: userName, options: 'i' } }, 1, 0] }] : []),
               ...(date
                 ? [
-                  {
-                    $cond: [
-                      {
-                        $and: [{ $gte: ['$startTime', filter.startTime.$gte] }, { $lte: ['$startTime', filter.startTime.$lte] }],
-                      },
-                      1,
-                      0,
-                    ],
-                  },
-                ]
+                    {
+                      $cond: [
+                        {
+                          $and: [{ $gte: ['$startTime', filter.startTime.$gte] }, { $lte: ['$startTime', filter.startTime.$lte] }],
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  ]
                 : []),
               ...(title ? [{ $cond: [{ $regexMatch: { input: '$title', regex: title, options: 'i' } }, 1, 0] }] : []),
               ...(description ? [{ $cond: [{ $regexMatch: { input: '$description', regex: description, options: 'i' } }, 1, 0] }] : []),
@@ -1021,10 +1011,7 @@ async cancelBooking(id: string, userId: string): Promise<IBooking> {
       { $limit: limit },
     ];
 
-    const [data, total] = await Promise.all([
-      this.bookingModel.aggregate(pipeline).exec(),
-      this.bookingModel.countDocuments(filter),
-    ]);
+    const [data, total] = await Promise.all([this.bookingModel.aggregate(pipeline).exec(), this.bookingModel.countDocuments(filter)]);
 
     const totalPages = Math.ceil(total / limit);
     const message = `Tìm thấy ${data.length} đặt phòng khớp với tiêu chí, không bao gồm trạng thái DELETED (trang ${page}/${totalPages})`;
@@ -1038,5 +1025,4 @@ async cancelBooking(id: string, userId: string): Promise<IBooking> {
       data,
     };
   }
-
 }

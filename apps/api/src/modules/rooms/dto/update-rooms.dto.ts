@@ -1,16 +1,4 @@
-import {
-  IsString,
-  IsNumber,
-  IsArray,
-  IsIn,
-  IsOptional,
-  Min,
-  IsBoolean,
-  IsObject,
-  ValidateNested,
-  IsNotEmpty,
-  Validate,
-} from 'class-validator';
+import { IsString, IsNumber, IsArray, IsIn, IsOptional, Min, IsBoolean, IsObject, ValidateNested, IsNotEmpty, Validate } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class DeviceDto {
@@ -58,7 +46,7 @@ export class UpdateRoomDto {
   features?: string[];
 
   @IsString()
-  @IsIn(['available', 'occupied', 'maintenance', 'cleaning', "Deleted"])
+  @IsIn(['available', 'occupied', 'maintenance', 'cleaning', 'deleted'])
   @IsNotEmpty({ message: 'trạng thái hoạt động chưa được định nghĩa' })
   status?: string;
 

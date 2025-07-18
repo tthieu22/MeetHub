@@ -11,6 +11,7 @@ export interface IBookingService {
   update(id: string, updateBookingDto: UpdateBookingDto): Promise<IBooking>;
   remove(id: string): Promise<void>;
   cancelBooking(id: string, userId: string): Promise<IBooking>;
+  cancelBookingAdmin(id: string): Promise<IBooking>;
   searchBookings(dto: SearchBookingsDto): Promise<any>;
   searchBookingsDetailed(dto: SearchBookingsDetailedDto): Promise<any>;
   setBookingStatusToDeleted(id: string): Promise<IBooking>;
