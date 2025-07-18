@@ -11,6 +11,7 @@ import { Redis } from 'ioredis';
 import { REDIS_CLIENT } from '@api/modules/redis';
 import { RoomInfo, RoomMemberInfo, LastMessageInfo, RoomSidebarInfo, PopulatedUser } from '@api/modules/chat/chat-room/interfaces/room-sidebar.interface';
 import { PaginationQueryDto } from '@api/modules/users/dto/pagination-query.dto';
+import { ReactionService } from '@api/modules/chat/chat-reactions/reaction.service';
 
 @Injectable()
 export class RoomService {
@@ -26,6 +27,7 @@ export class RoomService {
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
     @Inject(REDIS_CLIENT) private readonly redisClient: Redis,
+    private readonly reactionService: ReactionService,
   ) {}
 
   private async isMemberOfConversation(userId: string, conversationId: string): Promise<boolean> {
@@ -33,9 +35,9 @@ export class RoomService {
       if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(conversationId)) {
         return false;
       }
-
+      const userObjectId = new Types.ObjectId(userId);
       const member = await this.conversationMemberModel.findOne({
-        userId: new Types.ObjectId(userId),
+        userId: { $in: [userId, userObjectId] },
         conversationId: new Types.ObjectId(conversationId),
       });
       return !!member;
@@ -50,9 +52,9 @@ export class RoomService {
       if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(conversationId)) {
         return false;
       }
-
+      const userObjectId = new Types.ObjectId(userId);
       const member = await this.conversationMemberModel.findOne({
-        userId: new Types.ObjectId(userId),
+        userId: { $in: [userId, userObjectId] },
         conversationId: new Types.ObjectId(conversationId),
         role: 'admin',
       });
@@ -69,8 +71,8 @@ export class RoomService {
       throw new BadRequestException('Members are required');
     }
 
-    // Add creator to members if not already included
-    const allMembers = members.includes(userId) ? members : [...members, userId];
+    // Đảm bảo tất cả thành viên (bao gồm cả người tạo) không bị trùng lặp
+    const allMembers = Array.from(new Set(members.concat(userId)));
 
     // Validate all members exist
     const existingUsers = await this.userModel
@@ -87,35 +89,22 @@ export class RoomService {
     const conversation = new this.conversationModel({
       name,
       type,
-      members: members.map((memberId) => ({ userId: memberId })),
-      createdBy: userId,
+      creatorId: userId,
+      memberIds: allMembers,
+      currentAdminId: type === 'group' ? userId : null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
 
     const savedConversation = await conversation.save();
-
-    // Thêm creator làm admin
-    const adminMember = new this.conversationMemberModel({
-      conversationId: savedConversation._id,
-      userId: userId,
-      role: 'admin',
-      joinedAt: new Date(),
-    });
-    await adminMember.save();
-
-    // Thêm các member khác
-    const memberPromises = members
-      .filter((memberId) => memberId !== userId)
-      .map((memberId) =>
-        new this.conversationMemberModel({
-          conversationId: savedConversation._id,
-          userId: memberId,
-          role: 'member',
-          joinedAt: new Date(),
-        }).save(),
-      );
-
+    const memberPromises = allMembers.map((memberId) =>
+      new this.conversationMemberModel({
+        conversationId: savedConversation._id,
+        userId: memberId,
+        role: memberId === userId ? 'admin' : 'member',
+        joinedAt: new Date(),
+      }).save(),
+    );
     await Promise.all(memberPromises);
 
     return savedConversation;
@@ -127,18 +116,19 @@ export class RoomService {
       if (!userId || userId === 'mock-user-id') {
         return [];
       }
+      const userObjectId = new Types.ObjectId(userId);
+      // Lấy tất cả conversationId mà user là thành viên (ConversationMember), match cả string và ObjectId
       const memberConversations = await this.conversationMemberModel
-        .find({ userId: new Types.ObjectId(userId) })
+        .find({ userId: { $in: [userId, userObjectId] } })
         .select('conversationId')
-        .exec();
+        .lean();
       const conversationIds = memberConversations.map((mc) => mc.conversationId);
-      if (conversationIds.length === 0) {
-        return [];
-      }
+
+      // Lấy tất cả phòng mà user là thành viên thực sự
       const conversations = await this.conversationModel
         .find({
-          _id: { $in: conversationIds },
           isDeleted: false,
+          _id: { $in: conversationIds },
         })
         .exec();
       return conversations.map((conv) => ({
@@ -160,7 +150,12 @@ export class RoomService {
         throw new NotFoundException('Invalid conversation ID format');
       }
 
-      const isMember = await this.isMemberOfConversation(userId, conversationId);
+      // Kiểm tra thành viên với cả string và ObjectId
+      const userObjectId = new Types.ObjectId(userId);
+      const isMember = await this.conversationMemberModel.findOne({
+        userId: { $in: [userId, userObjectId] },
+        conversationId: new Types.ObjectId(conversationId),
+      });
       if (!isMember) throw new ForbiddenException('You are not a member of this conversation');
 
       const conversation = await this.conversationModel.findById(conversationId);
@@ -192,6 +187,20 @@ export class RoomService {
     const isAdmin = await this.isAdminOfConversation(userId, conversationId);
     if (!isAdmin) throw new ForbiddenException('Only admins can delete conversation');
 
+    // Xoá member
+    await this.conversationMemberModel.deleteMany({ conversationId });
+    // Lấy tất cả message thuộc phòng
+    const messages = await this.messageModel.find({ conversationId: new Types.ObjectId(conversationId) }).select('_id');
+    const messageIds = messages.map((m) => m._id);
+    // Xoá reaction liên quan
+    if (messageIds.length > 0) {
+      await this.reactionService['reactionModel'].deleteMany({ messageId: { $in: messageIds } });
+    }
+    // Xoá message
+    await this.messageModel.deleteMany({ conversationId });
+    // Xoá message status
+    await this.messageStatusModel.deleteMany({ conversationId });
+    // Đánh dấu phòng đã xoá
     const conversation = await this.conversationModel.findByIdAndUpdate(
       conversationId,
       {
@@ -200,9 +209,7 @@ export class RoomService {
       },
       { new: true },
     );
-
     if (!conversation) throw new NotFoundException('Conversation not found');
-
     return conversation;
   }
 
@@ -412,51 +419,61 @@ export class RoomService {
   }
   // Lấy tất các thông tin : tin nhắn cuối , người dùng online, tin nhắn chưa đọc
   async getRoomSidebarInfo(userId: string): Promise<RoomSidebarInfo[]> {
-    const rooms = await this.getRooms(userId);
-    const result: RoomSidebarInfo[] = [];
-    for (const room of rooms) {
-      const membersRaw = await this.conversationMemberModel
-        .find({ conversationId: new Types.ObjectId(room.roomId) })
-        .populate('userId', 'name avatarURL')
-        .lean();
-      const uniqueMembersMap = new Map<string, PopulatedUser>();
-      membersRaw.forEach((m) => {
-        if (!m.userId) return;
-        const u = m.userId as PopulatedUser;
-        if (!uniqueMembersMap.has(u._id.toString()) || m.role === 'admin') {
-          uniqueMembersMap.set(u._id.toString(), u);
+    try {
+      const rooms = await this.getRooms(userId);
+      const result: RoomSidebarInfo[] = [];
+      for (const room of rooms) {
+        try {
+          const membersRaw = await this.conversationMemberModel
+            .find({ conversationId: new Types.ObjectId(room.roomId) })
+            .populate('userId', 'name avatarURL')
+            .lean();
+          const uniqueMembersMap = new Map<string, PopulatedUser>();
+          membersRaw.forEach((m) => {
+            if (!m.userId) return;
+            const u = m.userId as PopulatedUser;
+            if (!uniqueMembersMap.has(u._id.toString()) || m.role === 'admin') {
+              uniqueMembersMap.set(u._id.toString(), u);
+            }
+          });
+          const members: RoomMemberInfo[] = Array.from(uniqueMembersMap.values()).map((u) => ({
+            userId: u._id.toString(),
+            name: u.name || '',
+            avatarURL: u.avatarURL || '',
+          }));
+
+          const lastMessage = await this.getLastMessage(room.roomId);
+          const unreadCount = await this.getUnreadCount(room.roomId, userId);
+          const onlineMemberIds = await this.getOnlineMemberIds(room.roomId);
+
+          let displayName = room.name;
+          if (room.type === 'private' && members.length === 2) {
+            const other = members.find((m) => m.userId !== userId);
+            if (other) displayName = other.name;
+          } else if (room.type === 'group') {
+            displayName = `Group: ${room.name}`;
+          } else if (room.type === 'support') {
+            displayName = `SP: ${room.name}`;
+          }
+          const sidebarInfo = {
+            roomId: room.roomId,
+            name: displayName,
+            isGroup: room.type === 'group',
+            members,
+            lastMessage,
+            unreadCount,
+            onlineMemberIds,
+          };
+          result.push(sidebarInfo);
+        } catch (err) {
+          console.error(`[getRoomSidebarInfo] ERROR in roomId=${room.roomId}:`, err);
         }
-      });
-      const members: RoomMemberInfo[] = Array.from(uniqueMembersMap.values()).map((u) => ({
-        userId: u._id.toString(),
-        name: u.name || '',
-        avatarURL: u.avatarURL || '',
-      }));
-
-      const lastMessage = await this.getLastMessage(room.roomId);
-      const unreadCount = await this.getUnreadCount(room.roomId, userId);
-      const onlineMemberIds = await this.getOnlineMemberIds(room.roomId);
-      // Nếu là phòng private (2 người), name là tên người còn lại. Nếu là group thì hiển thị 'Group: ' + tên phòng
-      let displayName = room.name;
-      if (room.type === 'private' && members.length === 2) {
-        const other = members.find((m) => m.userId !== userId);
-        if (other) displayName = other.name;
-      } else if (room.type === 'group') {
-        displayName = `Group: ${room.name}`;
       }
-      result.push({
-        roomId: room.roomId,
-        name: displayName,
-        isGroup: room.type === 'group',
-        members,
-        lastMessage,
-        unreadCount,
-        onlineMemberIds,
-      });
+      return result;
+    } catch (err) {
+      throw err;
     }
-    return result;
   }
-
   // Utility method to clean up duplicate conversation members
   async cleanupDuplicateMembers(conversationId: string): Promise<{ removed: number }> {
     const members = await this.conversationMemberModel.find({ conversationId: new Types.ObjectId(conversationId) }).lean();
@@ -485,7 +502,7 @@ export class RoomService {
   async assignAdminToUser(userId: string) {
     // 1. Kiểm tra đã có phòng private hỗ trợ nào chưa (dù admin online/offline, pending true/false)
     const existingRoom = await this.conversationModel.findOne({
-      type: 'private',
+      type: 'support',
       memberIds: userId,
       isDeleted: false,
       isActive: true,
@@ -510,7 +527,7 @@ export class RoomService {
       // Không có admin online, tạo phòng pending
       const room = await this.conversationModel.create({
         name: `Hỗ trợ: ${userName}`,
-        type: 'private',
+        type: 'support',
         creatorId: new Types.ObjectId(userId),
         memberIds: [userId],
         assignedAdmins: [],
@@ -539,7 +556,7 @@ export class RoomService {
     const assignedAdmin = onlineAdmins[0];
     const room = await this.conversationModel.create({
       name: `Hỗ trợ: ${userName}`,
-      type: 'private',
+      type: 'support',
       creatorId: new Types.ObjectId(userId),
       memberIds: [userId, assignedAdmin._id],
       assignedAdmins: [assignedAdmin._id],
@@ -880,5 +897,15 @@ export class RoomService {
     // Giả sử đã có hàm addMember(roomId, userId, currentUserId)
     const results = await Promise.all(userIds.map((userId) => this.addMember(roomId, userId)));
     return { success: true, added: results };
+  }
+
+  // Lấy vai trò của user trong phòng chat
+  async getUserRoleInRoom(conversationId: string, userId: string): Promise<string | null> {
+    const userObjectId = new Types.ObjectId(userId);
+    const member = await this.conversationMemberModel.findOne({
+      userId: { $in: [userId, userObjectId] },
+      conversationId: new Types.ObjectId(conversationId),
+    });
+    return member ? member.role : null;
   }
 }

@@ -47,19 +47,20 @@ export class RoomController {
     return await this.roomService.updateRoom(id, updateRoomDto, userId);
   }
 
-  // 14. Xóa phòng chat (admin)
+  // Lấy vai trò của user trong phòng chat
+  @Get(':id/role')
+  async getUserRoleInRoom(@Param('id') id: string, @CurrentUser() userId: string) {
+    const role = await this.roomService.getUserRoleInRoom(id, userId);
+    return { success: true, data: { role } };
+  }
+
+  // Xoá phòng chat (admin)
   @Delete(':id')
   async deleteRoom(@Param('id') id: string, @CurrentUser() userId: string) {
     return await this.roomService.deleteRoom(id, userId);
   }
 
-  // 15. Tham gia phòng chat (group)
-  @Post(':id/join')
-  async joinRoom(@Param('id') id: string, @CurrentUser() userId: string) {
-    return await this.roomService.joinRoom(id, userId);
-  }
-
-  // 16. Rời khỏi phòng chat
+  // Rời khỏi phòng chat (user)
   @Post(':id/leave')
   async leaveRoom(@Param('id') id: string, @CurrentUser() userId: string) {
     return await this.roomService.leaveRoom(id, userId);

@@ -59,10 +59,9 @@ const Header = memo(() => {
             rooms={rooms}
             onRoomSelect={(roomId) => {
               const room = rooms.find((r) => r.roomId === roomId);
-              const conversationId = room?.lastMessage?.conversationId;
-              if (conversationId) {
-                addPopup(conversationId);
-                setCurrentRoomId(conversationId);
+              if (room?.roomId) {
+                addPopup(room.roomId);
+                setCurrentRoomId(room.roomId);
               }
             }}
             socket={socket}

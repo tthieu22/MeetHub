@@ -6,7 +6,7 @@ import {
 import { useChatStore } from "@web/store/chat.store";
 import { useWebSocketStore } from "@web/store/websocket.store";
 import chatApiService from "@web/services/api/chat.api";
-import type { Message, UsersOnline } from "@web/types/chat";
+import type { Message, UsersOnline, ChatRoom } from "@web/types/chat";
 import ChatMessageList from "./ChatMessageList";
 import ChatPopupBottom from "./ChatPopupBottom";
 import ChatPopupHeader from "./ChatPopupHeader";
@@ -14,6 +14,7 @@ import { useUserStore } from "@web/store/user.store";
 import { roomChatApiService } from "@web/services/api/room.chat.api";
 import ChatRoomMembersModal from "./ChatRoomMembersModal";
 import { webSocketService } from "@web/services/websocket/websocket.service";
+import { message, Modal, notification } from "antd";
 
 interface ChatPopupWindowProps {
   conversationId: string;
@@ -32,6 +33,7 @@ export default function ChatPopupWindow({
   const socket = useWebSocketStore((s) => s.socket);
   const currentUser = useUserStore((s) => s.currentUser);
   const rooms = useChatStore((s) => s.rooms);
+  const setRooms = useChatStore((s) => s.setRooms);
   const room = rooms.find(
     (r) => r.lastMessage?.conversationId === conversationId
   );
@@ -51,11 +53,16 @@ export default function ChatPopupWindow({
   const allMember = useRoomAllMembers(conversationId);
   const onlineUsers = useChatStore((s) => s.onlineUsers);
 
+  // Đóng popup
+  const handleClose = useCallback(() => {
+    if (onClose) onClose();
+  }, [onClose]);
+
   // Lấy tin nhắn qua API khi mở popup
   useEffect(() => {
-    chatApiService.getMessages({ roomId: conversationId }).then((res) => {
-      setMessages(conversationId, Array.isArray(res) ? res : []);
-    });
+    chatApiService.getMessages({ roomId: conversationId })
+      .then((res) => setMessages(conversationId, Array.isArray(res) ? res : []))
+      .catch(() => setMessages(conversationId, []));
   }, [conversationId, setMessages]);
 
   // Lắng nghe socket để nhận tin nhắn mới realtime
@@ -163,52 +170,126 @@ export default function ChatPopupWindow({
     }
   }, [conversationId, setCurrentRoomId, updateUnreadCount]);
 
+  useEffect(() => {
+    if (!socket) return;
+    const handleRooms = (data: { data: ChatRoom[] }) => {
+      if (data && Array.isArray(data.data)) {
+        setRooms(data.data);
+      }
+    };
+    socket.on("rooms", handleRooms);
+    return () => {
+      socket.off("rooms", handleRooms);
+    };
+  }, [socket, setRooms]);
+
+  const [api, contextHolder] = notification.useNotification();
+ 
+
+  // Lắng nghe thông báo xoá/rời phòng từ server
+  useEffect(() => {
+    if (!socket) return;
+    const handleRoomDeleted = (data: { roomId: string; message: string }) => { 
+      if (data.roomId === conversationId) {
+        api.info({
+          key: `room-deleted-${data.roomId}`,
+          message: data.message,
+          description: `Phòng chat đã bị xoá hoặc bạn không còn quyền truy cập.`,
+          placement: "topRight",
+          duration: 3,
+          onClose: handleClose,
+        });
+      }
+    };
+    const handleRoomLeft = (data: { roomId: string; message: string }) => { 
+      if (data.roomId === conversationId) {
+        api.info({
+          key: `room-left-${data.roomId}`,
+          message: data.message,
+          description: `Bạn đã rời khỏi phòng chat này.`,
+          placement: "topRight",
+          duration: 3,
+          onClose: handleClose,
+        });
+      }
+    };
+    socket.on("room_deleted", handleRoomDeleted);
+    socket.on("room_left", handleRoomLeft);
+    return () => {
+      socket.off("room_deleted", handleRoomDeleted);
+      socket.off("room_left", handleRoomLeft);
+    };
+  }, [socket, conversationId, api, handleClose]);
+
   // Gửi tin nhắn
   const handleSend = useCallback(
     async (text: string, file?: File) => {
       if (!text.trim() && !file) return;
       if (!currentUser) return;
-      if (socket && isJoined) {
-        let fileData: string | undefined = undefined;
-        let fileName: string | undefined = undefined;
-        let fileType: string | undefined = undefined;
-        if (file) {
-          fileName = file.name;
-          fileType = file.type;
+      // Thêm log kiểm tra các biến trước khi gửi tin nhắn
+      console.log('[handleSend] text:', text);
+      console.log('[handleSend] file:', file);
+      let fileData: string | undefined = undefined;
+      let fileName: string | undefined = undefined;
+      let fileType: string | undefined = undefined;
+      if (file) {
+        fileName = file.name;
+        fileType = file.type;
+        try {
           fileData = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () =>
               resolve((reader.result as string).split(",")[1]);
-            reader.onerror = reject;
+            reader.onerror = (err) => {
+              console.error('[handleSend] Lỗi đọc file:', err);
+              reject(err);
+            };
             reader.readAsDataURL(file);
           });
+        } catch (err) {
+          console.error('[handleSend] Lỗi khi xử lý file gửi qua socket:', err);
+          return;
         }
-        socket.emit("create_message", {
-          roomId: conversationId,
-          text,
-          fileData,
-          fileName,
-          fileType,
-          replyTo: replyTo?._id,
-        });
-        webSocketService.emitMarkRoomRead(conversationId);
-        // Cập nhật lastMessage
-        updateRoom(conversationId, {
-          lastMessage: {
-            messageId: "temp", // Có thể dùng tạm, sẽ được cập nhật lại khi nhận từ server
-            conversationId,
-            senderId: currentUser._id,
-            senderEmail: currentUser.email,
-            senderName:
-              currentUser.name || currentUser.username || currentUser.email,
+      }
+      // Log các biến sau khi xử lý file
+      console.log('[handleSend] fileData:', fileData);
+      console.log('[handleSend] fileName:', fileName);
+      console.log('[handleSend] fileType:', fileType);
+      console.log('[handleSend] replyTo:', replyTo);
+      console.log('[handleSend] currentUser:', currentUser);
+      console.log('[handleSend] socket:', socket);
+      console.log('[handleSend] isJoined:', isJoined);
+      if (socket && isJoined) {
+        try {
+          socket.emit("create_message", {
+            roomId: conversationId,
             text,
-            createdAt: new Date().toISOString(),
-            fileUrl: undefined,
-            fileName: file?.name,
-            fileType: file?.type,
-          },
-        });
-        updateUnreadCount(conversationId, 0);
+            fileData,
+            fileName,
+            fileType,
+            replyTo: replyTo?._id,
+          });
+          webSocketService.emitMarkRoomRead(conversationId);
+          // Cập nhật lastMessage
+          updateRoom(conversationId, {
+            lastMessage: {
+              messageId: "temp", // Có thể dùng tạm, sẽ được cập nhật lại khi nhận từ server
+              conversationId,
+              senderId: currentUser._id,
+              senderEmail: currentUser.email,
+              senderName:
+                currentUser.name || currentUser.username || currentUser.email,
+              text,
+              createdAt: new Date().toISOString(),
+              fileUrl: undefined,
+              fileName: file?.name,
+              fileType: file?.type,
+            },
+          });
+          updateUnreadCount(conversationId, 0);
+        } catch (err) {
+          console.error('[handleSend] Lỗi khi gửi tin nhắn qua socket:', err);
+        }
       } else {
         let fileData: string | undefined = undefined;
         let fileName: string | undefined = undefined;
@@ -216,43 +297,61 @@ export default function ChatPopupWindow({
         if (file) {
           fileName = file.name;
           fileType = file.type;
-          fileData = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () =>
-              resolve((reader.result as string).split(",")[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
+          try {
+            fileData = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () =>
+                resolve((reader.result as string).split(",")[1]);
+              reader.onerror = (err) => {
+                console.error('[handleSend] Lỗi đọc file:', err);
+                reject(err);
+              };
+              reader.readAsDataURL(file);
+            });
+          } catch (err) {
+            console.error('[handleSend] Lỗi khi xử lý file gửi qua API:', err);
+            return;
+          }
         }
-        const res = await chatApiService.sendMessage({
-          roomId: conversationId,
-          text,
-          fileName,
-          fileType,
-          fileData,
-          replyTo: replyTo?._id,
-          userId: currentUser._id,
-        });
-        if (res && res.data && res.data._id) {
-          addMessage(conversationId, res.data);
-          webSocketService.emitMarkRoomRead(conversationId);
-          // Cập nhật lastMessage
-          updateRoom(conversationId, {
-            lastMessage: {
-              messageId: res.data._id,
-              conversationId,
-              senderId: currentUser._id,
-              senderEmail: currentUser.email,
-              senderName:
-                currentUser.name || currentUser.username || currentUser.email,
-              text: res.data.text,
-              createdAt: res.data.createdAt,
-              fileUrl: res.data.fileUrl,
-              fileName: res.data.fileName,
-              fileType: res.data.fileType,
-            },
+        // Log các biến sau khi xử lý file (trường hợp gửi qua API)
+        console.log('[handleSend][API] fileData:', fileData);
+        console.log('[handleSend][API] fileName:', fileName);
+        console.log('[handleSend][API] fileType:', fileType);
+        console.log('[handleSend][API] replyTo:', replyTo);
+        console.log('[handleSend][API] currentUser:', currentUser);
+        try {
+          const res = await chatApiService.sendMessage({
+            roomId: conversationId,
+            text,
+            fileName,
+            fileType,
+            fileData,
+            replyTo: replyTo?._id,
+            userId: currentUser._id,
           });
-          updateUnreadCount(conversationId, 0);
+          if (res && res.data && res.data._id) {
+            addMessage(conversationId, res.data);
+            webSocketService.emitMarkRoomRead(conversationId);
+            // Cập nhật lastMessage
+            updateRoom(conversationId, {
+              lastMessage: {
+                messageId: res.data._id,
+                conversationId,
+                senderId: currentUser._id,
+                senderEmail: currentUser.email,
+                senderName:
+                  currentUser.name || currentUser.username || currentUser.email,
+                text: res.data.text,
+                createdAt: res.data.createdAt,
+                fileUrl: res.data.fileUrl,
+                fileName: res.data.fileName,
+                fileType: res.data.fileType,
+              },
+            });
+            updateUnreadCount(conversationId, 0);
+          }
+        } catch (err) {
+          console.error('[handleSend] Lỗi khi gửi tin nhắn qua API:', err);
         }
       }
       setFile(null);
@@ -369,63 +468,94 @@ export default function ChatPopupWindow({
     setShowMembers(true);
   };
 
+  // Rời phòng (có thể show notification hoặc cập nhật state nếu cần)
+  const handleLeaveRoom = () => {
+    message.success("Bạn đã rời khỏi phòng chat.");
+    handleClose();
+  };
+
+  // Hiển thị thông tin phòng (có thể mở modal info)
+  const handleShowInfo = () => {
+    Modal.info({
+      title: room?.name || "Thông tin phòng",
+      content: (
+        <div>
+          <div><b>Room ID:</b> {conversationId}</div>
+          <div><b>Thành viên:</b> {room?.members?.length ?? 0}</div> 
+        </div>
+      ),
+      onOk() {},
+    });
+  };
+
+  // Xoá phòng (có thể show notification hoặc cập nhật state nếu cần)
+  const handleDeleteRoom = () => {
+    message.success("Phòng đã được xoá thành công.");
+    handleClose();
+  };
+
   return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 20,
-        right: 20 + index * 340,
-        zIndex: 9999,
-        width: 320,
-        height: 420,
-        background: "#fff",
-        border: "1px solid #eee",
-        borderRadius: 8,
-        display: "flex",
-        flexDirection: "column",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
-      }}
-    >
-      {/* Header popup */}
-      <ChatPopupHeader
-        roomName={room?.name || "Phòng chat"}
-        onClose={onClose || (() => {})}
-        onShowMembers={handleShowMembers}
-        onLeaveRoom={() => {}}
-        onShowInfo={() => {}}
-      />
-      {/* Danh sách tin nhắn */}
-      <div style={{ flex: 1, overflow: "auto" }}>
-        <ChatMessageList
-          messages={messages}
-          currentUserId={currentUser?._id || "me"}
-          onReply={handleReply}
-          onReact={handleReact}
-          onDelete={handleDelete}
-          onEdit={handleEdit}
-          onRecall={handleRecall}
-          onBlockUser={handleBlockUser}
-          onReport={handleReport}
-          onLoadMore={handleLoadMore}
+    <>
+      {contextHolder}
+      <div
+        style={{
+          position: "fixed",
+          bottom: 20,
+          right: 20 + index * 340,
+          zIndex: 9999,
+          width: 320,
+          height: 420,
+          background: "#fff",
+          border: "1px solid #eee",
+          borderRadius: 8,
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
+        }}
+      >
+        {/* Header popup */}
+        <ChatPopupHeader
+          roomName={room?.name || "Phòng chat"}
+          onClose={handleClose}
+          roomId={conversationId}
+          onShowMembers={handleShowMembers}
+          onLeaveRoom={handleLeaveRoom}
+          onShowInfo={handleShowInfo}
+          onDeleteRoom={() => handleDeleteRoom()}
+        />
+        {/* Danh sách tin nhắn */}
+        <div style={{ flex: 1, overflow: "auto" }}>
+          <ChatMessageList
+            messages={messages}
+            currentUserId={currentUser?._id || "me"}
+            onReply={handleReply}
+            onReact={handleReact}
+            onDelete={handleDelete}
+            onEdit={handleEdit}
+            onRecall={handleRecall}
+            onBlockUser={handleBlockUser}
+            onReport={handleReport}
+            onLoadMore={handleLoadMore}
+          />
+        </div>
+        {/* Input gửi tin nhắn */}
+        <ChatPopupBottom
+          onSend={handleSend}
+          fileName={file?.name}
+          replyTo={replyTo?.text}
+          onCancelReply={handleCancelReply}
+        />
+        {/* Danh sách thành viên */}
+        <ChatRoomMembersModal
+          open={showMembers}
+          onClose={() => setShowMembers(false)}
+          members={allMember}
+          onlineUsers={onlineUsers}
+          conversationId={conversationId}
+          handleGetMember={handleShowMembers}
+          currentUserId={currentUser?._id}
         />
       </div>
-      {/* Input gửi tin nhắn */}
-      <ChatPopupBottom
-        onSend={handleSend}
-        fileName={file?.name}
-        replyTo={replyTo?.text}
-        onCancelReply={handleCancelReply}
-      />
-      {/* Danh sách thành viên */}
-      <ChatRoomMembersModal
-        open={showMembers}
-        onClose={() => setShowMembers(false)}
-        members={allMember}
-        onlineUsers={onlineUsers}
-        conversationId={conversationId}
-        handleGetMember={handleShowMembers}
-        currentUserId={currentUser?._id}
-      />
-    </div>
+    </>
   );
 }

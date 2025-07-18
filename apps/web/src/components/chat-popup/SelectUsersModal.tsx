@@ -10,7 +10,7 @@ interface UserItem {
 
 interface SelectUsersModalProps {
   open: boolean;
-  conversationId: string;
+  conversationId?: string;  
   selectedUserIds?: string[];
   onConfirm: (userIds: string[]) => void;
   onCancel: () => void;
@@ -27,50 +27,64 @@ const SelectUsersModal: React.FC<SelectUsersModalProps> = ({ open, conversationI
   }, [open]);
 
   useEffect(() => {
-  if (open && conversationId) {
-    setLoading(true);
-    (async () => {
-      try {
-        const data = await roomChatApiService.getAllUsers(1, 20, conversationId); 
-        const rawUsers = Array.isArray(data) ? (data as unknown as Array<{ _id: string; name: string; email: string; avatarURL?: string }>) : [];
-        const users = rawUsers.map(u => ({
-          userId: u._id,
-          name: u.name,
-          email: u.email,
-          avatarURL: u.avatarURL,
-        }));
-        setUsers(users);
-      } catch (err) {
-        console.log(err);
-        setUsers([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }
-}, [open, conversationId]);
+    if (open) {
+      setLoading(true);
+      (async () => {
+        try {
+          // Nếu có conversationId thì truyền, không thì bỏ qua
+          let data;
+          if (typeof conversationId === 'string' && conversationId) {
+            data = await roomChatApiService.getAllUsers(1, 20, conversationId);
+          } else {
+            data = await roomChatApiService.getAllUsers(1, 20);
+          }
+          type RawUser = UserItem & { _id?: string };
+          const rawUsers: RawUser[] = Array.isArray(data) ? data : [];
+          const users = rawUsers.map(u => ({
+            userId: typeof u._id === 'string' ? u._id : (typeof u.userId === 'string' ? u.userId : String(u._id || u.userId)),
+            name: u.name,
+            email: u.email,
+            avatarURL: u.avatarURL,
+          }));
+          setUsers(users);
+        } catch (err) {
+          console.log(err);
+          setUsers([]);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }
+  }, [open, conversationId]);
 
   if (!open) return null;
 
   const toggleUser = (userId: string) => {
-    setSelected((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
-    );
+    setSelected((prev) => {
+      const next = prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]; 
+      return next;
+    });
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = async () => { 
     if (selected.length > 0) {
       setLoading(true);
       try {
-        await roomChatApiService.addMembers(conversationId, selected);
-        onConfirm(selected);
+        if (typeof conversationId === 'string' && conversationId) {
+          await roomChatApiService.addMembers(conversationId, selected);
+          onConfirm(selected);
+        } else {
+          onConfirm(selected);
+        }
       } catch (err) {
         console.log(err); 
       } finally {
-        setLoading(false);
+        setLoading(false); 
+        onCancel();
       }
     } else {
       onConfirm([]);
+      onCancel();
     }
   };
 

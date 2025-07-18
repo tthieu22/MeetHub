@@ -48,18 +48,20 @@ class RoomChatApiService {
     return res.data.data;
   }
 
+  async getUserRoleInRoom(roomId: string): Promise<string | null> {
+    const res = await axios.get<{
+      success: boolean;
+      data: { role: string | null };
+    }>(`/api/chat/rooms/${roomId}/role`);
+    return res.data.role;
+  }
+
   async deleteRoom(roomId: string): Promise<void> {
     await axios.delete(`/api/chat/rooms/${roomId}`);
   }
 
-  async joinRoom(roomId: string): Promise<unknown> {
-    const res = await axios.post(`/api/chat/rooms/${roomId}/join`);
-    return res.data;
-  }
-
-  async leaveRoom(roomId: string): Promise<unknown> {
-    const res = await axios.post(`/api/chat/rooms/${roomId}/leave`);
-    return res.data;
+  async leaveRoom(roomId: string): Promise<void> {
+    await axios.post(`/api/chat/rooms/${roomId}/leave`);
   }
 
   async addMember(roomId: string, userId: string): Promise<unknown> {
