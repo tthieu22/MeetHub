@@ -30,7 +30,8 @@ interface ChatState {
   roomOnlineMembers: Record<string, string[]>;
   // Tất cả người dùng đang online
   allOnline: UsersOnline[];
-
+  // Tất cả thành viên trong phòng cả online và offline
+  allMember: Record<string, UsersOnline[]>;
   // Danh sách các popup chat đang mở
   openedPopups: string[];
 
@@ -103,9 +104,12 @@ interface ChatState {
   searchMessages: (roomId: string, keyword: string) => Message[];
   // Đánh dấu user đang gõ trong phòng
   typingUsers: Record<string, string[]>; // roomId -> [userId]
+
   setTyping: (roomId: string, userId: string, isTyping: boolean) => void;
   hasMoreMessages: Record<string, boolean>;
+
   setHasMoreMessages: (roomId: string, hasMore: boolean) => void;
+
   reactToMessage: (
     roomId: string,
     messageId: string,
@@ -127,6 +131,9 @@ interface ChatState {
   addPopup: (roomId: string) => void;
   // Xóa popup chat đang mở
   removePopup: (roomId: string) => void;
+
+  // All member
+  setAllMember: (roomId: string, users: UsersOnline[]) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -140,6 +147,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   openedPopups: [],
   typingUsers: {},
   hasMoreMessages: {},
+  allMember: {},
 
   setRooms: (rooms: ChatRoom[]) => {
     set({ rooms });
@@ -172,9 +180,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   addMessage: (roomId: string, message: Message) => {
     const { messages: currentMessages } = get();
     const roomMessages = currentMessages[roomId] || [];
+    // Nếu replyTo là id, map sang object
+    const msgToAdd = { ...message };
+    if (msgToAdd.replyTo && typeof msgToAdd.replyTo === "string") {
+      const found = roomMessages.find((m) => m._id === msgToAdd.replyTo);
+      if (found) msgToAdd.replyTo = found;
+    }
     // Lọc trùng _id
     const uniqueMessages = Array.from(
-      new Map([...roomMessages, message].map((m) => [m._id, m])).values()
+      new Map([...roomMessages, msgToAdd].map((m) => [m._id, m])).values()
     );
     set({
       messages: {
@@ -210,11 +224,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   updateUnreadCount: (roomId: string, count: number) => {
+    if (!roomId) {
+      console.warn("[updateUnreadCount] roomId is undefined!", { count });
+      return;
+    }
     const { unreadCounts } = get();
+    const safeCount = Math.max(0, count);
     // Only update if the count actually changed
-    if (unreadCounts[roomId] !== count) {
+    if (unreadCounts[roomId] !== safeCount) {
+      console.log(
+        "[updateUnreadCount]",
+        "roomId:",
+        roomId,
+        "old:",
+        unreadCounts[roomId],
+        "new:",
+        safeCount
+      );
       set({
-        unreadCounts: { ...unreadCounts, [roomId]: count },
+        unreadCounts: { ...unreadCounts, [roomId]: safeCount },
       });
     }
   },
@@ -228,7 +256,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setAllOnline: (users: UsersOnline[]) => {
     set({ allOnline: users });
   },
-
+  setAllMember: (roomId, users: UsersOnline[]) => {
+    console.log(roomId);
+    console.log(users);
+    set({ allMember: { ...get().allMember, [roomId]: users } });
+  },
   setUserOnline: (userId: string, online: boolean) => {
     const { onlineUsers } = get();
     if (onlineUsers[userId] !== online) {
@@ -325,6 +357,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       openedPopups: [],
       typingUsers: {},
       hasMoreMessages: {},
+      allMember: {},
     });
   },
 

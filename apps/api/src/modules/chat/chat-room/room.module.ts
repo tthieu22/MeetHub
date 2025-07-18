@@ -7,6 +7,7 @@ import { MessageStatus, MessageStatusSchema } from '@api/modules/chat/chat-messa
 import { User, UserSchema } from '@api/modules/users/schema/user.schema';
 import { RoomController } from '@api/modules/chat/chat-room/room.controller';
 import { RoomService } from '@api/modules/chat/chat-room/room.service';
+import { ReactionModule } from '@api/modules/chat/chat-reactions/reaction.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { RoomService } from '@api/modules/chat/chat-room/room.service';
       { name: MessageStatus.name, schema: MessageStatusSchema },
       { name: User.name, schema: UserSchema },
     ]),
+    ReactionModule,
   ],
   controllers: [RoomController],
   providers: [RoomService],

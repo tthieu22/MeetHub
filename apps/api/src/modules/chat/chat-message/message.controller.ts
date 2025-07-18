@@ -1,5 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, UseInterceptors, BadRequestException } from '@nestjs/common';
-import { UploadedFile as NestUploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, UseInterceptors, BadRequestException, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MessageService } from '@api/modules/chat/chat-message/message.service';
 import { AuthGuard } from '@api/auth/auth.guard';
@@ -8,16 +7,43 @@ import { GetMessagesDto } from '@api/modules/chat/chat-message/dto/get-messages.
 import { DeleteMessageDto } from '@api/modules/chat/chat-message/dto/delete-message.dto';
 import { MarkReadDto } from '@api/modules/chat/chat-message/dto/mark-read.dto';
 import { Express } from 'express';
+import { UploadService } from '@api/modules/upload/upload.service';
+import { Readable } from 'stream';
 
 @Controller('messages')
 @UseGuards(AuthGuard)
 export class MessageController {
-  constructor(private readonly messageService: MessageService) {}
+  constructor(
+    private readonly messageService: MessageService,
+    private readonly uploadService: UploadService,
+  ) {}
 
   // 1. Gửi tin nhắn mới
   @Post()
   async createMessage(@Body() createMessageDto: CreateMessageDto, @Query('userId') userId: string, @Query('roomId') roomId: string) {
-    return await this.messageService.createMessage(createMessageDto, userId, roomId);
+    // Nếu có fileData (base64), fileName, fileType thì xử lý upload như handler
+    if (createMessageDto.fileData) {
+      const buffer = Buffer.from(createMessageDto.fileData, 'base64');
+      const fakeFile: Express.Multer.File = {
+        fieldname: 'file',
+        originalname: createMessageDto.fileName || 'upload.bin',
+        encoding: '7bit',
+        mimetype: createMessageDto.fileType || 'application/octet-stream',
+        size: buffer.length,
+        buffer,
+        destination: '',
+        filename: '',
+        path: '',
+        stream: Readable.from([]),
+      };
+      const uploadResult = await this.uploadService.uploadFileToChatFolder(fakeFile);
+      if (uploadResult.success && uploadResult.data) {
+        createMessageDto.fileUrl = uploadResult.data.savedFile.url;
+      }
+      delete createMessageDto.fileData;
+    }
+    const message = await this.messageService.createMessage(createMessageDto, userId, roomId);
+    return { success: true, data: message };
   }
 
   // 2. Lấy danh sách tin nhắn trong phòng
@@ -50,7 +76,7 @@ export class MessageController {
 
   @Post(':id/upload')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(@Param('id') id: string, @NestUploadedFile() file: Express.Multer.File, @Query('userId') userId: string) {
+  async uploadFile(@Param('id') id: string, @UploadedFile() file: Express.Multer.File, @Query('userId') userId: string) {
     if (!file) {
       throw new BadRequestException('File is required');
     }

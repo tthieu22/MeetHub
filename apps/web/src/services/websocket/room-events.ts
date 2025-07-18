@@ -3,6 +3,7 @@ import { WsResponse } from "@web/types/websocket";
 import { ChatRoom } from "@web/types/chat";
 import { WS_RESPONSE_EVENTS } from "@web/constants/websocket.events";
 import { WebSocketEventHandlers } from "./websocket.types";
+import { handleRoomMarkedRead } from "./core-handlers";
 
 export function bindRoomEventHandlers(
   socket: Socket,
@@ -21,8 +22,9 @@ export function bindRoomEventHandlers(
     handlers.onRoomMarkedRead?.(data);
   });
   socket.on(
-    "mark_room_read_success",
+    WS_RESPONSE_EVENTS.ROOM_MARKED_READ,
     (data: WsResponse<{ roomId: string }>) => {
+      handleRoomMarkedRead(data);
       handlers.onRoomMarkedRead?.(data);
     }
   );

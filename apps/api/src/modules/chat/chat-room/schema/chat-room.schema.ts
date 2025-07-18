@@ -8,7 +8,7 @@ export class Conversation {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true, enum: ['private', 'group'] })
+  @Prop({ required: true, enum: ['private', 'group', 'support'] })
   type: string;
 
   @Prop({ required: true, type: Types.ObjectId, ref: 'User' })

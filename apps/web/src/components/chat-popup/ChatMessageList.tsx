@@ -5,6 +5,11 @@ import ChatMessageItem from "./ChatMessageItem";
 // Định nghĩa type cho item trong danh sách
 export type ChatListItem = Message | { type: "system"; text: string };
 
+// Type guard cho senderId
+function isSenderObject(sender: unknown): sender is { _id: string } {
+  return typeof sender === "object" && sender !== null && "_id" in sender;
+}
+
 interface Props {
   messages: ChatListItem[];
   currentUserId: string;
@@ -66,11 +71,20 @@ const ChatMessageList: React.FC<Props> = ({ messages, currentUserId, onReply, on
         if ("type" in msg && msg.type === "system") {
           return <div key={idx} style={{ textAlign: "center", color: "#888", fontSize: 13, margin: '8px 0' }}>{msg.text}</div>;
         }
+        const sender = (msg as Message).senderId;
+        let senderId: string | undefined;
+        if (typeof sender === "string") {
+          senderId = sender;
+        } else if (isSenderObject(sender)) {
+          senderId = sender._id;
+        } else {
+          senderId = undefined;
+        }
         return (
           <ChatMessageItem
             key={(msg as Message)._id}
             message={msg as Message}
-            isOwn={(msg as Message).senderId === currentUserId}
+            isOwn={senderId === currentUserId}
             onReply={onReply}
             onReact={onReact}
             onDelete={onDelete}

@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Req, UseGuards, Query } from '@nestjs/common';
 import { RoomService } from './room.service';
 import { CreateRoomDto, UpdateRoomDto, AddMemberDto } from './dto';
 import { CurrentUser } from '@api/common/decorators/current-user.decorator';
 import { AuthGuard } from '@api/auth/auth.guard';
+import { ConversationMemberDocument } from './schema/conversation-member.schema';
+import { PaginationQueryDto } from '@api/modules/users/dto/pagination-query.dto';
 
 @Controller('chat/rooms')
 @UseGuards(AuthGuard)
@@ -27,6 +29,12 @@ export class RoomController {
     return await this.roomService.getRooms(userId);
   }
 
+  // Lấy tất cả user với phân trang
+  @Get('all-users')
+  async getAllUsers(@Query() query: PaginationQueryDto & { conversationId?: string }) {
+    return await this.roomService.getAllUsersWithPagination(query);
+  }
+
   // 12. Thông tin chi tiết 1 phòng
   @Get(':id')
   async getRoom(@Param('id') id: string, @CurrentUser() userId: string) {
@@ -39,19 +47,20 @@ export class RoomController {
     return await this.roomService.updateRoom(id, updateRoomDto, userId);
   }
 
-  // 14. Xóa phòng chat (admin)
+  // Lấy vai trò của user trong phòng chat
+  @Get(':id/role')
+  async getUserRoleInRoom(@Param('id') id: string, @CurrentUser() userId: string) {
+    const role = await this.roomService.getUserRoleInRoom(id, userId);
+    return { success: true, data: { role } };
+  }
+
+  // Xoá phòng chat (admin)
   @Delete(':id')
   async deleteRoom(@Param('id') id: string, @CurrentUser() userId: string) {
     return await this.roomService.deleteRoom(id, userId);
   }
 
-  // 15. Tham gia phòng chat (group)
-  @Post(':id/join')
-  async joinRoom(@Param('id') id: string, @CurrentUser() userId: string) {
-    return await this.roomService.joinRoom(id, userId);
-  }
-
-  // 16. Rời khỏi phòng chat
+  // Rời khỏi phòng chat (user)
   @Post(':id/leave')
   async leaveRoom(@Param('id') id: string, @CurrentUser() userId: string) {
     return await this.roomService.leaveRoom(id, userId);
@@ -59,8 +68,14 @@ export class RoomController {
 
   // 17. Thêm user vào group chat
   @Post(':id/add-member')
-  async addMember(@Param('id') id: string, @Body() addMemberDto: AddMemberDto, @CurrentUser() userId: string) {
-    return await this.roomService.addMember(id, addMemberDto.userId, userId);
+  async addMember(@Param('id') id: string, @Body() addMemberDto: AddMemberDto) {
+    return await this.roomService.addMember(id, addMemberDto.userId);
+  }
+
+  // Thêm nhiều user vào group chat
+  @Post(':id/add-members')
+  async addMembers(@Param('id') id: string, @Body('userIds') userIds: string[]) {
+    return await this.roomService.addMembers(id, userIds);
   }
 
   // 18. Xoá người ra khỏi phòng
@@ -69,10 +84,21 @@ export class RoomController {
     return await this.roomService.removeMember(id, uid, userId);
   }
 
+  // Xoá nhiều user khỏi group chat
+  @Post(':id/remove-members')
+  async removeMembers(@Param('id') id: string, @Body('userIds') userIds: string[], @CurrentUser() userId: string) {
+    return await this.roomService.removeMembers(id, userIds, userId);
+  }
+
   // 19. Lấy danh sách user trong phòng
   @Get(':id/members')
   async getRoomMembers(@Param('id') id: string, @CurrentUser() userId: string) {
-    return await this.roomService.getRoomMembers(id, userId);
+    try {
+      const members: ConversationMemberDocument[] = await this.roomService.getRoomMembers(id, userId);
+      return { success: true, data: members };
+    } catch {
+      return { success: false, data: [] };
+    }
   }
 
   // 22. Đánh dấu toàn bộ tin nhắn trong phòng là đã đọc

@@ -23,7 +23,7 @@ const usersCache = new Map<
 >();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-export function useConnectSection() {
+export function useConnectSection(searchValue?: string) {
   const [api, contextHolder] = notification.useNotification();
 
   const allOnline = useChatStore((s) => s.allOnline);
@@ -41,7 +41,7 @@ export function useConnectSection() {
 
   // Fetch users from API with caching
   const fetchUsers = useCallback(
-    async (forceRefresh = false) => { 
+    async (forceRefresh = false) => {
       try {
         // Check cache first
         const cacheKey = `users_${currentUser?._id || "anonymous"}`;
@@ -62,7 +62,7 @@ export function useConnectSection() {
 
         const result = await usersApiService.getUsers({ limit: 100, page: 1 });
 
-        if (result.success && result.data) { 
+        if (result.success && result.data) {
           const usersWithStatus: UserWithStatus[] = result.data.map(
             (user: User) => ({
               ...user,
@@ -72,18 +72,18 @@ export function useConnectSection() {
               chated: user?.chated || false,
             })
           );
- 
+
           const filteredUsers = usersWithStatus
             .filter((user) => user.userId !== currentUser?._id)
-            .sort((a, b) => { 
+            .sort((a, b) => {
               if (a.isOnline && !b.isOnline) return -1;
               if (!a.isOnline && b.isOnline) return 1;
               return a.name.localeCompare(b.name);
             })
-            .slice(0, 20);  
+            .slice(0, 20);
 
           setUsers(filteredUsers);
- 
+
           usersCache.set(cacheKey, {
             data: filteredUsers,
             timestamp: Date.now(),
@@ -92,9 +92,9 @@ export function useConnectSection() {
           throw new Error(result.message || "Failed to fetch users");
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Failed to load users";
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to load users";
         setError(errorMessage); // chỉ set state, không gọi api.error ở đây
-     
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -102,7 +102,7 @@ export function useConnectSection() {
     },
     [allOnline, currentUser?._id]
   );
-   useEffect(() => {
+  useEffect(() => {
     if (error) {
       api.error({
         message: "Lỗi tải dữ liệu",
@@ -111,7 +111,7 @@ export function useConnectSection() {
       });
     }
   }, [error]);
-  
+
   const fetchInvitations = useCallback(async () => {
     try {
       const result = await invitationApiService.getReceivedInvitations();
@@ -123,7 +123,7 @@ export function useConnectSection() {
       console.error("Error fetching invitations:", error);
     }
   }, []);
- 
+
   const handleAcceptInvitation = useCallback(
     async (invitationId: string) => {
       try {
@@ -139,7 +139,7 @@ export function useConnectSection() {
               "Lời mời đã được chấp nhận và cuộc trò chuyện đã được tạo.",
             placement: "topRight",
             duration: 3,
-          }); 
+          });
           fetchInvitations();
           fetchUsers(true);
 
@@ -330,8 +330,22 @@ export function useConnectSection() {
     [users]
   );
 
-  const offlineUsersLimited = showAllOfflineUsers ? offlineUsers : offlineUsers.slice(0, 10);
+  const offlineUsersLimited = showAllOfflineUsers
+    ? offlineUsers
+    : offlineUsers.slice(0, 10);
   const handleShowMoreOffline = () => setShowAllOfflineUsers(true);
+
+  // Thêm filter khi showSearchBox
+  const filteredUsers = useMemo(() => {
+    if (!searchValue) return users;
+    const v = searchValue.trim().toLowerCase();
+    return users.filter(
+      (u) =>
+        u.name?.toLowerCase().includes(v) ||
+        u.userId?.toLowerCase().includes(v) ||
+        u.email?.toLowerCase().includes(v)
+    );
+  }, [users, searchValue]);
 
   // Initial fetch
   useEffect(() => {
@@ -393,8 +407,8 @@ export function useConnectSection() {
     error,
     users,
     invitations,
-    onlineUsers,
-    offlineUsers: offlineUsersLimited,
+    onlineUsers: filteredUsers.filter((u) => u.isOnline),
+    offlineUsers: filteredUsers.filter((u) => !u.isOnline),
     // Actions
     handleSendInvitation,
     handleAcceptInvitation,

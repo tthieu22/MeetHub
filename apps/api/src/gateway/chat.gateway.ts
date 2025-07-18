@@ -63,6 +63,30 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.roomHandler.handleGetRoomOnlineMembers(client, this.server, data.roomId);
   }
 
+  @SubscribeMessage('client_delete_room')
+  async handleClientDeleteRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { roomId: string }) {
+    // Emit lại cho client để hiển thị thông báo
+    client.emit('room_deleted', { roomId: data.roomId, message: 'Phòng đã được xoá.' });
+    // Gửi lại danh sách phòng mới
+    const userId = validateClient(client);
+    if (userId) {
+      const response = await this.roomHandler.handleGetRooms(userId);
+      client.emit('rooms', response);
+    }
+  }
+
+  @SubscribeMessage('client_leave_room')
+  async handleClientLeaveRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { roomId: string }) {
+    // Emit lại cho client để hiển thị thông báo
+    client.emit('room_left', { roomId: data.roomId, message: 'Bạn đã rời khỏi phòng.' });
+    // Gửi lại danh sách phòng mới
+    const userId = validateClient(client);
+    if (userId) {
+      const response = await this.roomHandler.handleGetRooms(userId);
+      client.emit('rooms', response);
+    }
+  }
+
   // ====== TIN NHẮN ======
   @SubscribeMessage('get_messages')
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -76,10 +100,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('create_message')
   @UsePipes(new ValidationPipe({ transform: true }))
   async handleCreateMessage(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: CreateMessageDto & { roomId: string; fileData?: string }) {
+    // Thêm log chi tiết
     const userId = validateClient(client);
     if (!userId) return;
     const response = await this.messageHandler.handleCreateMessage(this.server, userId, data);
-    client.emit('message_created', response);
+    // Broadcast cho tất cả thành viên trong room
+    this.server.to(data.roomId).emit('new_message', response);
   }
 
   @SubscribeMessage('mark_room_read')

@@ -20,6 +20,11 @@ export class CreateMessageDto {
   @IsOptional()
   fileData?: string;
 
+  @IsString()
+  @IsOptional()
   fileName?: string;
+
+  @IsString()
+  @IsOptional()
   fileType?: string;
 }

@@ -56,7 +56,8 @@ export class MessageHandler {
       delete dto.fileData;
     }
     const message = await this.chatService.createMessage(dto, dto.roomId, userId);
-
+    // Đánh dấu đã đọc cho người gửi
+    await this.chatService.markAllAsRead(dto.roomId, userId);
     const response: WsResponse = { success: true, data: message };
 
     if (response.success) {

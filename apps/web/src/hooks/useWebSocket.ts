@@ -85,11 +85,8 @@ export const useWebSocket = () => {
           onRoomOnlineMembers: (data) =>
             WebSocketEventHandlers.handleRoomOnlineMembers(data),
         });
-      } else {
-        console.error("[WebSocket] Không khởi tạo được socket");
       }
-    } catch (error) {
-      console.error("Failed to connect WebSocket:", error);
+    } catch {
       hasConnectedRef.current = false;
     }
   }, [connect, isAuthenticated, currentUser, isConnecting]);
@@ -308,6 +305,24 @@ export const useWebSocket = () => {
     connectWebSocket,
     disconnectWebSocket,
   ]);
+
+  // Auto reconnect on disconnect nếu còn access_token
+  useEffect(() => {
+    if (!socket) return;
+    const handleDisconnect = () => {
+      const hasToken =
+        typeof window !== "undefined" && !!localStorage.getItem("access_token");
+      if (hasToken) {
+        setTimeout(() => {
+          connectWebSocket();
+        }, 5000); // reconnect sau 1s
+      }
+    };
+    socket.on("disconnect", handleDisconnect);
+    return () => {
+      socket.off("disconnect", handleDisconnect);
+    };
+  }, [socket, connectWebSocket]);
 
   // Handle page hide - only disconnect when actually closing the tab
   useEffect(() => {
