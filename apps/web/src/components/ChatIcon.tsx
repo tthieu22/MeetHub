@@ -168,7 +168,7 @@ const ChatIcon: React.FC<ChatIconProps> = ({
       <Badge
         count={totalUnread}
         size="small"
-        offset={[5, -5]}  
+        offset={[5, 5]}  
       >
         <span
           style={{

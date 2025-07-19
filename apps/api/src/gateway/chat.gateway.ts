@@ -164,4 +164,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!userId) return;
     await this.supportHandler.handleCloseSupportRoom(client, this.server, userId, data.roomId);
   }
+
+  @SubscribeMessage('get_pending_support_rooms')
+  async handleGetPendingSupportRooms(@ConnectedSocket() client: AuthenticatedSocket) {
+    const adminId = validateClient(client);
+    if (!adminId) return;
+    await this.supportHandler.handleGetPendingSupportRooms(client);
+  }
 }

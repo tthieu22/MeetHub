@@ -83,4 +83,14 @@ export class SupportHandler {
       });
     }
   }
+
+  // Xử lý khi admin yêu cầu danh sách phòng pending
+  async handleGetPendingSupportRooms(client: AuthenticatedSocket): Promise<void> {
+    try {
+      const pendingRooms = await this.chatService.getAllPendingSupportRooms();
+      client.emit('pending_support_rooms', { rooms: pendingRooms });
+    } catch (err) {
+      emitError(client, 'GET_PENDING_ROOMS_ERROR', err instanceof Error ? err.message : String(err), 'pending_support_rooms');
+    }
+  }
 }
