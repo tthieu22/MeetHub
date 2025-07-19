@@ -14,7 +14,7 @@ import { useUserStore } from "@web/store/user.store";
 import { roomChatApiService } from "@web/services/api/room.chat.api";
 import ChatRoomMembersModal from "./ChatRoomMembersModal";
 import { webSocketService } from "@web/services/websocket/websocket.service";
-import { message, Modal, notification } from "antd";
+import { Modal, notification } from "antd";
 
 interface ChatPopupWindowProps {
   conversationId: string;
@@ -42,6 +42,8 @@ export default function ChatPopupWindow({
   const updateRoom = useChatStore((s) => s.updateRoom);
   const updateUnreadCount = useChatStore((s) => s.updateUnreadCount);
   const unreadCounts = useChatStore((s) => s.unreadCounts);
+  const leaveRoom = useChatStore((s) => s.leaveRoom);
+  const removeRoom = useChatStore((s) => s.removeRoom);
 
   // State cho file, reply
   const [file, setFile] = useState<File | null>(null);
@@ -213,11 +215,13 @@ export default function ChatPopupWindow({
         });
       }
     };
-    socket.on("room_deleted", handleRoomDeleted);
-    socket.on("room_left", handleRoomLeft);
+    
+    // Đăng ký event listeners thông qua webSocketService
+    webSocketService.onRoomDeleted(handleRoomDeleted);
+    webSocketService.onRoomLeft(handleRoomLeft);
+    
     return () => {
-      socket.off("room_deleted", handleRoomDeleted);
-      socket.off("room_left", handleRoomLeft);
+      // Cleanup không cần thiết vì webSocketService sẽ tự quản lý
     };
   }, [socket, conversationId, api, handleClose]);
 
@@ -226,9 +230,6 @@ export default function ChatPopupWindow({
     async (text: string, file?: File) => {
       if (!text.trim() && !file) return;
       if (!currentUser) return;
-      // Thêm log kiểm tra các biến trước khi gửi tin nhắn
-      console.log('[handleSend] text:', text);
-      console.log('[handleSend] file:', file);
       let fileData: string | undefined = undefined;
       let fileName: string | undefined = undefined;
       let fileType: string | undefined = undefined;
@@ -251,14 +252,6 @@ export default function ChatPopupWindow({
           return;
         }
       }
-      // Log các biến sau khi xử lý file
-      console.log('[handleSend] fileData:', fileData);
-      console.log('[handleSend] fileName:', fileName);
-      console.log('[handleSend] fileType:', fileType);
-      console.log('[handleSend] replyTo:', replyTo);
-      console.log('[handleSend] currentUser:', currentUser);
-      console.log('[handleSend] socket:', socket);
-      console.log('[handleSend] isJoined:', isJoined);
       if (socket && isJoined) {
         try {
           socket.emit("create_message", {
@@ -469,9 +462,32 @@ export default function ChatPopupWindow({
   };
 
   // Rời phòng (có thể show notification hoặc cập nhật state nếu cần)
-  const handleLeaveRoom = () => {
-    message.success("Bạn đã rời khỏi phòng chat.");
-    handleClose();
+  const handleLeaveRoom = async () => {
+    try {
+      await roomChatApiService.leaveRoom(conversationId);
+      webSocketService.emitClientLeaveRoom(conversationId);
+      // Cập nhật store để xóa phòng khỏi danh sách
+      leaveRoom(conversationId);
+      console.log("Hiển thị thông báo rời phòng thành công");
+      api.success({
+        message: "Thành công",
+        description: "Bạn đã rời khỏi phòng chat.",
+        placement: "topRight",
+        duration: 3,
+      });
+      // Delay một chút để thông báo hiển thị trước khi đóng popup
+      setTimeout(() => {
+        handleClose();
+      }, 1000);
+    } catch (error) {
+      console.error("Lỗi khi rời phòng:", error);
+      api.error({
+        message: "Lỗi",
+        description: "Có lỗi xảy ra khi rời phòng.",
+        placement: "topRight",
+        duration: 3,
+      });
+    }
   };
 
   // Hiển thị thông tin phòng (có thể mở modal info)
@@ -489,9 +505,32 @@ export default function ChatPopupWindow({
   };
 
   // Xoá phòng (có thể show notification hoặc cập nhật state nếu cần)
-  const handleDeleteRoom = () => {
-    message.success("Phòng đã được xoá thành công.");
-    handleClose();
+  const handleDeleteRoom = async () => {
+    try {
+      await roomChatApiService.deleteRoom(conversationId);
+      webSocketService.emitClientDeleteRoom(conversationId);
+      // Cập nhật store để xóa phòng khỏi danh sách
+      removeRoom(conversationId);
+      console.log("Hiển thị thông báo xóa phòng thành công");
+      api.success({
+        message: "Thành công",
+        description: "Phòng đã được xoá thành công.",
+        placement: "topRight",
+        duration: 3,
+      });
+      // Delay một chút để thông báo hiển thị trước khi đóng popup
+      setTimeout(() => {
+        handleClose();
+      }, 1000);
+    } catch (error) {
+      console.error("Lỗi khi xoá phòng:", error);
+      api.error({
+        message: "Lỗi",
+        description: "Có lỗi xảy ra khi xoá phòng.",
+        placement: "topRight",
+        duration: 3,
+      });
+    }
   };
 
   return (
@@ -521,7 +560,7 @@ export default function ChatPopupWindow({
           onShowMembers={handleShowMembers}
           onLeaveRoom={handleLeaveRoom}
           onShowInfo={handleShowInfo}
-          onDeleteRoom={() => handleDeleteRoom()}
+          onDeleteRoom={handleDeleteRoom}
         />
         {/* Danh sách tin nhắn */}
         <div style={{ flex: 1, overflow: "auto" }}>

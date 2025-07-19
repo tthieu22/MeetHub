@@ -101,13 +101,28 @@ const UserAvatar = memo(() => {
 
   return (
     <>
-      <span style={{ position: "relative", display: "inline-block" }}>
+      <span
+        style={{
+          position: "relative",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 40,
+          height: 40,
+          background: "#ccc",
+          borderRadius: "50%",
+        }}
+      >
         <Avatar
           size={32}
           src={me.avatarURL || undefined}
           icon={<UserOutlined />}
           onClick={() => setOpen(true)}
-          style={{ cursor: "pointer", border: "1px solid #d9d9d9" }}
+          style={{
+            cursor: "pointer", 
+            backgroundColor: "#ccc",
+            color:"#000"
+          }}
         />
         <span
           style={{
@@ -123,6 +138,7 @@ const UserAvatar = memo(() => {
           }}
         />
       </span>
+
       <Drawer
         title="Tài khoản"
         placement="right"

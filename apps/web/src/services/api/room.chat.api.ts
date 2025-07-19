@@ -53,7 +53,7 @@ class RoomChatApiService {
       success: boolean;
       data: { role: string | null };
     }>(`/api/chat/rooms/${roomId}/role`);
-    return res.data.role;
+    return res.data.data.role;
   }
 
   async deleteRoom(roomId: string): Promise<void> {

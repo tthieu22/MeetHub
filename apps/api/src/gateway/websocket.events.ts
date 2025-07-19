@@ -11,6 +11,8 @@ export const WS_EVENTS = {
   GET_ROOM_ONLINE_MEMBERS: 'get_room_online_members',
   USER_REQUEST_SUPPORT: 'user_request_support',
   ADMIN_JOIN_SUPPORT_ROOM: 'admin_join_support_room',
+  CLIENT_LEAVE_ROOM: 'client_leave_room',
+  CLIENT_DELETE_ROOM: 'client_delete_room',
 } as const;
 
 export const WS_RESPONSE_EVENTS = {
@@ -36,4 +38,6 @@ export const WS_RESPONSE_EVENTS = {
   SUPPORT_ADMIN_JOINED: 'support_admin_joined',
   SUPPORT_TICKET_ASSIGNED: 'support_ticket_assigned',
   ROOM_ONLINE_MEMBERS: 'room_online_members',
+  ROOM_DELETED: 'room_deleted',
+  ROOM_LEFT: 'room_left',
 } as const;

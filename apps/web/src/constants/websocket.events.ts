@@ -12,6 +12,8 @@ export const WS_EVENTS = {
   GET_ROOM_ONLINE_MEMBERS: "get_room_online_members", // Lấy danh sách thành viên online trong phòng
   USER_REQUEST_SUPPORT: "user_request_support", // User gửi yêu cầu hỗ trợ tới admin
   ADMIN_JOIN_SUPPORT_ROOM: "admin_join_support_room", // Admin tham gia phòng support
+  CLIENT_LEAVE_ROOM: "client_leave_room", // Client rời phòng
+  CLIENT_DELETE_ROOM: "client_delete_room", // Client xoá phòng
 } as const;
 
 // Server to Client events - match với backend WebSocketEventName
@@ -38,6 +40,8 @@ export const WS_RESPONSE_EVENTS = {
   SUPPORT_ADMIN_JOINED: "support_admin_joined", // Admin đã tham gia phòng support
   SUPPORT_TICKET_ASSIGNED: "support_ticket_assigned", // Ticket support đã được gán
   ROOM_ONLINE_MEMBERS: "room_online_members", // Trả về danh sách thành viên online trong phòng
+  ROOM_DELETED: "room_deleted", // Phòng đã bị xoá
+  ROOM_LEFT: "room_left", // User đã rời phòng
 } as const;
 
 // WebSocket configuration

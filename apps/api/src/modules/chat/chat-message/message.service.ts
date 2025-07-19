@@ -126,8 +126,9 @@ export class MessageService {
     }
     const populatedMessage = await this.messageModel.findById(savedMessage._id).populate('senderId', 'name avatar email').exec();
     // Nếu sender là admin và là tin nhắn đầu tiên của admin trong phòng, xóa timeout
+    const userObjectId = new Types.ObjectId(userId);
     const isAdmin = await this.conversationMemberModel.findOne({
-      userId: new Types.ObjectId(userId),
+      userId: { $in: [userId, userObjectId] },
       conversationId: new Types.ObjectId(roomId),
       role: 'admin',
     });
@@ -241,9 +242,10 @@ export class MessageService {
     const conversation = await this.conversationModel.findById(message.conversationId).exec();
     if (!conversation) throw new NotFoundException('Conversation not found');
 
+    const userObjectId = new Types.ObjectId(userId);
     const member = await this.conversationMemberModel
       .findOne({
-        userId: new Types.ObjectId(userId),
+        userId: { $in: [userId, userObjectId] },
         conversationId: message.conversationId,
       })
       .exec();

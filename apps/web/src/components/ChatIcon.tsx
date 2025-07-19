@@ -97,19 +97,27 @@ const ChatIcon: React.FC<ChatIconProps> = ({
 
   return (
     <div style={{ position: "relative" }} ref={iconRef}>
-      <Badge count={totalUnread} size="small">
+      <Badge
+        count={totalUnread}
+        size="small"
+        offset={[5, -5]}  
+      >
         <span
           style={{
-            fontSize: 20,
-            padding: 10,
+            width: 40,
+            height: 40,
             borderRadius: "50%",
             background: chatOpen ? "rgb(196 218 249)" : "#ccc",
             cursor: "pointer",
             color: chatOpen ? "#1677ff" : "#000",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",  
           }}
           onClick={() => setChatOpen(!chatOpen)}
         >
-          <MessageOutlined />
+          <MessageOutlined style={{ fontSize: 20 }} />
         </span>
       </Badge>
       {chatOpen && (

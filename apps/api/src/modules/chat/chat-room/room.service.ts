@@ -222,8 +222,9 @@ export class RoomService {
       throw new ForbiddenException('Only group conversations can be joined');
     }
 
+    const userObjectId = new Types.ObjectId(userId);
     const existingMember = await this.conversationMemberModel.findOne({
-      userId: new Types.ObjectId(userId),
+      userId: { $in: [userId, userObjectId] },
       conversationId: new Types.ObjectId(conversationId),
     });
 
@@ -242,11 +243,11 @@ export class RoomService {
 
   // 16. Rời khỏi phòng chat
   async leaveRoom(conversationId: string, userId: string) {
+    const userObjectId = new Types.ObjectId(userId);
     const member = await this.conversationMemberModel.findOne({
-      userId: new Types.ObjectId(userId),
+      userId: { $in: [userId, userObjectId] },
       conversationId: new Types.ObjectId(conversationId),
     });
-
     if (!member) {
       throw new ForbiddenException('You are not a member of this conversation');
     }
@@ -268,8 +269,9 @@ export class RoomService {
       throw new ForbiddenException('Only group conversations can have multiple members');
     }
 
+    const newUserObjectId = new Types.ObjectId(newUserId);
     const existingMember = await this.conversationMemberModel.findOne({
-      userId: new Types.ObjectId(newUserId),
+      userId: { $in: [newUserId, newUserObjectId] },
       conversationId: new Types.ObjectId(conversationId),
     });
 
@@ -295,8 +297,9 @@ export class RoomService {
     const isAdmin = await this.isAdminOfConversation(adminUserId, conversationId);
     if (!isAdmin) throw new ForbiddenException('Only admins can remove members');
 
+    const memberUserObjectId = new Types.ObjectId(memberUserId);
     const member = await this.conversationMemberModel.findOne({
-      userId: new Types.ObjectId(memberUserId),
+      userId: { $in: [memberUserId, memberUserObjectId] },
       conversationId: new Types.ObjectId(conversationId),
     });
 
@@ -537,8 +540,9 @@ export class RoomService {
         pending: true,
       });
       // Đảm bảo user là member trong ConversationMember
+      const userObjectId = new Types.ObjectId(userId);
       const existingUserMember = await this.conversationMemberModel.findOne({
-        userId: new Types.ObjectId(userId),
+        userId: { $in: [userId, userObjectId] },
         conversationId: room._id,
       });
       if (!existingUserMember) {
@@ -566,8 +570,9 @@ export class RoomService {
       pending: false,
     });
     // Đảm bảo user là member trong ConversationMember
+    const userObjectId = new Types.ObjectId(userId);
     const existingUserMember = await this.conversationMemberModel.findOne({
-      userId: new Types.ObjectId(userId),
+      userId: { $in: [userId, userObjectId] },
       conversationId: room._id,
     });
     if (!existingUserMember) {
@@ -579,8 +584,9 @@ export class RoomService {
       });
     }
     // Đảm bảo admin là member trong ConversationMember
+    const adminObjectId = new Types.ObjectId(assignedAdmin._id);
     const existingAdminMember = await this.conversationMemberModel.findOne({
-      userId: new Types.ObjectId(assignedAdmin._id),
+      userId: { $in: [assignedAdmin._id, adminObjectId] },
       conversationId: room._id,
     });
     if (!existingAdminMember) {
@@ -661,8 +667,9 @@ export class RoomService {
     room.pending = false;
     await room.save();
     // Đảm bảo admin là member trong ConversationMember
+    const adminObjectId = new Types.ObjectId(adminId);
     const existingAdminMember = await this.conversationMemberModel.findOne({
-      userId: new Types.ObjectId(adminId),
+      userId: { $in: [adminId, adminObjectId] },
       conversationId: new Types.ObjectId(roomId),
     });
     if (!existingAdminMember) {
@@ -678,8 +685,9 @@ export class RoomService {
     const adminIdStr = adminId.toString();
     for (const memberId of room.memberIds) {
       if (memberId.toString() !== adminIdStr) {
+        const memberObjectId = new Types.ObjectId(memberId);
         const existingUserMember = await this.conversationMemberModel.findOne({
-          userId: new Types.ObjectId(memberId),
+          userId: { $in: [memberId, memberObjectId] },
           conversationId: new Types.ObjectId(roomId),
         });
         if (!existingUserMember) {
@@ -741,8 +749,9 @@ export class RoomService {
         room.assignedAdmins.push(newAdmin._id);
       }
       await room.save();
+      const newAdminObjectId = new Types.ObjectId(newAdmin._id);
       const existingAdminMember = await this.conversationMemberModel.findOne({
-        userId: newAdmin._id,
+        userId: { $in: [newAdmin._id, newAdminObjectId] },
         conversationId: room._id,
       });
       if (!existingAdminMember) {

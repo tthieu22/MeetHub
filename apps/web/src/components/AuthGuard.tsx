@@ -49,8 +49,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
           router.push("/login");
           return;
         }
-
-        // Token còn hạn nhưng chưa có user, có thể do UserProvider chưa load xong
+ 
         return;
       } catch {
         localStorage.removeItem("access_token");

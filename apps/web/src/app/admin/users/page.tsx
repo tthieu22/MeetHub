@@ -17,8 +17,7 @@ export default function UsersPage() {
     if (!user || user.role !== "admin") {
       router.replace("/errorPage?status=403&title=Bạn không có quyền truy cập trang này");
     }
-  }, []);
-  console.log(user);
+  }, []); 
   return (
     <div className="min-h-screen ">
       <Space direction="vertical" style={{ width: "100%" }} size="small">

@@ -21,6 +21,8 @@ import { useChatStore } from "@web/store/chat.store";
 import { useWebSocketStore } from "@web/store/websocket.store";
 import ChatIcon from "@web/components/ChatIcon";
 import Notification from "@web/components/IconNotification";
+import { useEffect } from "react";
+import { WS_EVENTS } from "@web/constants/websocket.events";
 
 const { Sider, Content } = AntLayout;
 const { Title } = Typography;
@@ -41,11 +43,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const socket = useWebSocketStore((state) => state.socket);
   const addPopup = useChatStore((state) => state.addPopup);
   const setCurrentRoomId = useChatStore((state) => state.setCurrentRoomId);
+  const isConnected = useWebSocketStore((state) => state.isConnected);
 
   const totalUnread = Object.values(unreadCounts || {}).reduce(
     (a, b) => a + b,
     0
   );
+
+  // Load rooms khi component mount và WebSocket đã kết nối
+  useEffect(() => {
+    if (isConnected && socket && rooms.length === 0) {
+      socket.emit(WS_EVENTS.GET_ROOMS);
+    }
+  }, [isConnected, socket, rooms.length]);
 
   const menuItems = [
     { key: "/admin", icon: <DashboardOutlined />, label: "Dashboard" },

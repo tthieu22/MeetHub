@@ -12,6 +12,7 @@ import { MessageHandler } from './handlers/message.handler';
 import { UserHandler } from './handlers/user.handler';
 import { SupportHandler } from './handlers/support.handler';
 import { validateClient } from './utils/error.util';
+import { WS_RESPONSE_EVENTS } from './websocket.events';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -66,7 +67,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('client_delete_room')
   async handleClientDeleteRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { roomId: string }) {
     // Emit lại cho client để hiển thị thông báo
-    client.emit('room_deleted', { roomId: data.roomId, message: 'Phòng đã được xoá.' });
+    client.emit(WS_RESPONSE_EVENTS.ROOM_DELETED, { roomId: data.roomId, message: 'Phòng đã được xoá.' });
     // Gửi lại danh sách phòng mới
     const userId = validateClient(client);
     if (userId) {
@@ -78,7 +79,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('client_leave_room')
   async handleClientLeaveRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { roomId: string }) {
     // Emit lại cho client để hiển thị thông báo
-    client.emit('room_left', { roomId: data.roomId, message: 'Bạn đã rời khỏi phòng.' });
+    client.emit(WS_RESPONSE_EVENTS.ROOM_LEFT, { roomId: data.roomId, message: 'Bạn đã rời khỏi phòng.' });
     // Gửi lại danh sách phòng mới
     const userId = validateClient(client);
     if (userId) {

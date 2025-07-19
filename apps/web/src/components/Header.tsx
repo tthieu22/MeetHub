@@ -51,7 +51,6 @@ const HeaderCus = memo(() => {
         <Logo onClick={handleLogoClick} />
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <Notification />
         {/* Icon chat */}
         {currentUser && (
           <ChatIcon
@@ -69,6 +68,8 @@ const HeaderCus = memo(() => {
             socket={socket}
           />
         )}
+        
+        <Notification />
         {/* Nút chat với admin */}
         {currentUser && <ChatWithAdminButton />}
         {/* {currentUser && <ConnectionStatus />} */}
