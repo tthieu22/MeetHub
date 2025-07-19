@@ -99,8 +99,8 @@ const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
         mode === 'view'
           ? 'Chi tiết Booking'
           : mode === 'edit'
-            ? 'Chỉnh sửa Booking'
-            : 'Tạo Booking Mới'
+          ? 'Chỉnh sửa Booking'
+          : 'Tạo Booking Mới'
       }
     >
       {mode === 'view' ? (
@@ -115,11 +115,7 @@ const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
           <p><strong>Trạng thái:</strong> {booking?.status}</p>
         </div>
       ) : (
-        <Form
-          form={form}
-          onFinish={handleSubmit}
-          layout="vertical"
-        >
+        <Form form={form} onFinish={handleSubmit} layout="vertical">
           <Form.Item
             name="room"
             label="Phòng"
