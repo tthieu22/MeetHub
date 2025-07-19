@@ -2,22 +2,15 @@
 
 import CustomButton from "@web/components/CustomButton";
 import UserTableComponent from "@web/components/user/user.table";
-import { useUserStore } from "@web/store";
-import { Card, Col, Divider, Row, Space, Typography } from "antd";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRequireRole } from "@web/hooks/useRequireRole";
+import { Card, Divider, Space, Typography } from "antd"; 
+import { useState } from "react";
 const { Title } = Typography;
 export default function UsersPage() {
+  useRequireRole("admin");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"edit" | "create">("create");
   const [editingUser, setEditingUser] = useState<any>(null);
-  const router = useRouter();
-  const user = useUserStore((state) => state.currentUser);
-  useEffect(() => {
-    if (!user || user.role !== "admin") {
-      router.replace("/errorPage?status=403&title=Bạn không có quyền truy cập trang này");
-    }
-  }, []); 
   return (
     <div className="min-h-screen ">
       <Space direction="vertical" style={{ width: "100%" }} size="small">

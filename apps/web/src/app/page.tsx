@@ -9,12 +9,13 @@ import RightSidebar from "@web/components/home/RightSidebar";
 
 export default function Home() {
   const router = useRouter();
-  const currentUser = useUserStore((state) => state.currentUser); 
+  const currentUser = useUserStore((state) => state.currentUser);
   const handleStartChat = () => {
     router.push("/chat");
   };
 
   const handleBookRoom = () => {
+    router.push("/admin/rooms");
     message.info("Booking room functionality coming soon!");
   };
 
@@ -42,9 +43,9 @@ export default function Home() {
               onStartChat={handleStartChat}
               onFindPeople={handleFindPeople}
             />
-          )} 
+          )}
         </Col>
- 
+
         <Col xs={24} lg={6}>
           <RightSidebar
             onBookRoom={handleBookRoom}

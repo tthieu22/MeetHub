@@ -9,7 +9,6 @@ import { BellOutlined } from "@ant-design/icons";
 const Notification = () => {
   const [notiOpen, setNotiOpen] = useState(false);
 
-  const { currentUser } = useUserStore();
   const { notifications, unreadCount, loading, fetchNotifications } =
     useNotification();
 
