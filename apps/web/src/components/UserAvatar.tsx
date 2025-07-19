@@ -30,14 +30,21 @@ const UserAvatar = memo(() => {
       try {
         const res: Me = await userApiService.getMeAPI();
         setMe(res);
-        form.setFieldsValue(res);
         setPreviewAvatarURL(res.avatarURL || "");
       } catch (error) {
         console.error("Lỗi lấy thông tin user:", error);
       }
     };
     fetchMe();
-  }, [form]);
+  }, []);
+
+  // Set form values khi Drawer mở
+  useEffect(() => {
+    if (open && me) {
+      form.setFieldsValue(me);
+    }
+  }, [open, me, form]);
+
   const handleLogout = useCallback(() => {
     disconnect();
     logout();
