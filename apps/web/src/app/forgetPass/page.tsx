@@ -5,6 +5,7 @@ import { Card, Form, Input, notification } from "antd";
 import Link from "next/link";
 import { useState } from "react";
 import ModalResetPassword from "./modal.resetpassword";
+import { useRouter } from "next/navigation";
 
 export default function ForgetPassPage() {
   const [form] = Form.useForm();
@@ -12,7 +13,7 @@ export default function ForgetPassPage() {
   const [email, setEmail] = useState("");
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-
+  const router = useRouter();
   const [api, contextHolder] = notification.useNotification();
   const onFinish = async (values: any) => {
     setLoading(true);
@@ -43,6 +44,7 @@ export default function ForgetPassPage() {
       });
       api.success({ message: "Đổi mật khẩu thành công!" });
       setShowResetModal(false);
+      router.push("/login");
       // Có thể chuyển hướng về login
     } catch {
       api.error({ message: "Đổi mật khẩu thất bại!" });

@@ -8,13 +8,23 @@ export const useNotification = () => {
   const [loading, setLoading] = useState(false);
   const socket = useWebSocketStore((state) => state.socket);
   const userId = useUserStore((state) => state.currentUser?._id);
+  const isAuthenticated = useUserStore((state) => state.isAuthenticated);
+
   useEffect(() => {
     if (!socket || !userId) return;
     socket.emit("register", userId);
   }, [socket, userId]);
+
   const fetchNotifications = async () => {
+    // Chỉ fetch notifications khi user đã đăng nhập
+    if (!isAuthenticated || !userId) {
+      console.log("useNotification: User not authenticated, skipping fetch");
+      return;
+    }
+
     setLoading(true);
     try {
+      console.log("useNotification: Fetching notifications for user:", userId);
       const res = await getMyNotifications();
       if (res.success) {
         setNotifications(
@@ -27,14 +37,19 @@ export const useNotification = () => {
           }))
         );
       }
+    } catch (error) {
+      console.error("useNotification: Error fetching notifications:", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    // Chỉ fetch notifications khi user đã đăng nhập
+    if (isAuthenticated && userId) {
+      fetchNotifications();
+    }
+  }, [isAuthenticated, userId]);
 
   useEffect(() => {
     if (!socket) return;

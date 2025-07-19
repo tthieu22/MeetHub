@@ -48,9 +48,20 @@ class AuthApiService {
   }
 
   async loginAPI(credentials: LoginForm) {
-    const URL_BACKEND = `/api/auth/signIn`;
-    const response = await axios.post(URL_BACKEND, credentials);
-    return response;
+    const URL_BACKEND = `${this.baseURL}/api/auth/signIn`;
+    
+    // Sử dụng fetch thay vì axios để đảm bảo nhận cookies
+    const response = await fetch(URL_BACKEND, {
+      method: 'POST',
+      credentials: 'include', // Quan trọng để nhận cookies
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    });
+    
+    const data = await response.json();
+    return data;
   }
 
   async registerAPI(userData: RegisterPayload) {

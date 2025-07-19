@@ -11,7 +11,6 @@ export class NotificationController {
   @UseGuards(AuthGuard)
   async getMyNotifications(@Request() req): Promise<NotificationRes> {
     const userId = req.user._id;
-    console.log(userId);
     return this.notificationService.findByReceiver(userId);
   }
 

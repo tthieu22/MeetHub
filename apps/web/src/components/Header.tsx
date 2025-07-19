@@ -51,7 +51,7 @@ const HeaderCus = memo(() => {
         <Logo onClick={handleLogoClick} />
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <Notification />
+        {currentUser && <Notification />}
         {/* Icon chat */}
         {currentUser && (
           <ChatIcon

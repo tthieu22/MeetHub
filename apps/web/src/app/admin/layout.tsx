@@ -64,6 +64,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const handleMenuClick = ({ key }: { key: string }) => {
     if (key === "logout") {
+      localStorage.removeItem("access_token");
       router.push("/login");
     } else {
       router.push(key);
