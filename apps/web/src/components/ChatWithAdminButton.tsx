@@ -305,7 +305,7 @@ const ChatWithAdminButton: React.FC = () => {
   return (
     <>
       {contextHolder}
-      <Tooltip title="Chat với admin" placement="left">
+      <Tooltip title="Chat với admin" placement="bottom">
         <button
           onClick={handleClick}
           style={{

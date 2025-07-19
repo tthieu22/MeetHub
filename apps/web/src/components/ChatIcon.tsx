@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Badge, notification } from "antd";
+import { Badge, notification, Tooltip } from "antd";
 import { MessageOutlined } from "@ant-design/icons";
 import ChatPopupList from "@web/components/chat-popup/ChatPopupList";
 import { ChatRoom } from "@web/types/chat";
@@ -164,6 +164,8 @@ const ChatIcon: React.FC<ChatIconProps> = ({
   return (
     <>
       {contextHolder}
+      
+      <Tooltip title="Message" placement="bottom">
       <div style={{ position: "relative" }} ref={iconRef}>
       <Badge
         count={totalUnread}
@@ -188,6 +190,7 @@ const ChatIcon: React.FC<ChatIconProps> = ({
           <MessageOutlined style={{ fontSize: 20 }} />
         </span>
       </Badge>
+      
       {chatOpen && (
         <div
           id="chat-popup-header"
@@ -276,6 +279,7 @@ const ChatIcon: React.FC<ChatIconProps> = ({
         />
       )}
       </div>
+      </Tooltip>
     </>
   );
 };

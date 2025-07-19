@@ -1,6 +1,5 @@
-import { useNotification } from "@web/hooks/useNotification";
-import { useUserStore } from "@web/store";
-import { Badge, Popover, Spin } from "antd";
+import { useNotification } from "@web/hooks/useNotification"; 
+import { Badge, Popover, Spin, Tooltip } from "antd";
 import { useState } from "react";
 import NotificationList from "./notification/NotificationList";
 import { markAllNotificationsRead } from "@web/services/api/notification.api";
@@ -13,39 +12,41 @@ const Notification = () => {
     useNotification();
 
   return (
-    <Badge count={unreadCount} size="small">
-      <Popover
-        content={
-          loading ? (
-            <Spin />
-          ) : (
-            <NotificationList notifications={notifications} />
-          )
-        }
-        onOpenChange={async (open) => {
-          setNotiOpen(open);
-          if (open) {
-            await markAllNotificationsRead();
-            fetchNotifications();
+    <Tooltip title = "Thông báo">
+      <Badge count={unreadCount} size="small">
+        <Popover
+          content={
+            loading ? (
+              <Spin />
+            ) : (
+              <NotificationList notifications={notifications} />
+            )
           }
-        }}
-        title="Thông báo"
-        trigger="click"
-        placement="bottomRight"
-      >
-        <BellOutlined
-          style={{
-            fontSize: 20,
-            padding: 10,
-            borderRadius: 50,
-            background: notiOpen ? "rgb(196 218 249)" : "#ccc",
-            cursor: "pointer",
-            color: notiOpen ? "#1677ff" : "#000",
+          onOpenChange={async (open) => {
+            setNotiOpen(open);
+            if (open) {
+              await markAllNotificationsRead();
+              fetchNotifications();
+            }
           }}
-          onClick={() => setNotiOpen((v) => !v)}
-        />
-      </Popover>
-    </Badge>
+          title="Thông báo"
+          trigger="click"
+          placement="bottomRight"
+        >
+          <BellOutlined
+            style={{
+              fontSize: 20,
+              padding: 10,
+              borderRadius: 50,
+              background: notiOpen ? "rgb(196 218 249)" : "#ccc",
+              cursor: "pointer",
+              color: notiOpen ? "#1677ff" : "#000",
+            }}
+            onClick={() => setNotiOpen((v) => !v)}
+          />
+        </Popover>
+      </Badge>
+    </Tooltip>
   );
 };
 export default Notification;

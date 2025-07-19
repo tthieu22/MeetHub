@@ -1,6 +1,6 @@
 "use client";
 import React, { memo, useCallback, useEffect, useState } from "react";
-import { Avatar, Drawer, Space, Form, Input, Upload } from "antd";
+import { Avatar, Drawer, Space, Form, Input, Upload, Tooltip } from "antd";
 import {
   UserOutlined,
   LogoutOutlined,
@@ -108,6 +108,7 @@ const UserAvatar = memo(() => {
 
   return (
     <>
+      <Tooltip title="Thông tin người dùng" placement="bottom">
       <span
         style={{
           position: "relative",
@@ -145,7 +146,7 @@ const UserAvatar = memo(() => {
           }}
         />
       </span>
-
+      </Tooltip>
       <Drawer
         title="Tài khoản"
         placement="right"

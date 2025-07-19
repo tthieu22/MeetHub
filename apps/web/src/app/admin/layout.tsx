@@ -2,7 +2,7 @@
 import "antd/dist/reset.css";
 import "@web/style/globals.css";
 import React, { useState } from "react";
-import { Layout as AntLayout, Menu, Typography, theme } from "antd";
+import { Layout as AntLayout, Menu, Tooltip, Typography, theme } from "antd";
 import {
   UserOutlined,
   TeamOutlined,
@@ -161,43 +161,47 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                background: "rgb(204, 204, 204)",
-                cursor: "pointer",
-                color: "rgb(0, 0, 0)",
-                display: "flex",
-                fontSize:20,
-                alignItems: "center",
-                justifyContent: "center",
-                position: "relative",
-                transition: "background 0.2s ease-in-out",
-              }}
-              onClick={() => router.push("/")} 
-              title="Về trang chủ"
-            >
-              <HomeOutlined />
-            </div>
-
-            <Notification />
-            {currentUser && (
-              <ChatIcon
-                totalUnread={totalUnread}
-                chatOpen={chatOpen}
-                setChatOpen={setChatOpen}
-                rooms={rooms}
-                onRoomSelect={(roomId) => {
-                  const room = rooms.find((r) => r.roomId === roomId);
-                  if (room?.roomId) {
-                    addPopup(room.roomId);
-                    setCurrentRoomId(room.roomId);
-                  }
+            
+            <Tooltip title="Home" placement="bottom">  
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  background: "rgb(204, 204, 204)",
+                  cursor: "pointer",
+                  color: "rgb(0, 0, 0)",
+                  display: "flex",
+                  fontSize:20,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                  transition: "background 0.2s ease-in-out",
                 }}
-                socket={socket}
-              />
+                onClick={() => router.push("/")} 
+                title="Về trang chủ"
+              >
+                <HomeOutlined />
+              </div>
+            </Tooltip>  
+            <Notification /> 
+            {currentUser && (
+              <Tooltip title="Message" placement="bottom">
+                <ChatIcon
+                  totalUnread={totalUnread}
+                  chatOpen={chatOpen}
+                  setChatOpen={setChatOpen}
+                  rooms={rooms}
+                  onRoomSelect={(roomId) => {
+                    const room = rooms.find((r) => r.roomId === roomId);
+                    if (room?.roomId) {
+                      addPopup(room.roomId);
+                      setCurrentRoomId(room.roomId);
+                    }
+                  }}
+                  socket={socket}
+                />
+              </Tooltip>
             )}
             {currentUser && <ChatWithAdminButton />}
             {currentUser && <UserAvatar />}
