@@ -1,6 +1,6 @@
 import { io, Socket } from "socket.io-client";
 import { WebSocketEventName, WsResponse } from "@web/types/websocket";
-import { Message, ChatRoom } from "@web/types/chat";
+import { Message, ChatRoom, UsersOnline } from "@web/types/chat";
 import {
   WS_CONFIG,
   WS_EVENTS,
@@ -78,6 +78,10 @@ class WebSocketService implements WebSocketServiceInterface {
     this.socket?.emit(WS_EVENTS.JOIN_ROOM, { roomId });
   }
 
+  emitGetAllOnlineUsers(): void {
+    this.socket?.emit(WS_EVENTS.GET_ALL_ONLINE_USERS);
+  }
+
   // ===== Support/Admin event emitters =====
   /** Emit yêu cầu hỗ trợ tới admin */
   emitUserRequestSupport(): void {
@@ -141,6 +145,10 @@ class WebSocketService implements WebSocketServiceInterface {
     callback: (data: WsResponse<{ userId: string; roomId: string }>) => void
   ): void {
     this.eventHandlers.onUserOffline = callback;
+  }
+
+  onAllOnlineUsers(callback: (data: WsResponse<UsersOnline[]>) => void): void {
+    this.eventHandlers.onAllOnlineUsers = callback;
   }
 
   onError(callback: (data: WsResponse) => void): void {
@@ -265,6 +273,13 @@ class WebSocketService implements WebSocketServiceInterface {
       WS_RESPONSE_EVENTS.USER_OFFLINE,
       (data: WsResponse<{ userId: string; roomId: string }>) => {
         this.eventHandlers.onUserOffline?.(data);
+      }
+    );
+
+    this.socket.on(
+      WS_RESPONSE_EVENTS.ALL_ONLINE_USERS,
+      (data: WsResponse<UsersOnline[]>) => {
+        this.eventHandlers.onAllOnlineUsers?.(data);
       }
     );
 

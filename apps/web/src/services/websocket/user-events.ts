@@ -20,7 +20,10 @@ export function bindUserEventHandlers(
       handlers.onUserOffline?.(data);
     }
   );
-  socket.on("all_online_users", (data: WsResponse<UsersOnline[]>) => {
-    handlers.onAllOnlineUsers?.(data);
-  });
+  socket.on(
+    WS_RESPONSE_EVENTS.ALL_ONLINE_USERS,
+    (data: WsResponse<UsersOnline[]>) => {
+      handlers.onAllOnlineUsers?.(data);
+    }
+  );
 }

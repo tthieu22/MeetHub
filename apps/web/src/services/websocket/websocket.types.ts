@@ -14,6 +14,7 @@ export interface WebSocketServiceInterface {
   emitMarkRoomRead(roomId: string): void;
   emitGetUnreadCount(roomId: string): void;
   emitJoinRoom(roomId: string): void;
+  emitGetAllOnlineUsers(): void;
   // ===== Support/Admin event emitters =====
   emitUserRequestSupport(): void; // Emit yêu cầu hỗ trợ tới admin
   emitAdminJoinSupportRoom(roomId: string): void; // Admin join vào phòng support
@@ -43,6 +44,7 @@ export interface WebSocketServiceInterface {
   onUserOffline(
     callback: (data: WsResponse<{ userId: string; roomId: string }>) => void
   ): void;
+  onAllOnlineUsers(callback: (data: WsResponse<UsersOnline[]>) => void): void;
   onError(callback: (data: WsResponse) => void): void;
   onAuthError(callback: (data: WsResponse) => void): void;
   onRoomDeleted(
