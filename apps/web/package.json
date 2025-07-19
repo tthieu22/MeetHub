@@ -14,7 +14,7 @@
     "@mantine/hooks": "^8.1.2",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/react-window": "^1.8.8",
-    "antd": "^5.15.0",
+    "antd": "^5.26.5",
     "axios": "^1.10.0",
     "dayjs": "^1.11.13",
     "lodash": "^4.17.21",
