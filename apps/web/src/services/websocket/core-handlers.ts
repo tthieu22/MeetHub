@@ -3,6 +3,7 @@ import { WsResponse } from "@web/types/websocket";
 import { Message, ChatRoom, UsersOnline } from "@web/types/chat";
 import { useChatStore } from "@web/store/chat.store";
 import { useUserStore } from "@web/store/user.store";
+import { WS_EVENTS } from "@web/constants/websocket.events";
 
 // Kết nối thành công
 export function handleConnectionSuccess(
@@ -11,7 +12,7 @@ export function handleConnectionSuccess(
 ) {
   console.log("[core-handlers] handleConnectionSuccess", { data });
   if (data.success && data.data) {
-    socket.emit("get_all_online_users");
+    socket.emit(WS_EVENTS.GET_ALL_ONLINE_USERS);
   }
 }
 

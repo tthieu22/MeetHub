@@ -14,10 +14,13 @@ export interface WebSocketServiceInterface {
   emitMarkRoomRead(roomId: string): void;
   emitGetUnreadCount(roomId: string): void;
   emitJoinRoom(roomId: string): void;
+  emitGetAllOnlineUsers(): void;
   // ===== Support/Admin event emitters =====
   emitUserRequestSupport(): void; // Emit yêu cầu hỗ trợ tới admin
   emitAdminJoinSupportRoom(roomId: string): void; // Admin join vào phòng support
   emitCloseSupportRoom(roomId: string): void; // Đóng phòng support
+  emitClientLeaveRoom(roomId: string): void; // Client rời phòng
+  emitClientDeleteRoom(roomId: string): void; // Client xoá phòng
 
   // Event listeners
   onConnectionSuccess(
@@ -41,8 +44,15 @@ export interface WebSocketServiceInterface {
   onUserOffline(
     callback: (data: WsResponse<{ userId: string; roomId: string }>) => void
   ): void;
+  onAllOnlineUsers(callback: (data: WsResponse<UsersOnline[]>) => void): void;
   onError(callback: (data: WsResponse) => void): void;
   onAuthError(callback: (data: WsResponse) => void): void;
+  onRoomDeleted(
+    callback: (data: { roomId: string; message: string }) => void
+  ): void;
+  onRoomLeft(
+    callback: (data: { roomId: string; message: string }) => void
+  ): void;
   // ===== Support/Admin event listeners =====
   onSupportRoomPending(callback: () => void): void; // Khi phòng support đang pending (chưa có admin)
   onSupportRoomAssigned(
@@ -108,6 +118,8 @@ export interface WebSocketEventHandlers {
     data: WsResponse<{ roomId: string; onlineMemberIds: string[] }>
   ) => void;
   onRoomMarkedRead?: (data: WsResponse<{ roomId: string }>) => void;
+  onRoomDeleted?: (data: { roomId: string; message: string }) => void;
+  onRoomLeft?: (data: { roomId: string; message: string }) => void;
   // ===== User event listeners =====
   onAllOnlineUsers?: (data: WsResponse<UsersOnline[]>) => void;
   // ===== Support/Admin event listeners =====

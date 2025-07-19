@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Badge } from "antd";
+import { Badge, notification, Tooltip } from "antd";
 import { MessageOutlined } from "@ant-design/icons";
 import ChatPopupList from "@web/components/chat-popup/ChatPopupList";
 import { ChatRoom } from "@web/types/chat";
 import { Socket } from "socket.io-client";
 import SelectUsersModal from "@web/components/chat-popup/SelectUsersModal";
 import { roomChatApiService } from "@web/services/api/room.chat.api";
-import { message, Input } from "antd";
+import { Input } from "antd";
+import { useChatStore } from "@web/store/chat.store";
 
 interface ChatIconProps {
   totalUnread: number;
@@ -29,6 +30,8 @@ const ChatIcon: React.FC<ChatIconProps> = ({
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [showGroupNameModal, setShowGroupNameModal] = useState(false);
   const [groupName, setGroupName] = useState("");
+  const setRooms = useChatStore((s) => s.setRooms);
+  const [api, contextHolder] = notification.useNotification();
 
   useEffect(() => {
     if (!chatOpen) return;
@@ -56,6 +59,24 @@ const ChatIcon: React.FC<ChatIconProps> = ({
     });
   }, [rooms, socket]);
 
+  // Lắng nghe event rooms để cập nhật danh sách phòng
+  useEffect(() => {
+    if (!socket) return;
+    
+    const handleRooms = (data: { data: ChatRoom[] }) => {
+      console.log("[ChatIcon] Received rooms event:", data);
+      if (data && Array.isArray(data.data)) {
+        setRooms(data.data);
+        console.log("[ChatIcon] Updated rooms in store:", data.data.length, "rooms");
+      }
+    };
+    
+    socket.on("rooms", handleRooms);
+    return () => {
+      socket.off("rooms", handleRooms);
+    };
+  }, [socket, setRooms]);
+
   // Khi ấn nút tạo nhóm, chỉ mở modal nhập tên nhóm
   const handleOpenCreateGroup = () => {
     setShowGroupNameModal(true);
@@ -66,7 +87,12 @@ const ChatIcon: React.FC<ChatIconProps> = ({
   // Xác nhận tên nhóm, mở modal chọn thành viên
   const handleConfirmGroupName = () => {
     if (!groupName.trim()) {
-      message.error("Vui lòng nhập tên nhóm");
+      api.error({
+        message: "Lỗi",
+        description: "Vui lòng nhập tên nhóm",
+        placement: "topRight",
+        duration: 3,
+      });
       return;
     }
     setShowGroupNameModal(false);
@@ -78,17 +104,57 @@ const ChatIcon: React.FC<ChatIconProps> = ({
     console.log('handleSelectUsers called with:', userIds, 'groupName:', groupName);
     if (userIds.length > 0) {
       try {
-        await roomChatApiService.createRoom({
+        // Hiển thị loading notification
+        const loadingKey = `creating-group-${Date.now()}`;
+        api.info({
+          key: loadingKey,
+          message: "Đang tạo nhóm chat...",
+          description: "Vui lòng chờ trong giây lát",
+          placement: "topRight",
+          duration: 0,
+        });
+        
+        const response = await roomChatApiService.createRoom({
           name: groupName,
           type: "group",
           members: userIds,
+        }); 
+        // Đóng loading notification
+        api.destroy(loadingKey);
+        
+        if (response) {
+          api.success({
+            message: "Tạo nhóm thành công",
+            description: "Nhóm chat đã được tạo thành công! Vui lòng kiểm tra danh sách phòng.",
+            placement: "topRight",
+            duration: 4,
+          });
+          setShowSelectModal(false);
+          setGroupName("");
+          
+          // Cập nhật danh sách phòng sau một chút để đảm bảo API hoàn thành
+          setTimeout(() => {
+            if (socket) {
+              console.log("[ChatIcon] Emitting get_rooms after creating group");
+              socket.emit("get_rooms");
+            }
+          }, 500);
+        } else {
+          api.error({
+            message: "Tạo nhóm thất bại",
+            description: "Không thể tạo nhóm chat. Vui lòng thử lại.",
+            placement: "topRight",
+            duration: 4,
+          });
+        }
+      } catch (error) {
+        console.error("Lỗi tạo nhóm:", error);
+        api.error({
+          message: "Tạo nhóm thất bại",
+          description: "Đã xảy ra lỗi khi tạo nhóm chat. Vui lòng thử lại.",
+          placement: "topRight",
+          duration: 4,
         });
-        message.success("Tạo nhóm chat thành công!");
-        setShowSelectModal(false);
-        setGroupName("");
-        if (socket) socket.emit("get_rooms");
-      } catch {
-        message.error("Tạo nhóm thất bại");
       }
     } else {
       setShowSelectModal(false);
@@ -96,22 +162,35 @@ const ChatIcon: React.FC<ChatIconProps> = ({
   };
 
   return (
-    <div style={{ position: "relative" }} ref={iconRef}>
-      <Badge count={totalUnread} size="small">
+    <>
+      {contextHolder}
+      
+      <Tooltip title="Message" placement="bottom">
+        <div style={{ position: "relative" }} ref={iconRef}>
+      <Badge
+        count={totalUnread}
+        size="small"
+        offset={[5, 5]}  
+      >
         <span
           style={{
-            fontSize: 20,
-            padding: 10,
+            width: 40,
+            height: 40,
             borderRadius: "50%",
             background: chatOpen ? "rgb(196 218 249)" : "#ccc",
             cursor: "pointer",
             color: chatOpen ? "#1677ff" : "#000",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",  
           }}
           onClick={() => setChatOpen(!chatOpen)}
         >
-          <MessageOutlined />
+          <MessageOutlined style={{ fontSize: 20 }} />
         </span>
       </Badge>
+      
       {chatOpen && (
         <div
           id="chat-popup-header"
@@ -199,7 +278,9 @@ const ChatIcon: React.FC<ChatIconProps> = ({
           onCancel={() => setShowSelectModal(false)}
         />
       )}
-    </div>
+        </div>
+      </Tooltip>
+    </>
   );
 };
 

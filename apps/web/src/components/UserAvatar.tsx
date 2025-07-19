@@ -1,6 +1,6 @@
 "use client";
 import React, { memo, useCallback, useEffect, useState } from "react";
-import { Avatar, Drawer, Space, Form, Input, Upload } from "antd";
+import { Avatar, Drawer, Space, Form, Input, Upload, Tooltip } from "antd";
 import {
   UserOutlined,
   LogoutOutlined,
@@ -30,14 +30,21 @@ const UserAvatar = memo(() => {
       try {
         const res: Me = await userApiService.getMeAPI();
         setMe(res);
-        form.setFieldsValue(res);
         setPreviewAvatarURL(res.avatarURL || "");
       } catch (error) {
         console.error("Lỗi lấy thông tin user:", error);
       }
     };
     fetchMe();
-  }, [form]);
+  }, []);
+
+  // Set form values khi Drawer mở
+  useEffect(() => {
+    if (open && me) {
+      form.setFieldsValue(me);
+    }
+  }, [open, me, form]);
+
   const handleLogout = useCallback(() => {
     disconnect();
     logout();
@@ -101,13 +108,29 @@ const UserAvatar = memo(() => {
 
   return (
     <>
-      <span style={{ position: "relative", display: "inline-block" }}>
+      <Tooltip title="Thông tin người dùng" placement="bottom">
+      <span
+        style={{
+          position: "relative",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 40,
+          height: 40,
+          background: "#ccc",
+          borderRadius: "50%",
+        }}
+      >
         <Avatar
           size={32}
           src={me.avatarURL || undefined}
           icon={<UserOutlined />}
           onClick={() => setOpen(true)}
-          style={{ cursor: "pointer", border: "1px solid #d9d9d9" }}
+          style={{
+            cursor: "pointer", 
+            backgroundColor: "#ccc",
+            color:"#000"
+          }}
         />
         <span
           style={{
@@ -123,6 +146,7 @@ const UserAvatar = memo(() => {
           }}
         />
       </span>
+      </Tooltip>
       <Drawer
         title="Tài khoản"
         placement="right"

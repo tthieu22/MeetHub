@@ -46,14 +46,12 @@ export class MessageService {
 
   // Helper: check if user is member of conversation
   private async isMemberOfConversation(userId: string, conversationId: string): Promise<boolean> {
-    if (!userId || !Types.ObjectId.isValid(userId)) return false;
-    if (!conversationId || !Types.ObjectId.isValid(conversationId)) return false;
-    const member = await this.conversationMemberModel
-      .findOne({
-        userId: new Types.ObjectId(userId),
-        conversationId: new Types.ObjectId(conversationId),
-      })
-      .exec();
+    const userObjectId = new Types.ObjectId(userId);
+    const conversationObjectId = new Types.ObjectId(conversationId);
+    const member = await this.conversationMemberModel.findOne({
+      userId: { $in: [userId, userObjectId] },
+      conversationId: { $in: [conversationId, conversationObjectId] },
+    });
     return !!member;
   }
 
@@ -128,8 +126,9 @@ export class MessageService {
     }
     const populatedMessage = await this.messageModel.findById(savedMessage._id).populate('senderId', 'name avatar email').exec();
     // Nếu sender là admin và là tin nhắn đầu tiên của admin trong phòng, xóa timeout
+    const userObjectId = new Types.ObjectId(userId);
     const isAdmin = await this.conversationMemberModel.findOne({
-      userId: new Types.ObjectId(userId),
+      userId: { $in: [userId, userObjectId] },
       conversationId: new Types.ObjectId(roomId),
       role: 'admin',
     });
@@ -243,9 +242,10 @@ export class MessageService {
     const conversation = await this.conversationModel.findById(message.conversationId).exec();
     if (!conversation) throw new NotFoundException('Conversation not found');
 
+    const userObjectId = new Types.ObjectId(userId);
     const member = await this.conversationMemberModel
       .findOne({
-        userId: new Types.ObjectId(userId),
+        userId: { $in: [userId, userObjectId] },
         conversationId: message.conversationId,
       })
       .exec();
@@ -329,35 +329,45 @@ export class MessageService {
 
   // 22. Đánh dấu tất cả tin nhắn trong phòng là đã đọc
   async markAllAsRead(roomId: string, userId: string): Promise<SuccessResponse> {
-    const isMember = await this.isMemberOfConversation(userId, roomId);
-    if (!isMember) throw new ForbiddenException('You are not a member of this conversation');
+    try {
+      const isMember = await this.isMemberOfConversation(userId, roomId);
+      if (!isMember) {
+        return { success: false };
+      }
 
-    const unreadMessages = await this.messageModel
-      .find({
-        conversationId: new Types.ObjectId(roomId),
-        isDeleted: false,
-      })
-      .exec();
+      const unreadMessages = await this.messageModel
+        .find({
+          conversationId: new Types.ObjectId(roomId),
+          isDeleted: false,
+        })
+        .exec();
 
-    const bulkOps = unreadMessages.map((message) => ({
-      updateOne: {
-        filter: {
-          messageId: message._id,
-          userId: new Types.ObjectId(userId),
+      const bulkOps = unreadMessages.map((message) => ({
+        updateOne: {
+          filter: {
+            messageId: message._id,
+            userId: new Types.ObjectId(userId),
+          },
+          update: {
+            isRead: true,
+            readAt: new Date(),
+          },
+          upsert: true,
         },
-        update: {
-          isRead: true,
-          readAt: new Date(),
-        },
-        upsert: true,
-      },
-    }));
+      }));
 
-    if (bulkOps.length > 0) {
-      await this.messageStatusModel.bulkWrite(bulkOps);
+      if (bulkOps.length > 0) {
+        try {
+          await this.messageStatusModel.bulkWrite(bulkOps);
+        } catch (err) {
+          console.error('[markAllAsRead] bulkWrite error:', err);
+        }
+      }
+
+      return { success: true };
+    } catch {
+      return { success: false };
     }
-
-    return { success: true };
   }
 
   // 23. Lấy số lượng tin nhắn chưa đọc trong phòng
