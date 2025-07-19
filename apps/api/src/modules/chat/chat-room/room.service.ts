@@ -9,7 +9,7 @@ import { User, UserDocument } from '@api/modules/users/schema/user.schema';
 import { CreateRoomDto, UpdateRoomDto } from '@api/modules/chat/chat-room/dto';
 import { Redis } from 'ioredis';
 import { REDIS_CLIENT } from '@api/modules/redis';
-import { RoomInfo, RoomMemberInfo, LastMessageInfo, RoomSidebarInfo, PopulatedUser } from '@api/modules/chat/chat-room/interfaces/room-sidebar.interface';
+import { RoomInfo, RoomMemberInfo, LastMessageInfo, RoomSidebarInfo, PopulatedUser, RoomDetailInfo } from '@api/modules/chat/chat-room/interfaces/room-sidebar.interface';
 import { PaginationQueryDto } from '@api/modules/users/dto/pagination-query.dto';
 import { ReactionService } from '@api/modules/chat/chat-reactions/reaction.service';
 
@@ -143,7 +143,7 @@ export class RoomService {
   }
 
   // 12. Thông tin chi tiết 1 phòng
-  async getRoom(conversationId: string, userId: string) {
+  async getRoom(conversationId: string, userId: string): Promise<RoomDetailInfo> {
     try {
       // Kiểm tra ObjectId hợp lệ
       if (!Types.ObjectId.isValid(conversationId)) {
@@ -158,10 +158,44 @@ export class RoomService {
       });
       if (!isMember) throw new ForbiddenException('You are not a member of this conversation');
 
+      // Lấy thông tin conversation
       const conversation = await this.conversationModel.findById(conversationId);
       if (!conversation) throw new NotFoundException('Conversation not found');
 
-      return conversation;
+      // Lấy danh sách thành viên với thông tin chi tiết
+      const members = await this.conversationMemberModel
+        .find({ conversationId: new Types.ObjectId(conversationId) })
+        .populate('userId', 'name email avatarURL')
+        .exec();
+
+      // Lấy thông tin creator
+      const creator = await this.userModel.findById(conversation.creatorId).select('name email avatarURL').exec();
+
+      const conversationObj = conversation.toObject();
+
+      return {
+        ...conversationObj,
+        members: members.map((member) => {
+          const user = member.userId as unknown as { _id: Types.ObjectId; name: string; email: string; avatarURL?: string };
+          const memberObj = member as unknown as { createdAt: Date };
+          return {
+            userId: user._id.toString(),
+            name: user.name,
+            email: user.email,
+            avatar: user.avatarURL,
+            role: member.role,
+            joinedAt: memberObj.createdAt,
+          };
+        }),
+        creator: creator
+          ? {
+              userId: creator._id.toString(),
+              name: creator.name,
+              email: creator.email,
+              avatar: creator.avatarURL,
+            }
+          : null,
+      } as unknown as RoomDetailInfo;
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof ForbiddenException) {
         throw error;

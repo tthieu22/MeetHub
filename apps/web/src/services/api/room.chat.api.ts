@@ -1,5 +1,5 @@
 import axios from "../axios/customer.axios";
-import { UsersOnline, ChatRoom } from "@web/types/chat";
+import { UsersOnline, ChatRoom, ChatRoomDetailedInfo } from "@web/types/chat";
 
 // Sử dụng Partial<ChatRoom> cho UpdateRoomDto, object cho CreateRoomDto
 
@@ -28,16 +28,12 @@ class RoomChatApiService {
     return res.data.data;
   }
 
-  async getRoom(roomId: string): Promise<ChatRoom> {
-    const res = await axios.get<{ data: ChatRoom }>(
-      `/api/chat/rooms/${roomId}`
-    );
-    return res.data.data;
+  async getRoom(roomId: string): Promise<ChatRoomDetailedInfo> {
+    return await axios.get<ChatRoomDetailedInfo>(`/api/chat/rooms/${roomId}`);
   }
 
   async createRoom(data: CreateRoomDto): Promise<ChatRoom> {
-    const res = await axios.post<{ data: ChatRoom }>(`/api/chat/rooms`, data);
-    return res.data.data;
+    return await axios.post<{ data: ChatRoom }>(`/api/chat/rooms`, data);
   }
 
   async updateRoom(roomId: string, data: UpdateRoomDto): Promise<ChatRoom> {
@@ -53,7 +49,7 @@ class RoomChatApiService {
       success: boolean;
       data: { role: string | null };
     }>(`/api/chat/rooms/${roomId}/role`);
-    return res.data.data.role;
+    return res.data.role;
   }
 
   async deleteRoom(roomId: string): Promise<void> {

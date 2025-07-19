@@ -13,8 +13,9 @@ import ChatPopupHeader from "./ChatPopupHeader";
 import { useUserStore } from "@web/store/user.store";
 import { roomChatApiService } from "@web/services/api/room.chat.api";
 import ChatRoomMembersModal from "./ChatRoomMembersModal";
+import ChatRoomInfoModal from "./ChatRoomInfoModal";
 import { webSocketService } from "@web/services/websocket/websocket.service";
-import { Modal, notification } from "antd";
+import { notification } from "antd";
 
 interface ChatPopupWindowProps {
   conversationId: string;
@@ -52,6 +53,7 @@ export default function ChatPopupWindow({
 
   // State cho hiển thị thành viên, danh sách thành viên, online
   const [showMembers, setShowMembers] = useState(false);
+  const [showRoomInfo, setShowRoomInfo] = useState(false);
   const allMember = useRoomAllMembers(conversationId);
   const onlineUsers = useChatStore((s) => s.onlineUsers);
 
@@ -492,16 +494,7 @@ export default function ChatPopupWindow({
 
   // Hiển thị thông tin phòng (có thể mở modal info)
   const handleShowInfo = () => {
-    Modal.info({
-      title: room?.name || "Thông tin phòng",
-      content: (
-        <div>
-          <div><b>Room ID:</b> {conversationId}</div>
-          <div><b>Thành viên:</b> {room?.members?.length ?? 0}</div> 
-        </div>
-      ),
-      onOk() {},
-    });
+    setShowRoomInfo(true);
   };
 
   // Xoá phòng (có thể show notification hoặc cập nhật state nếu cần)
@@ -592,6 +585,13 @@ export default function ChatPopupWindow({
           onlineUsers={onlineUsers}
           conversationId={conversationId}
           handleGetMember={handleShowMembers}
+          currentUserId={currentUser?._id}
+        />
+        {/* Modal thông tin phòng */}
+        <ChatRoomInfoModal
+          open={showRoomInfo}
+          onClose={() => setShowRoomInfo(false)}
+          conversationId={conversationId}
           currentUserId={currentUser?._id}
         />
       </div>

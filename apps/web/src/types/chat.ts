@@ -67,6 +67,36 @@ export interface ChatRoom {
   onlineMemberIds: string[];
 }
 
+export interface ChatRoomDetailedInfo {
+  _id: string;
+  roomId: string;
+  name: string;
+  type: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  isGroup: boolean;
+  isActive: boolean;
+  isDeleted: boolean;
+  members: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    avatarURL: string;
+    role: string;
+    isOnline: boolean;
+    joinedAt: string;
+  }>;
+  memberCount: number;
+  lastMessage?: LastMessageInfo | null;
+  unreadCount: number;
+  totalMessages: number;
+  userRole: string | null;
+  onlineMemberIds: string[];
+  onlineCount: number;
+}
+
 export interface MessagesResponse {
   data: Message[];
   hasMore: boolean;
