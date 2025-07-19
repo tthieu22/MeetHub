@@ -9,12 +9,13 @@ import RightSidebar from "@web/components/home/RightSidebar";
 
 export default function Home() {
   const router = useRouter();
-  const currentUser = useUserStore((state) => state.currentUser); 
+  const currentUser = useUserStore((state) => state.currentUser);
   const handleStartChat = () => {
     router.push("/chat");
   };
 
   const handleBookRoom = () => {
+    router.push("/admin/rooms");
     message.info("Booking room functionality coming soon!");
   };
 
@@ -35,9 +36,20 @@ export default function Home() {
       <Row gutter={[24, 24]} style={{ position: "relative" }}>
         {/* Main Content */}
         <Col xs={24} lg={18}>
+<<<<<<< HEAD
           {currentUser && <UserRoomList />} {/* Thay WelcomeSection bằng UserRoomList */}
+=======
+          {currentUser && (
+            <WelcomeSection
+              currentUser={currentUser}
+              onBookRoom={handleBookRoom}
+              onStartChat={handleStartChat}
+              onFindPeople={handleFindPeople}
+            />
+          )}
+>>>>>>> d7c142819d4e0a2b92df66d8f3e229b780b5a888
         </Col>
- 
+
         <Col xs={24} lg={6}>
           <RightSidebar
             onBookRoom={handleBookRoom}

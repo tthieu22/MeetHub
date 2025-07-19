@@ -6,9 +6,12 @@ import { Card, Divider, Space, Typography, message, notification } from "antd";
 import { useEffect, useState } from "react";
 import axios from "../../../services/axios/customer.axios";
 import BookingDetailModal from "@web/components/booking/BookingDetailModal";
+import { useRequireRole } from "@web/hooks/useRequireRole";
 const { Title } = Typography;
 
 export default function BookingPage() {
+  useRequireRole("admin");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
   const [editingBooking, setEditingBooking] = useState<BookingItem | null>(
