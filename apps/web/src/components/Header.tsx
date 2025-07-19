@@ -11,6 +11,7 @@ import Logo from "@web/components/Logo";
 import ChatIcon from "@web/components/ChatIcon";
 import UserAvatar from "@web/components/UserAvatar";
 import Notification from "./IconNotification";
+import { HomeOutlined, SettingOutlined } from "@ant-design/icons";
 
 // ------------------- Header Component -------------------
 
@@ -51,6 +52,26 @@ const HeaderCus = memo(() => {
         <Logo onClick={handleLogoClick} />
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: "50%",
+            background: "rgb(204, 204, 204)",
+            cursor: "pointer",
+            color: "rgb(0, 0, 0)",
+            display: "flex",
+            fontSize:20,
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",
+            transition: "background 0.2s ease-in-out",
+          }}
+          onClick={() => router.push(currentUser?.role === "admin" ? "/admin" : "/")} 
+          title={currentUser?.role === "admin" ? "Về trang quản trị" : "Về trang chủ"}
+        >
+          {currentUser?.role === "admin" ? <SettingOutlined /> : <HomeOutlined />}
+        </div>
         {/* Icon chat */}
         {currentUser && (
           <ChatIcon

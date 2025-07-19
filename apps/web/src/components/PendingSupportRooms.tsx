@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Card, List, Button, Typography, Space, Tag, notification } from "antd";
+import { Card, List, Typography, Space, Tag, notification } from "antd";
 import { useWebSocketStore } from "@web/store/websocket.store";
 import { useUserStore } from "@web/store/user.store";
 import { useChatStore } from "@web/store/chat.store";
@@ -155,9 +155,30 @@ const PendingSupportRooms: React.FC = () => {
         <Space>
           <CustomerServiceOutlined />
           <span>Phòng hỗ trợ đang chờ ({pendingRooms.length})</span>
-          <Button size="small" onClick={handleRefresh} loading={loading}>
-            Làm mới
-          </Button>
+          <button 
+            onClick={handleRefresh} 
+            disabled={loading}
+            style={{
+              padding: '4px 8px',
+              fontSize: '12px',
+              border: '1px solid #d9d9d9',
+              borderRadius: '4px',
+              background: '#fff',
+              cursor: 'pointer',
+              color: '#000',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#f5f5f5';
+              e.currentTarget.style.borderColor = '#40a9ff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#fff';
+              e.currentTarget.style.borderColor = '#d9d9d9';
+            }}
+          >
+            {loading ? 'Đang tải...' : 'Làm mới'}
+          </button>
         </Space>
       }
       style={{ marginBottom: 16 }}
@@ -167,14 +188,30 @@ const PendingSupportRooms: React.FC = () => {
         renderItem={(room) => (
           <List.Item
             actions={[
-            <Button
+            <button
                 key="join"
-                type="primary"
-                size="small"
                 onClick={() => handleJoinRoom(room.roomId)}
+                style={{
+                  padding: '4px 12px',
+                  fontSize: '12px',
+                  border: '1px solid #1890ff',
+                  borderRadius: '4px',
+                  background: '#1890ff',
+                  cursor: 'pointer',
+                  color: '#fff',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#40a9ff';
+                  e.currentTarget.style.borderColor = '#40a9ff';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#1890ff';
+                  e.currentTarget.style.borderColor = '#1890ff';
+                }}
             >
                 Tham gia
-            </Button>
+            </button>
             ]}
           >
             <List.Item.Meta

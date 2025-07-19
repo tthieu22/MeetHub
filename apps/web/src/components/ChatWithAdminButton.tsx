@@ -182,6 +182,8 @@ const ChatWithAdminButton: React.FC = () => {
       if (data.roomId) {
         addPopup(data.roomId);
         useChatStore.getState().setCurrentRoomId(data.roomId);
+        // Load lại danh sách phòng chat để cập nhật popup chat list
+        socket.emit("get_rooms");
       }
     };
 
@@ -223,6 +225,8 @@ const ChatWithAdminButton: React.FC = () => {
       if (data.roomId) {
         addPopup(data.roomId);
         useChatStore.getState().setCurrentRoomId(data.roomId);
+        // Load lại danh sách phòng chat để cập nhật popup chat list
+        socket.emit("get_rooms");
       }
     };
 

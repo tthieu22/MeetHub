@@ -11,6 +11,7 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  HomeOutlined,
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import ChatPopups from "@web/components/chat-popup/ChatPopups";
@@ -160,6 +161,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                background: "rgb(204, 204, 204)",
+                cursor: "pointer",
+                color: "rgb(0, 0, 0)",
+                display: "flex",
+                fontSize:20,
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+                transition: "background 0.2s ease-in-out",
+              }}
+              onClick={() => router.push("/")} 
+              title="Về trang chủ"
+            >
+              <HomeOutlined />
+            </div>
+
             <Notification />
             {currentUser && (
               <ChatIcon
