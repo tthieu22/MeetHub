@@ -5,14 +5,14 @@ import { Modal, Form, Input, Button, Select, DatePicker, TimePicker, message, Sp
 import moment from 'moment';
 import { useUserStore } from '@/store/user.store';
 import { api } from '@/lib/api';
+import { BookingStatus, BOOKING_STATUS_OPTIONS } from './constants';
 
 const { TextArea } = Input;
 const { Option } = Select;
 
-interface BookingFormModalProps {
+interface BookingEditModalProps {
   open: boolean;
-  mode: 'create' | 'edit';
-  booking?: any;
+  booking: any;
   onCancel: () => void;
   onSuccess: () => void;
 }
@@ -39,22 +39,12 @@ interface ApiResponse {
   errorCode?: string;
 }
 
-// Enum BookingStatus khớp với backend
-const BookingStatus = {
-  PENDING: 'pending',
-  CONFIRMED: 'confirmed',
-  CANCELLED: 'cancelled',
-  COMPLETED: 'completed',
-  DELETED: 'deleted',
-};
-
 const isValidObjectId = (id: string): boolean => {
   return /^[0-9a-fA-F]{24}$/.test(id);
 };
 
-const BookingFormModal: React.FC<BookingFormModalProps> = ({ 
+const BookingEditModal: React.FC<BookingEditModalProps> = ({ 
   open, 
-  mode, 
   booking, 
   onCancel, 
   onSuccess 
@@ -69,30 +59,6 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
   const [apiMessage, setApiMessage] = useState<string | string[] | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const { token } = useUserStore();
-
-  const fetchCurrentUser = useCallback(async () => {
-    try {
-      const response = await api.get('/api/users/me');
-      
-      if (response.data?._id) {
-        const userData = response.data;
-        const user = {
-          _id: userData._id,
-          name: userData.name || 'Người dùng không xác định',
-          email: userData.email,
-          role: userData.role,
-          isActive: userData.isActive,
-        };
-        setCurrentUser(user);
-        return user._id;
-      }
-      throw new Error('Invalid user data');
-    } catch (error) {
-      console.error('Error fetching current user:', error);
-      message.error('Không thể lấy thông tin người dùng hiện tại');
-      return null;
-    }
-  }, []);
 
   const fetchData = useCallback(async () => {
     if (!token) {
@@ -110,6 +76,14 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
         api.get('/api/users/me')
       ]);
 
+      console.log('Phản hồi /api/users/me:', currentUserRes.data);
+
+      if (currentUserRes.data?.role !== 'admin') {
+        message.error('Chỉ admin mới có quyền chỉnh sửa booking.');
+        onCancel();
+        return;
+      }
+
       const validUsers = usersRes.data.data
         .filter((user: any) => isValidObjectId(user._id))
         .map((user: any) => ({
@@ -118,7 +92,29 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
           email: user.email,
         }));
       setUsers(validUsers);
-      setRooms(roomsRes.data.data || []);
+
+      // Xử lý danh sách phòng
+      let availableRooms: Room[] = roomsRes.data.data || [];
+      console.log('Danh sách phòng từ /api/rooms/available:', availableRooms);
+      console.log('Phòng của booking:', booking?.room);
+
+      // Nếu booking có phòng, đảm bảo phòng đó được thêm vào danh sách
+      if (booking?.room && isValidObjectId(booking.room._id)) {
+        const roomExists = availableRooms.some(room => room._id === booking.room._id);
+        if (!roomExists) {
+          availableRooms = [
+            {
+              _id: booking.room._id,
+              name: booking.room.name || 'Phòng không xác định',
+              capacity: booking.room.capacity || 0,
+              status: booking.room.status || 'unknown',
+            },
+            ...availableRooms,
+          ];
+        }
+      }
+      setRooms(availableRooms);
+
       setCurrentUser({
         _id: currentUserRes.data._id,
         name: currentUserRes.data.name || 'Người dùng không xác định',
@@ -127,28 +123,22 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
         isActive: currentUserRes.data.isActive,
       });
 
-      if (mode === 'edit' && booking) {
+      if (booking) {
+        console.log('Booking dữ liệu:', booking);
+        const initialStatus = Object.values(BookingStatus).includes(booking.status) 
+          ? booking.status 
+          : BookingStatus.PENDING;
         form.setFieldsValue({
-          title: booking.title,
-          description: booking.description,
-          room: booking.room._id,
-          participants: booking.participants?.filter((id: string) => isValidObjectId(id)) || [],
-          startDate: moment(booking.startTime),
-          endDate: moment(booking.endTime),
-          startTime: moment(booking.startTime),
-          endTime: moment(booking.endTime),
+          title: booking.title || '',
+          description: booking.description || '',
+          room: booking.room?._id || undefined,
+          participants: booking.participants?.map((p: any) => p._id).filter((id: string) => isValidObjectId(id)) || [],
+          startDate: booking.startTime ? moment(booking.startTime) : moment(),
+          endDate: booking.endTime ? moment(booking.endTime) : moment(),
+          startTime: booking.startTime ? moment(booking.startTime) : moment().add(1, 'hour').startOf('hour'),
+          endTime: booking.endTime ? moment(booking.endTime) : moment().add(2, 'hour').startOf('hour'),
           creator: booking.user?.name || currentUserRes.data.name || '',
-          status: booking.status || BookingStatus.PENDING,
-        });
-      } else {
-        form.resetFields();
-        form.setFieldsValue({
-          startDate: moment(),
-          endDate: moment(),
-          startTime: moment().add(1, 'hour').startOf('hour'),
-          endTime: moment().add(2, 'hour').startOf('hour'),
-          creator: currentUserRes.data.name || '',
-          status: BookingStatus.PENDING,
+          status: initialStatus,
         });
       }
     } catch (err: any) {
@@ -162,16 +152,16 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [token, mode, booking, form, onCancel]);
+  }, [token, booking, form, onCancel]);
 
   useEffect(() => {
-    if (open) {
+    if (open && booking) {
       setApiErrors(null);
       setApiMessage(null);
-      setSuccessMessage(null); // Reset tất cả thông báo khi mở modal
+      setSuccessMessage(null);
       fetchData();
     }
-  }, [open, fetchData]);
+  }, [open, booking, fetchData]);
 
   const handleSubmit = async (values: any) => {
     if (!token || !currentUser?._id) {
@@ -185,6 +175,14 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
       setApiErrors(null);
       setApiMessage(null);
       setSuccessMessage(null);
+
+      // Kiểm tra lại vai trò admin
+      const userRes = await api.get('/api/users/me');
+      console.log('Kiểm tra lại /api/users/me:', userRes.data);
+      if (userRes.data.role !== 'admin') {
+        setApiMessage('Chỉ admin mới có quyền chỉnh sửa booking.');
+        return;
+      }
 
       const startTime = values.startDate.clone()
         .set({
@@ -202,43 +200,73 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
         })
         .toISOString();
 
-      const payload = {
-        title: values.title,
-        description: values.description,
-        room: values.room,
-        user: currentUser._id, // Sử dụng _id từ currentUser (từ /api/users/me)
-        participants: values.participants || [],
-        startTime,
-        endTime,
-        status: values.status || BookingStatus.PENDING,
-      };
+      const payload: any = {};
+      if (values.title !== (booking?.title || '')) {
+        payload.title = values.title;
+      }
+      if (values.description !== (booking?.description || '')) {
+        payload.description = values.description;
+      }
+      if (values.room && values.room !== (booking?.room?._id || '')) {
+        payload.room = values.room;
+      }
+      if (values.participants?.length !== booking?.participants?.length ||
+          values.participants?.some((id: string) => !booking?.participants?.map((p: any) => p._id).includes(id))) {
+        payload.participants = values.participants || [];
+      }
+      if (startTime !== booking?.startTime) {
+        payload.startTime = startTime;
+      }
+      if (endTime !== booking?.endTime) {
+        payload.endTime = endTime;
+      }
+      if (values.status && values.status !== booking?.status) {
+        if (!Object.values(BookingStatus).includes(values.status)) {
+          throw new Error('Trạng thái không hợp lệ.');
+        }
+        payload.status = values.status;
+      }
 
-      const url = mode === 'create' 
-        ? '/api/bookings/add-booking' 
-        : `/api/bookings/${booking._id}`;
-      
-      const method = mode === 'create' ? 'post' : 'put';
-
-      const res = await api[method](url, payload);
-
-      if (res.data.success) {
-        setSuccessMessage(mode === 'create' ? 'Tạo booking thành công!' : 'Cập nhật booking thành công!');
+      if (Object.keys(payload).length === 0) {
+        setSuccessMessage('Không có thay đổi để cập nhật.');
         setTimeout(() => {
           onSuccess();
           onCancel();
-        }, 1500); // Đóng modal sau 1.5s để người dùng thấy thông báo thành công
+        }, 1500);
+        return;
+      }
+
+      console.log('Token gửi đi:', token);
+      console.log('Booking.status gốc:', booking?.status);
+      console.log('Booking.room gốc:', booking?.room);
+      console.log('Form values:', values);
+      console.log('Payload gửi đi:', payload);
+
+      const res = await api.put(`/api/bookings/${booking._id}`, payload);
+
+      console.log('Phản hồi từ PUT /api/bookings/:id:', res.data);
+
+      if (res.data.success) {
+        setSuccessMessage('Cập nhật booking thành công!');
+        setTimeout(() => {
+          onSuccess();
+          onCancel();
+        }, 1500);
       } else {
-        throw new Error(res.data.message || 'Có lỗi xảy ra khi lưu booking.');
+        throw new Error(res.data.message || 'Có lỗi xảy ra khi cập nhật booking.');
       }
     } catch (err: any) {
-      console.error('Lỗi khi lưu booking:', err);
-      let errorMsg = 'Có lỗi xảy ra khi lưu booking. Vui lòng thử lại.';
+      console.error('Lỗi khi cập nhật booking:', err);
+      let errorMsg = 'Có lỗi xảy ra khi cập nhật booking. Vui lòng thử lại.';
       let errors: ApiResponse['errors'] = null;
 
       if (err.response?.status === 401) {
         errorMsg = 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
         message.error(errorMsg);
         onCancel();
+      } else if (err.response?.status === 403) {
+        errorMsg = 'Bạn không có quyền thực hiện hành động này.';
+        setApiMessage(errorMsg);
       } else if (err.response?.data) {
         const responseData: ApiResponse = err.response.data;
         errorMsg = Array.isArray(responseData.message) 
@@ -248,7 +276,6 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
         if (responseData.errors && responseData.errors.length > 0) {
           errors = responseData.errors;
           setApiErrors(errors);
-          // Gán lỗi vào các trường form
           const errorFields = errors.reduce((acc: any, err: any) => {
             if (err.field) {
               acc[err.field] = { errors: [new Error(err.message)] };
@@ -271,7 +298,7 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
 
   return (
     <Modal
-      title={mode === 'create' ? 'Đặt lịch mới' : 'Chỉnh sửa booking'}
+      title="Chỉnh sửa booking"
       open={open}
       onCancel={onCancel}
       footer={null}
@@ -346,8 +373,8 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
               }
             >
               {rooms.map(room => (
-                <Option key={room._id} value={room._id} disabled={room.status !== 'available'}>
-                  {room.name} (Sức chứa: {room.capacity}) {room.status !== 'available' && '(Không khả dụng)'}
+                <Option key={room._id} value={room._id} disabled={room.status !== 'available' && room._id !== booking?.room?._id}>
+                  {room.name} (Sức chứa: {room.capacity}) {room.status !== 'available' && room._id !== booking?.room?._id && '(Không khả dụng)'}
                 </Option>
               ))}
             </Select>
@@ -406,14 +433,25 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
           <Form.Item
             name="status"
             label="Trạng thái"
-            rules={[{ required: true, message: 'Vui lòng chọn trạng thái' }]}
+            rules={[{ 
+              required: true, 
+              message: 'Vui lòng chọn trạng thái' 
+            }, {
+              validator: (_, value) => {
+                if (!value || Object.values(BookingStatus).includes(value)) {
+                  return Promise.resolve();
+                }
+                return Promise.reject(new Error('Trạng thái phải là một trong: Đang chờ, Đã xác nhận, Đã hủy, Đã hoàn thành, Đã xóa'));
+              }
+            }]}
           >
             <Select
               placeholder="Chọn trạng thái"
+              defaultValue={Object.values(BookingStatus).includes(booking?.status) ? booking?.status : BookingStatus.PENDING}
             >
-              {Object.values(BookingStatus).map(status => (
-                <Option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
+              {BOOKING_STATUS_OPTIONS.map(option => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
                 </Option>
               ))}
             </Select>
@@ -444,7 +482,7 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
             <Space>
               <Button onClick={onCancel}>Hủy</Button>
               <Button type="primary" htmlType="submit" loading={submitting}>
-                {mode === 'create' ? 'Đặt lịch' : 'Lưu thay đổi'}
+                Lưu thay đổi
               </Button>
             </Space>
           </Form.Item>
@@ -454,4 +492,4 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
   );
 };
 
-export default BookingFormModal;
+export default BookingEditModal;

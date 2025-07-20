@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import TableBooking, { BookingItem } from "@web/components/booking/table";
 import CustomButton from "@web/components/CustomButton";
@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import BookingDetailModal from "@web/components/booking/BookingDetailModal";
 import BookingFormModal from "@web/components/booking/BookingFormModal";
+import BookingEditModal from "@web/components/booking/BookingEditModal";
 import { useRequireRole } from "@web/hooks/useRequireRole";
 import { useUserStore } from "@/store/user.store";
 
@@ -17,7 +18,7 @@ export default function BookingPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"view" | "edit">("view");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<BookingItem | null>(null);
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -27,7 +28,7 @@ export default function BookingPage() {
     total: 0,
   });
   const [apiNotification, contextHolder] = notification.useNotification();
-  const { token } = useUserStore();
+  const { token, role } = useUserStore();
 
   useEffect(() => {
     fetchBookings();
@@ -42,7 +43,6 @@ export default function BookingPage() {
           limit: pagination.pageSize,
         },
       });
-      // Đảm bảo res.data.data là mảng, nếu không thì gán mảng rỗng
       const bookingsData = Array.isArray(res.data.data) ? res.data.data : [];
       setBookings(bookingsData);
       setPagination((prev) => ({
@@ -69,13 +69,30 @@ export default function BookingPage() {
 
   const handleShowDetail = (booking: BookingItem) => {
     setEditingBooking(booking);
-    setModalMode("view");
     setIsModalOpen(true);
   };
 
-  const handleEdit = (booking: BookingItem) => {
-    setEditingBooking(booking);
-    setIsFormModalOpen(true);
+  const handleEdit = async (booking: BookingItem) => {
+    try {
+      const userRes = await api.get('/api/users/me');
+      console.log('Kiểm tra vai trò admin:', userRes.data);
+      console.log('Booking.status khi chỉnh sửa:', booking.status);
+      console.log('Booking.room khi chỉnh sửa:', booking.room);
+      if (userRes.data.role !== 'admin') {
+        apiNotification.error({
+          message: 'Không có quyền',
+          description: 'Chỉ admin mới có quyền chỉnh sửa booking.',
+        });
+        return;
+      }
+      setEditingBooking(booking);
+      setIsEditModalOpen(true);
+    } catch (err: any) {
+      console.error('Lỗi khi kiểm tra vai trò:', err);
+      apiNotification.error({
+        message: 'Không thể xác minh vai trò admin. Vui lòng thử lại.',
+      });
+    }
   };
 
   const handleCancel = async (booking: BookingItem) => {
@@ -150,13 +167,28 @@ export default function BookingPage() {
 
       <BookingFormModal
         open={isFormModalOpen}
-        mode={editingBooking ? "edit" : "create"}
-        booking={editingBooking}
         onCancel={() => {
           setIsFormModalOpen(false);
+        }}
+        onSuccess={() => {
+          apiNotification.success({
+            message: 'Tạo booking thành công!',
+          });
+          fetchBookings();
+        }}
+      />
+
+      <BookingEditModal
+        open={isEditModalOpen}
+        booking={editingBooking}
+        onCancel={() => {
+          setIsEditModalOpen(false);
           setEditingBooking(null);
         }}
         onSuccess={() => {
+          apiNotification.success({
+            message: 'Cập nhật booking thành công!',
+          });
           fetchBookings();
           setEditingBooking(null);
         }}
