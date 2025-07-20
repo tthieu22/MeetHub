@@ -1,69 +1,24 @@
-import React from "react";
-import { Table, Tag, Avatar, Space, Button, Tooltip, Popconfirm } from "antd";
-import { ArrowRightOutlined } from "@ant-design/icons";
-import dayjs from "dayjs";
+'use client';
 
-export interface BookingUser {
-  _id: string;
-  name: string;
-  email: string;
-  avatarURL?: string;
-}
-
-export interface BookingRoom {
-  _id: string;
-  name: string;
-}
-
-export interface BookingParticipant {
-  _id: string;
-  name: string;
-  email: string;
-}
-
-export interface BookingItem {
-  _id: string;
-  title: string;
-  room: BookingRoom | null;
-  user: BookingUser;
-  startTime: string;
-  endTime: string;
-  status: string;
-  participants: BookingParticipant[];
-  description?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
+import { Table, Tag, Space, Button, Popconfirm } from 'antd';
+import { BookingItem } from './types';
+import { ColumnsType } from 'antd/es/table';
 
 interface TableBookingProps {
   data: BookingItem[];
-  loading?: boolean;
-  pagination?: {
-    current: number;
-    pageSize: number;
-    total: number;
-  };
-  onPageChange?: (page: number, pageSize?: number) => void;
-  onShowDetail?: (booking: BookingItem) => void;
-  onEdit?: (booking: BookingItem) => void;
-  onCancel?: (booking: BookingItem) => void;
+  loading: boolean;
+  pagination: any;
+  onPageChange: (page: number, pageSize?: number) => void;
+  onShowDetail: (booking: BookingItem) => void;
+  onEdit: (booking: BookingItem) => void;
+  onCancel: (booking: BookingItem) => void;
 }
 
-const statusColor = (status: string) => {
-  switch (status) {
-    case "pending":
-      return "orange";
-    case "confirmed":
-      return "green";
-    case "cancelled":
-      return "red";
-    case "completed":
-      return "blue";
-    case "deleted":
-      return "default";
-    default:
-      return "default";
-  }
+const statusColorMap: Record<string, string> = {
+  pending: 'magenta',
+  confirmed: 'blue',
+  cancelled: 'orange',
+  completed: 'green',
 };
 
 const TableBooking: React.FC<TableBookingProps> = ({
@@ -75,113 +30,64 @@ const TableBooking: React.FC<TableBookingProps> = ({
   onEdit,
   onCancel,
 }) => {
-  const columns = [
+  const columns: ColumnsType<BookingItem> = [
     {
-      title: "STT",
-      dataIndex: "index",
-      width: 60,
-      align: "center" as const,
-      render: (_: any, __: any, i: number) =>
-        pagination && pagination.current
-          ? (pagination.current - 1) * (pagination.pageSize || 10) + i + 1
-          : i + 1,
+      title: 'Tiêu đề',
+      dataIndex: 'title',
+      key: 'title',
+      render: (text) => text || 'Không có tiêu đề',
     },
     {
-      title: "Tiêu đề",
-      dataIndex: "title",
-      key: "title",
-      render: (text: string) => <b>{text}</b>,
+      title: 'Phòng',
+      dataIndex: ['room', 'name'],
+      key: 'room',
     },
     {
-      title: "Phòng",
-      dataIndex: "room",
-      key: "room",
-      render: (room: BookingRoom | null) =>
-        room?.name ? (
-          <span>{room.name}</span>
-        ) : (
-          <i style={{ color: "#aaa" }}>Không xác định</i>
-        ),
+      title: 'Người đặt',
+      dataIndex: ['user', 'name'],
+      key: 'user',
     },
     {
-      title: "Người đặt",
-      dataIndex: "user",
-      key: "user",
-      render: (user: BookingUser) => (
-        <Space>
-          <Avatar src={user.avatarURL} size={28} />
-          <div>
-            <div>{user.name}</div>
-            <div style={{ fontSize: 12, color: "#888" }}>{user.email}</div>
-          </div>
-        </Space>
+      title: 'Thời gian',
+      key: 'time',
+      render: (_, record) => (
+        <span>
+          {new Date(record.startTime).toLocaleString()} -{' '}
+          {new Date(record.endTime).toLocaleString()}
+        </span>
       ),
     },
     {
-      title: "Thời gian",
-      key: "time",
-      render: (_: any, record: BookingItem) => (
-        <div style={{ minWidth: 140 }}>
-          <span>{dayjs(record.startTime).format("HH:mm DD/MM/YYYY")}</span>
-          <br />
-          <ArrowRightOutlined style={{ fontSize: 10, color: "#aaa" }} />
-          <br />
-          <span>{dayjs(record.endTime).format("HH:mm DD/MM/YYYY")}</span>
-        </div>
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => (
+        <Tag color={statusColorMap[status] || 'default'}>{status}</Tag>
       ),
     },
     {
-      title: "Trạng thái",
-      dataIndex: "status",
-      key: "status",
-      render: (status: string) => (
-        <Tag
-          color={statusColor(status)}
-          style={{ fontWeight: 500, fontSize: 13 }}
-        >
-          {status.charAt(0).toUpperCase() + status.slice(1)}
-        </Tag>
-      ),
-    },
-    {
-      title: "Người tham gia",
-      dataIndex: "participants",
-      key: "participants",
-      render: (participants: BookingParticipant[]) => (
-        <Tooltip
-          title={
-            participants.length
-              ? participants.map((p) => `${p.name} (${p.email})`).join(", ")
-              : "Không có người tham gia"
-          }
-        >
-          <span style={{ fontWeight: 500 }}>{participants.length}</span>
-        </Tooltip>
-      ),
-    },
-    {
-      title: "Thao tác",
-      key: "action",
-      width: 180,
-      render: (_: any, record: BookingItem) => (
-        <Space>
-          <Button size="small" onClick={() => onShowDetail?.(record)}>
-            Chi tiết
+      title: 'Hành động',
+      key: 'action',
+      render: (_, record) => (
+        <Space size="middle">
+          <Button type="link" onClick={() => onShowDetail(record)}>
+            Xem
           </Button>
-          <Button size="small" type="primary" onClick={() => onEdit?.(record)}>
+          <Button type="link" onClick={() => onEdit(record)}>
             Sửa
           </Button>
-          <Popconfirm
-            title="Xác nhận huỷ"
-            description="Bạn chắc chắn muốn huỷ?"
-            onConfirm={() => onCancel?.(record)}
-            okText="Có"
-            cancelText="Không"
-          >
-            <Button size="small" danger>
-              Hủy
-            </Button>
-          </Popconfirm>
+          {record.status !== 'cancelled' && (
+            <Popconfirm
+              title="Bạn chắc chắn muốn hủy booking này?"
+              onConfirm={() => onCancel(record)}
+              okText="Đồng ý"
+              cancelText="Hủy"
+            >
+              <Button type="link" danger>
+                Hủy
+              </Button>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -193,21 +99,36 @@ const TableBooking: React.FC<TableBookingProps> = ({
       dataSource={data}
       rowKey="_id"
       loading={loading}
-      pagination={
-        pagination
-          ? {
-              current: pagination.current,
-              pageSize: pagination.pageSize,
-              total: pagination.total,
-              onChange: onPageChange,
-              showSizeChanger: true,
-              pageSizeOptions: ["10", "20", "50"],
-            }
-          : false
-      }
-      scroll={{ x: "max-content" }}
+      pagination={{
+        current: pagination.current,
+        pageSize: pagination.pageSize,
+        total: pagination.total,
+        showSizeChanger: true,
+        onChange: onPageChange,
+      }}
     />
   );
 };
 
 export default TableBooking;
+
+export interface BookingItem {
+  _id: string;
+  title: string;
+  description: string;
+  room: {
+    _id: string;
+    name: string;
+  };
+  user: {
+    _id: string;
+    name: string;
+  };
+  participants: Array<{
+    _id: string;
+    name: string;
+  }>;
+  startTime: string;
+  endTime: string;
+  status: string;
+}

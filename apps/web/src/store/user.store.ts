@@ -13,11 +13,11 @@ interface UserState {
   currentUser: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  token: string | null; // Thêm trường token
-  setCurrentUser: (user: User | null) => void; // Người dùng hiện tại
-  setAuthenticated: (authenticated: boolean) => void; // Xác thực người dùng
-  setLoading: (loading: boolean) => void; // Loading
-  setToken: (token: string | null) => void; // Thêm action setToken
+  token: string | null;
+  setCurrentUser: (user: User | null) => void;
+  setAuthenticated: (authenticated: boolean) => void;
+  setLoading: (loading: boolean) => void;
+  setToken: (token: string | null) => void;
   logout: () => void;
 }
 
@@ -25,10 +25,7 @@ export const useUserStore = create<UserState>((set) => ({
   currentUser: null,
   isAuthenticated: false,
   isLoading: false,
-  token:
-    typeof window !== "undefined"
-      ? localStorage.getItem("access_token") || null
-      : null, // Khởi tạo token từ localStorage
+  token: typeof window !== "undefined" ? localStorage.getItem("access_token") || null : null,
   setCurrentUser: (user: User | null) => {
     set({
       currentUser: user,

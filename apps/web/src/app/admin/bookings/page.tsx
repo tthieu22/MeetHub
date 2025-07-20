@@ -2,21 +2,23 @@
 
 import TableBooking, { BookingItem } from "@web/components/booking/table";
 import CustomButton from "@web/components/CustomButton";
-import { Card, Divider, Space, Typography, message, notification } from "antd";
+import { Card, Divider, Space, Typography, notification } from "antd";
 import { useEffect, useState } from "react";
-import axios from "../../../services/axios/customer.axios";
+import { api } from "@/lib/api";
 import BookingDetailModal from "@web/components/booking/BookingDetailModal";
+import BookingFormModal from "@web/components/booking/BookingFormModal";
 import { useRequireRole } from "@web/hooks/useRequireRole";
+import { useUserStore } from "@/store/user.store";
+
 const { Title } = Typography;
 
 export default function BookingPage() {
   useRequireRole("admin");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
-  const [editingBooking, setEditingBooking] = useState<BookingItem | null>(
-    null
-  );
+  const [editingBooking, setEditingBooking] = useState<BookingItem | null>(null);
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -24,36 +26,39 @@ export default function BookingPage() {
     pageSize: 10,
     total: 0,
   });
-  const [api, contextHolder] = notification.useNotification();
-  const token = localStorage.getItem("token");
-  // Lấy danh sách booking từ API
+  const [apiNotification, contextHolder] = notification.useNotification();
+  const { token } = useUserStore();
+
   useEffect(() => {
     fetchBookings();
   }, [pagination.current, pagination.pageSize]);
+
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const res = await axios.get("/api/bookings/findAll", {
+      const res = await api.get("/api/bookings/findAll", {
         params: {
           page: pagination.current,
           limit: pagination.pageSize,
         },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
-      setBookings(res.data || []);
+      // Đảm bảo res.data.data là mảng, nếu không thì gán mảng rỗng
+      const bookingsData = Array.isArray(res.data.data) ? res.data.data : [];
+      setBookings(bookingsData);
       setPagination((prev) => ({
         ...prev,
-        total: res.total || 0,
+        total: res.data.total || 0,
       }));
-    } catch (err) {
-      api.error({ message: "Không thể tải danh sách booking" });
+    } catch (err: any) {
+      console.error('Lỗi khi tải bookings:', err.response?.data);
+      apiNotification.error({ 
+        message: err.response?.data?.message || "Không thể tải danh sách booking" 
+      });
     } finally {
       setLoading(false);
     }
   };
-  // Xử lý phân trang
+
   const handlePageChange = (page: number, pageSize?: number) => {
     setPagination((prev) => ({
       ...prev,
@@ -62,41 +67,33 @@ export default function BookingPage() {
     }));
   };
 
-  // Xử lý các thao tác
-
   const handleShowDetail = (booking: BookingItem) => {
     setEditingBooking(booking);
     setModalMode("view");
     setIsModalOpen(true);
   };
+
   const handleEdit = (booking: BookingItem) => {
     setEditingBooking(booking);
-    setModalMode("edit");
-    setIsModalOpen(true);
+    setIsFormModalOpen(true);
   };
+
   const handleCancel = async (booking: BookingItem) => {
     try {
-      console.log(booking);
       setLoading(true);
-      const res = await axios.post(
-        `/api/bookings/${booking._id}/cancel-admin`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (res.success) {
-        api.success({ message: "Hủy booking thành công!" });
+      const res = await api.post(`/api/bookings/${booking._id}/cancel-admin`, {});
+      if (res.data.success) {
+        apiNotification.success({ message: "Hủy booking thành công!" });
       } else {
-        api.error({
+        apiNotification.error({
           message: "Hủy booking không thành công!",
-          description: res.message,
+          description: res.data.message,
         });
       }
-      fetchBookings(); // reload lại danh sách
+      fetchBookings();
     } catch (err: any) {
-      api.error({
+      console.error('Lỗi khi hủy booking:', err.response?.data);
+      apiNotification.error({
         message: err?.response?.data?.message || "Hủy booking thất bại!",
       });
     } finally {
@@ -118,9 +115,7 @@ export default function BookingPage() {
           <CustomButton
             type="primary"
             onClick={() => {
-              setModalMode("create");
-              setEditingBooking(null);
-              setIsModalOpen(true);
+              setIsFormModalOpen(true);
             }}
           >
             + Đặt lịch
@@ -145,14 +140,25 @@ export default function BookingPage() {
           />
         </Card>
       </Space>
+
       <BookingDetailModal
         open={isModalOpen}
         booking={editingBooking}
-        mode={modalMode}
         onClose={() => setIsModalOpen(false)}
-        onUpdated={() => {
-          // reload lại danh sách booking hoặc cập nhật state bookings\
+        loading={loading}
+      />
+
+      <BookingFormModal
+        open={isFormModalOpen}
+        mode={editingBooking ? "edit" : "create"}
+        booking={editingBooking}
+        onCancel={() => {
+          setIsFormModalOpen(false);
+          setEditingBooking(null);
+        }}
+        onSuccess={() => {
           fetchBookings();
+          setEditingBooking(null);
         }}
       />
     </div>

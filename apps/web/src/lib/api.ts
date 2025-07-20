@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useUserStore } from '@web/store/user.store';
 
 const NESTJS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -9,20 +10,12 @@ export const api = axios.create({
   },
 });
 
-export const setAuthToken = (token: string) => {
-  if (token) {
-    api.defaults.headers.Authorization = `Bearer ${token}`;
-  } else {
-    delete api.defaults.headers.Authorization;
-  }
-};
-
-// Thêm request interceptor để đảm bảo token được thêm vào header
+// Thêm request interceptor để tự động thêm token
 api.interceptors.request.use(
   (config) => {
-    const token = api.defaults.headers.Authorization;
+    const token = useUserStore.getState().token;
     if (token) {
-      config.headers.Authorization = token;
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -37,7 +30,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       console.error('Truy cập không được phép - có thể token không hợp lệ');
-      // Bạn có thể thêm logic xử lý lỗi 401, ví dụ như đăng xuất người dùng
+      // Có thể thêm logic đăng xuất hoặc làm mới token ở đây
     }
     return Promise.reject(error);
   }
