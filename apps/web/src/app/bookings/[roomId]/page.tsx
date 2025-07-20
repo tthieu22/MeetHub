@@ -16,7 +16,7 @@ import {
   Col,
   Modal,
 } from "antd";
-import { api, setAuthToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import moment, { Moment } from "moment";
 import {
   LeftOutlined,
@@ -168,7 +168,6 @@ const Bookings = () => {
       return;
     }
 
-    setAuthToken(token);
     setLoading(true);
     try {
       const [roomResponse, bookingsResponse] = await Promise.all([
