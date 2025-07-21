@@ -16,6 +16,7 @@ import {
   Space,
 } from "antd";
 import { ArrowLeftOutlined, StarFilled } from "@ant-design/icons";
+import { useRequireRole } from "@web/hooks/useRequireRole";
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -102,6 +103,7 @@ const fieldStyles = [
 ];
 
 const RoomDetail = () => {
+  useRequireRole("admin");
   const [room, setRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

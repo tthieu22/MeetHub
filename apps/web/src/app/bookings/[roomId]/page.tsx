@@ -32,6 +32,7 @@ import {
 import BookingForm from "@/components/BookingForm";
 import _ from "lodash";
 import BookingDetail from "../../../components/BookingDetail";
+import { useRequireRole } from "@web/hooks/useRequireRole";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -56,6 +57,7 @@ interface Room {
 }
 
 const Bookings = () => {
+  useRequireRole("user");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [room, setRoom] = useState<Room | null>(null);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
@@ -125,9 +127,7 @@ const Bookings = () => {
       if (booking.status === "deleted") return false;
       const existingStart = moment(booking.startTime);
       const existingEnd = moment(booking.endTime);
-      return (
-        start.isBefore(existingEnd) && end.isAfter(existingStart)
-      );
+      return start.isBefore(existingEnd) && end.isAfter(existingStart);
     });
   };
 
@@ -253,7 +253,10 @@ const Bookings = () => {
   };
 
   const handlePreviousWeek = () => {
-    const prevWeek = selectedWeek.clone().subtract(1, "week").startOf("isoWeek");
+    const prevWeek = selectedWeek
+      .clone()
+      .subtract(1, "week")
+      .startOf("isoWeek");
     setSelectedWeek(prevWeek);
     setSelectedMonth(prevWeek.month());
   };
@@ -524,7 +527,10 @@ const Bookings = () => {
     const weeks: moment.Moment[] = [];
     let currentWeek = startOfMonth.clone().startOf("isoWeek");
 
-    while (currentWeek.isBefore(endOfMonth) || currentWeek.isSame(endOfMonth, "day")) {
+    while (
+      currentWeek.isBefore(endOfMonth) ||
+      currentWeek.isSame(endOfMonth, "day")
+    ) {
       weeks.push(currentWeek.clone());
       currentWeek.add(1, "week");
     }
@@ -821,7 +827,8 @@ const Bookings = () => {
                           borderRadius: 8,
                           padding: 8,
                           cursor:
-                            isFullyBooked || day.isBefore(moment().startOf("day"))
+                            isFullyBooked ||
+                            day.isBefore(moment().startOf("day"))
                               ? "not-allowed"
                               : "pointer",
                           position: "relative",
@@ -871,7 +878,9 @@ const Bookings = () => {
                         <div
                           style={{
                             color:
-                              isFullyBooked || isStartDate(day) || isEndDate(day)
+                              isFullyBooked ||
+                              isStartDate(day) ||
+                              isEndDate(day)
                                 ? "#fff"
                                 : isCurrentMonth
                                   ? "#1d39c4"
