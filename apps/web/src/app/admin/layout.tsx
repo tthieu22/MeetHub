@@ -2,7 +2,7 @@
 import "antd/dist/reset.css";
 import "@web/style/globals.css";
 import React, { useState } from "react";
-import { Layout as AntLayout, Menu, Typography, theme } from "antd";
+import { Layout as AntLayout, Menu, Tooltip, Typography, theme } from "antd";
 import {
   UserOutlined,
   TeamOutlined,
@@ -11,6 +11,7 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  HomeOutlined,
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import ChatPopups from "@web/components/chat-popup/ChatPopups";
@@ -21,6 +22,8 @@ import { useChatStore } from "@web/store/chat.store";
 import { useWebSocketStore } from "@web/store/websocket.store";
 import ChatIcon from "@web/components/ChatIcon";
 import Notification from "@web/components/IconNotification";
+import { useEffect } from "react";
+import { WS_EVENTS } from "@web/constants/websocket.events";
 
 const { Sider, Content } = AntLayout;
 const { Title } = Typography;
@@ -41,11 +44,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const socket = useWebSocketStore((state) => state.socket);
   const addPopup = useChatStore((state) => state.addPopup);
   const setCurrentRoomId = useChatStore((state) => state.setCurrentRoomId);
+  const isConnected = useWebSocketStore((state) => state.isConnected);
 
   const totalUnread = Object.values(unreadCounts || {}).reduce(
     (a, b) => a + b,
     0
   );
+
+  // Load rooms khi component mount và WebSocket đã kết nối
+  useEffect(() => {
+    if (isConnected && socket && rooms.length === 0) {
+      socket.emit(WS_EVENTS.GET_ROOMS);
+    }
+  }, [isConnected, socket, rooms.length]);
 
   const menuItems = [
     { key: "/admin", icon: <DashboardOutlined />, label: "Dashboard" },
@@ -64,6 +75,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const handleMenuClick = ({ key }: { key: string }) => {
     if (key === "logout") {
+      localStorage.removeItem("access_token");
       router.push("/login");
     } else {
       router.push(key);
@@ -150,22 +162,47 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <Notification />
-            {currentUser && (
-              <ChatIcon
-                totalUnread={totalUnread}
-                chatOpen={chatOpen}
-                setChatOpen={setChatOpen}
-                rooms={rooms}
-                onRoomSelect={(roomId) => {
-                  const room = rooms.find((r) => r.roomId === roomId);
-                  if (room?.roomId) {
-                    addPopup(room.roomId);
-                    setCurrentRoomId(room.roomId);
-                  }
+            
+            <Tooltip title="Home" placement="bottom">  
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  background: "rgb(204, 204, 204)",
+                  cursor: "pointer",
+                  color: "rgb(0, 0, 0)",
+                  display: "flex",
+                  fontSize:20,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                  transition: "background 0.2s ease-in-out",
                 }}
-                socket={socket}
-              />
+                onClick={() => router.push("/")} 
+                title="Về trang chủ"
+              >
+                <HomeOutlined />
+              </div>
+            </Tooltip>  
+            <Notification /> 
+            {currentUser && (
+              <Tooltip title="Message" placement="bottom">
+                <ChatIcon
+                  totalUnread={totalUnread}
+                  chatOpen={chatOpen}
+                  setChatOpen={setChatOpen}
+                  rooms={rooms}
+                  onRoomSelect={(roomId) => {
+                    const room = rooms.find((r) => r.roomId === roomId);
+                    if (room?.roomId) {
+                      addPopup(room.roomId);
+                      setCurrentRoomId(room.roomId);
+                    }
+                  }}
+                  socket={socket}
+                />
+              </Tooltip>
             )}
             {currentUser && <ChatWithAdminButton />}
             {currentUser && <UserAvatar />}

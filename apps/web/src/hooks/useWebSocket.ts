@@ -84,6 +84,8 @@ export const useWebSocket = () => {
             WebSocketEventHandlers.handleUnreadCountUpdated(data),
           onRoomOnlineMembers: (data) =>
             WebSocketEventHandlers.handleRoomOnlineMembers(data),
+          onAllOnlineUsers: (data) =>
+            WebSocketEventHandlers.handleAllOnlineUsers(data),
         });
       }
     } catch {
@@ -187,7 +189,7 @@ export const useWebSocket = () => {
    */
   const getAllOnlineUsers = useCallback(() => {
     if (isConnected && socket) {
-      socket.emit("get_all_online_users");
+      socket.emit(WS_EVENTS.GET_ALL_ONLINE_USERS);
     } else {
       console.warn("WebSocket not connected");
     }
@@ -201,7 +203,7 @@ export const useWebSocket = () => {
     (roomId: string) => {
       if (isConnected && socket) {
         socket.emit(WS_EVENTS.JOIN_ROOM, { roomId });
-        socket.emit("get_room_online_members", { roomId });
+        socket.emit(WS_EVENTS.GET_ROOM_ONLINE_MEMBERS, { roomId });
         socket.emit(WS_EVENTS.GET_UNREAD_COUNT, { roomId });
       } else {
         console.warn("WebSocket not connected");

@@ -15,7 +15,6 @@ export class NotificationGateway {
 
   sendToUser(userId: string, noti: any) {
     const socketId = this.userSocketMap.get(userId);
-    console.log("Sending to user:", userId, "Socket ID:", socketId);
     if (socketId) {
       this.server.to(socketId).emit('notification', noti);
     }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Form, Input, Card, Typography, notification } from "antd";
+import { Form, Input, Card, Typography } from "antd";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@web/store/user.store";
@@ -10,6 +10,7 @@ import authApiService, {
   LoginResponse,
 } from "@web/services/api/auth.api";
 import Link from "next/link";
+import { useNotificationApi } from "@web/hooks/useNotificationApi";
 
 const { Title, Text } = Typography;
 
@@ -18,29 +19,37 @@ export default function LoginPage() {
   const router = useRouter();
   const setCurrentUser = useUserStore((state) => state.setCurrentUser);
   const [form] = Form.useForm();
-  const [api, contextHolder] = notification.useNotification();
+  const [api, contextHolder] = useNotificationApi();
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get("access_token");
     if (token) {
       localStorage.setItem("access_token", token);
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      setCurrentUser({
-        _id: payload._id,
-        email: payload.email || payload.name,
-        username: payload.name,
-        avatar: "",
-        role: payload.role,
-      });
-      api.success({
-        message: "Đăng nhập Google thành công",
-        placement: "topRight",
-      });
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        setCurrentUser({
+          _id: payload._id,
+          email: payload.email || payload.name,
+          username: payload.name,
+          avatar: "",
+          role: payload.role,
+        });
+        api.success({
+          message: "Đăng nhập Google thành công",
+          placement: "topRight",
+        });
 
-      router.push("/");
+        router.push("/");
+      } catch (error) {
+        console.error("Error processing Google token:", error);
+        api.error({
+          message: "Lỗi xử lý token Google",
+          placement: "topRight",
+        });
+      }
     }
-  }, []);
+  }, [router, setCurrentUser, api]);
 
   const onFinish = async (values: LoginForm) => {
     try {

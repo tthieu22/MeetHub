@@ -29,3 +29,44 @@ export interface RoomSidebarInfo {
 }
 
 export type PopulatedUser = { _id: { toString(): string }; name?: string; avatarURL?: string };
+
+export interface RoomMemberDetail {
+  userId: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  role: string;
+  joinedAt: Date;
+}
+
+export interface RoomCreatorInfo {
+  userId: string;
+  name: string;
+  email: string;
+  avatar?: string;
+}
+
+export interface RoomDetailInfo {
+  _id: string;
+  name: string;
+  type: string;
+  creatorId: string;
+  isDeleted: boolean;
+  deletedAt?: Date;
+  lastMessage?: {
+    content: string;
+    createdAt: Date;
+    senderId: string;
+  };
+  memberIds: string[];
+  assignedAdmins: string[];
+  currentAdminId?: string;
+  lastAdminReplyAt?: Date;
+  isTemporary: boolean;
+  isActive: boolean;
+  pending: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  members: RoomMemberDetail[];
+  creator: RoomCreatorInfo | null;
+}

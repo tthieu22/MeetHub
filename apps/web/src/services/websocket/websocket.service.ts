@@ -1,6 +1,6 @@
 import { io, Socket } from "socket.io-client";
 import { WebSocketEventName, WsResponse } from "@web/types/websocket";
-import { Message, ChatRoom } from "@web/types/chat";
+import { Message, ChatRoom, UsersOnline } from "@web/types/chat";
 import {
   WS_CONFIG,
   WS_EVENTS,
@@ -78,6 +78,10 @@ class WebSocketService implements WebSocketServiceInterface {
     this.socket?.emit(WS_EVENTS.JOIN_ROOM, { roomId });
   }
 
+  emitGetAllOnlineUsers(): void {
+    this.socket?.emit(WS_EVENTS.GET_ALL_ONLINE_USERS);
+  }
+
   // ===== Support/Admin event emitters =====
   /** Emit yêu cầu hỗ trợ tới admin */
   emitUserRequestSupport(): void {
@@ -90,6 +94,14 @@ class WebSocketService implements WebSocketServiceInterface {
   /** Đóng phòng support */
   emitCloseSupportRoom(roomId: string): void {
     this.socket?.emit(WS_EVENTS.CLOSE_SUPPORT_ROOM, { roomId });
+  }
+
+  emitClientLeaveRoom(roomId: string): void {
+    this.socket?.emit(WS_EVENTS.CLIENT_LEAVE_ROOM, { roomId });
+  }
+
+  emitClientDeleteRoom(roomId: string): void {
+    this.socket?.emit(WS_EVENTS.CLIENT_DELETE_ROOM, { roomId });
   }
 
   // Event listeners
@@ -135,12 +147,28 @@ class WebSocketService implements WebSocketServiceInterface {
     this.eventHandlers.onUserOffline = callback;
   }
 
+  onAllOnlineUsers(callback: (data: WsResponse<UsersOnline[]>) => void): void {
+    this.eventHandlers.onAllOnlineUsers = callback;
+  }
+
   onError(callback: (data: WsResponse) => void): void {
     this.eventHandlers.onError = callback;
   }
 
   onAuthError(callback: (data: WsResponse) => void): void {
     this.eventHandlers.onAuthError = callback;
+  }
+
+  onRoomDeleted(
+    callback: (data: { roomId: string; message: string }) => void
+  ): void {
+    this.eventHandlers.onRoomDeleted = callback;
+  }
+
+  onRoomLeft(
+    callback: (data: { roomId: string; message: string }) => void
+  ): void {
+    this.eventHandlers.onRoomLeft = callback;
   }
 
   off(event: WebSocketEventName): void {
@@ -248,6 +276,13 @@ class WebSocketService implements WebSocketServiceInterface {
       }
     );
 
+    this.socket.on(
+      WS_RESPONSE_EVENTS.ALL_ONLINE_USERS,
+      (data: WsResponse<UsersOnline[]>) => {
+        this.eventHandlers.onAllOnlineUsers?.(data);
+      }
+    );
+
     this.socket.on(WS_RESPONSE_EVENTS.ERROR, (data: WsResponse) => {
       this.eventHandlers.onError?.(data);
     });
@@ -255,6 +290,21 @@ class WebSocketService implements WebSocketServiceInterface {
     this.socket.on(WS_RESPONSE_EVENTS.AUTH_ERROR, (data: WsResponse) => {
       this.eventHandlers.onAuthError?.(data);
     });
+
+    // ===== Room events =====
+    this.socket.on(
+      WS_RESPONSE_EVENTS.ROOM_DELETED,
+      (data: { roomId: string; message: string }) => {
+        this.eventHandlers.onRoomDeleted?.(data);
+      }
+    );
+
+    this.socket.on(
+      WS_RESPONSE_EVENTS.ROOM_LEFT,
+      (data: { roomId: string; message: string }) => {
+        this.eventHandlers.onRoomLeft?.(data);
+      }
+    );
 
     // ===== Support/Admin events =====
     this.socket.on(WS_RESPONSE_EVENTS.SUPPORT_ROOM_PENDING, () => {

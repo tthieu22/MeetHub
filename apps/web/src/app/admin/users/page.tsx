@@ -3,17 +3,14 @@
 import CustomButton from "@web/components/CustomButton";
 import UserTableComponent from "@web/components/user/user.table";
 import { useRequireRole } from "@web/hooks/useRequireRole";
-import { useUserStore } from "@web/store";
-import { Card, Col, Divider, Row, Space, Typography } from "antd";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Card, Divider, Space, Typography } from "antd"; 
+import { useState } from "react";
 const { Title } = Typography;
 export default function UsersPage() {
   useRequireRole("admin");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"edit" | "create">("create");
   const [editingUser, setEditingUser] = useState<any>(null);
-
   return (
     <div className="min-h-screen ">
       <Space direction="vertical" style={{ width: "100%" }} size="small">

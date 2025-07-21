@@ -102,15 +102,6 @@ export function useConnectSection(searchValue?: string) {
     },
     [allOnline, currentUser?._id]
   );
-  useEffect(() => {
-    if (error) {
-      api.error({
-        message: "Lỗi tải dữ liệu",
-        description: error,
-        placement: "topRight",
-      });
-    }
-  }, [error]);
 
   const fetchInvitations = useCallback(async () => {
     try {
@@ -321,18 +312,6 @@ export function useConnectSection(searchValue?: string) {
     fetchInvitations();
   }, [fetchUsers, fetchInvitations]);
 
-  // Memoized user lists for performance
-  const { onlineUsers, offlineUsers } = useMemo(
-    () => ({
-      onlineUsers: users.filter((user) => user.isOnline),
-      offlineUsers: users.filter((user) => !user.isOnline),
-    }),
-    [users]
-  );
-
-  const offlineUsersLimited = showAllOfflineUsers
-    ? offlineUsers
-    : offlineUsers.slice(0, 10);
   const handleShowMoreOffline = () => setShowAllOfflineUsers(true);
 
   // Thêm filter khi showSearchBox
@@ -359,28 +338,13 @@ export function useConnectSection(searchValue?: string) {
       if (rooms.length === 0) {
         socket.emit(WS_EVENTS.GET_ROOMS);
       }
-      socket.emit("get_all_online_users");
+      socket.emit(WS_EVENTS.GET_ALL_ONLINE_USERS);
     }
   }, [isConnected, socket, rooms.length]);
 
   // Update online status when allOnline changes - realtime
   useEffect(() => {
     if (users.length > 0) {
-      const updatedUsers = users.map((user) => ({
-        ...user,
-        isOnline: allOnline.some(
-          (onlineUser) => onlineUser.userId === user.userId
-        ),
-      }));
-      setUsers(updatedUsers);
-    }
-  }, [allOnline, users.length]);
-
-  // Real-time online status update with interval
-  useEffect(() => {
-    if (!isConnected || users.length === 0) return;
-
-    const updateOnlineStatus = () => {
       setUsers((prevUsers) =>
         prevUsers.map((user) => ({
           ...user,
@@ -389,6 +353,23 @@ export function useConnectSection(searchValue?: string) {
           ),
         }))
       );
+    }
+  }, [allOnline]);
+
+  // Real-time online status update with interval
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const updateOnlineStatus = () => {
+      setUsers((prevUsers) => {
+        if (prevUsers.length === 0) return prevUsers;
+        return prevUsers.map((user) => ({
+          ...user,
+          isOnline: allOnline.some(
+            (onlineUser) => onlineUser.userId === user.userId
+          ),
+        }));
+      });
     };
 
     // Update immediately
@@ -398,7 +379,7 @@ export function useConnectSection(searchValue?: string) {
     const interval = setInterval(updateOnlineStatus, 2000); // Update every 2 seconds
 
     return () => clearInterval(interval);
-  }, [isConnected, users.length, allOnline]);
+  }, [isConnected, allOnline]);
 
   return {
     // State

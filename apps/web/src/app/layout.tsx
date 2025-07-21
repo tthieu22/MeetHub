@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import "antd/dist/reset.css";
 import "@web/style/globals.css";
 import { ConfigProvider, Layout, App } from "antd";
@@ -7,7 +7,7 @@ import { Content } from "antd/es/layout/layout";
 import { WebSocketProvider } from "./WebSocketProvider";
 import { UserProvider } from "./UserProvider";
 import AuthGuard from "@web/components/AuthGuard";
-import React from "react"; 
+import React from "react";
 import { usePathname } from "next/navigation";
 
 function RootLayout({
@@ -16,8 +16,11 @@ function RootLayout({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
-  const isAdminPage = pathname?.startsWith('/admin');
-  
+  const isAdminPage = pathname?.startsWith("/admin");
+  const isPublicPage = ["/login", "/register", "/forgetPass"].includes(
+    pathname || ""
+  );
+
   return (
     <html lang="en" translate="no">
       <head>
@@ -38,9 +41,9 @@ function RootLayout({
             <Layout style={{ minHeight: "100vh" }}>
               {!isAdminPage && <Header />}
               <Content>
-                <AuthGuard>{children}</AuthGuard>
+                {isPublicPage ? children : <AuthGuard>{children}</AuthGuard>}
               </Content>
-            </Layout> 
+            </Layout>
           </App>
         </ConfigProvider>
       </body>

@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { EllipsisOutlined, UserOutlined, InfoCircleOutlined, LogoutOutlined, DeleteOutlined } from "@ant-design/icons";
 import { roomChatApiService } from "@web/services/api/room.chat.api";
-import { useWebSocketStore } from "@web/store/websocket.store";
 
 interface Props {
   roomName: string;
@@ -10,14 +9,13 @@ interface Props {
   onShowMembers: () => void;
   onLeaveRoom: () => void;
   onShowInfo: () => void; 
-  onDeleteRoom?: (roomId: string) => void;
+  onDeleteRoom?: () => void;
 }
 
 const ChatPopupHeader: React.FC<Props> = ({ roomName, roomId, onClose, onShowMembers, onLeaveRoom, onShowInfo, onDeleteRoom }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [role, setRole] = useState<string | undefined>( );
   const menuRef = useRef<HTMLDivElement>(null);
-  const socket = useWebSocketStore((s) => s.socket);
 
   // Lấy vai trò user khi mount
   useEffect(() => {
@@ -25,9 +23,12 @@ const ChatPopupHeader: React.FC<Props> = ({ roomName, roomId, onClose, onShowMem
     async function fetchRole() {
       try {
         const r = await roomChatApiService.getUserRoleInRoom(roomId);
-        console.log(r)
+        console.log('User role in room:', r);
         if (!ignore) setRole(r || undefined);
-      } catch {}
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+        if (!ignore) setRole(undefined);
+      }
     }
     fetchRole();
     return () => { ignore = true; };
@@ -35,26 +36,14 @@ const ChatPopupHeader: React.FC<Props> = ({ roomName, roomId, onClose, onShowMem
 
   // Xử lý rời phòng
   const handleLeaveRoom = async () => {
-    try {
-      await roomChatApiService.leaveRoom(roomId);
-      // Emit thông báo rời phòng
-      if (socket) socket.emit("client_leave_room", { roomId });
-      setShowMenu(false);
-      onLeaveRoom(); // Xoá popup
-      onClose(); // Đóng popup
-    } catch {}
+    setShowMenu(false);
+    onLeaveRoom(); 
   };
 
   // Xử lý xoá phòng
   const handleDeleteRoom = async () => {
-    try {
-      if (onDeleteRoom) setShowMenu(false);
-      await roomChatApiService.deleteRoom(roomId);
-      // Emit thông báo xoá phòng
-      if (socket) socket.emit("client_delete_room", { roomId });
-      if (onDeleteRoom) onDeleteRoom(roomId); 
-      onClose(); // Đóng popup
-    } catch {}
+    setShowMenu(false);
+    if (onDeleteRoom) onDeleteRoom();  
   };
 
   useEffect(() => {
