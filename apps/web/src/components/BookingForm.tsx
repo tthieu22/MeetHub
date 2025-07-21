@@ -16,6 +16,7 @@ import {
   message,
   Alert, 
 } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import { api } from '@web/lib/api';
 import { useUserStore } from '@web/store/user.store';
 import moment, { Moment } from 'moment';
@@ -76,6 +77,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
 }) => {
   const [form] = Form.useForm();
   const [users, setUsers] = useState<User[]>([]);
+  const [isEditingName, setIsEditingName] = useState(false);
   // Lấy user hiện tại từ store (không gọi API nữa)
   const currentUser = useUserStore((state) => state.currentUser);
   const [loading, setLoading] = useState(false);
@@ -528,7 +530,30 @@ const BookingForm: React.FC<BookingFormProps> = ({
             <div style={{ marginBottom: 16, padding: 12, border: '1px solid #e6f7ff', borderRadius: 6, background: '#f6ffed' }}>
               <b>Thông tin đoạn chat sẽ tạo:</b>
               <div>
-                <span><b>Tên đoạn chat:</b> {pendingGroup.name}</span>
+                <span><b>Tên đoạn chat:</b> </span>
+                {isEditingName ? (
+                  <Input
+                    style={{ width: 'auto', display: 'inline-block', maxWidth: '300px' }}
+                    defaultValue={pendingGroup.name}
+                    onBlur={(e) => {
+                      if (pendingGroup && e.target.value) {
+                        setPendingGroup({ ...pendingGroup, name: e.target.value });
+                      }
+                      setIsEditingName(false);
+                    }}
+                    onPressEnter={(e) => {
+                      if (pendingGroup && (e.target as HTMLInputElement).value) {
+                        setPendingGroup({ ...pendingGroup, name: (e.target as HTMLInputElement).value });
+                      }
+                      setIsEditingName(false);
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <span onClick={() => setIsEditingName(true)} style={{ cursor: 'pointer', borderBottom: '1px dashed #ccc', paddingBottom: '2px' }}>
+                    {pendingGroup.name} <EditOutlined style={{ marginLeft: 4, color: '#888' }} />
+                  </span>
+                )}
               </div>
               <div>
                 <b>Thành viên:</b> {users.filter(u => pendingGroup.members.includes(u._id)).map(u => u.name).join(', ')}
