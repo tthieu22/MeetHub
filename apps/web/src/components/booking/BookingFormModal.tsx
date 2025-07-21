@@ -3,16 +3,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Modal, Form, Input, Button, Select, DatePicker, TimePicker, message, Space, Spin, Alert } from 'antd';
 import moment from 'moment';
-import { useUserStore } from '@/store/user.store';
-import { api } from '@/lib/api';
+import { useUserStore } from '@web/store/user.store';
+import { api } from '@web/lib/api';
+import { useRouter } from 'next/navigation';
 
 const { TextArea } = Input;
 const { Option } = Select;
 
 interface BookingFormModalProps {
   open: boolean;
-  mode: 'create' | 'edit';
-  booking?: any;
   onCancel: () => void;
   onSuccess: () => void;
 }
@@ -39,7 +38,6 @@ interface ApiResponse {
   errorCode?: string;
 }
 
-// Enum BookingStatus khớp với backend
 const BookingStatus = {
   PENDING: 'pending',
   CONFIRMED: 'confirmed',
@@ -54,8 +52,6 @@ const isValidObjectId = (id: string): boolean => {
 
 const BookingFormModal: React.FC<BookingFormModalProps> = ({ 
   open, 
-  mode, 
-  booking, 
   onCancel, 
   onSuccess 
 }) => {
@@ -69,9 +65,11 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
   const [apiMessage, setApiMessage] = useState<string | string[] | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const { token } = useUserStore();
+  const router = useRouter();
 
   const fetchCurrentUser = useCallback(async () => {
     try {
+      console.log('Fetching current user with token:', token ? 'Present' : 'Missing');
       const response = await api.get('/api/users/me');
       
       if (response.data?._id) {
@@ -87,28 +85,37 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
         return user._id;
       }
       throw new Error('Invalid user data');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching current user:', error);
       message.error('Không thể lấy thông tin người dùng hiện tại');
       return null;
     }
-  }, []);
+  }, [token]);
 
   const fetchData = useCallback(async () => {
     if (!token) {
-      message.error('Không tìm thấy token. Vui lòng đăng nhập lại.');
+      console.log('No token found, redirecting to login');
+      message.error('Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.');
+      router.push('/login');
       onCancel();
       return;
     }
 
     try {
       setLoading(true);
+      console.log('Fetching data with token:', token ? 'Present' : 'Missing');
       
       const [usersRes, roomsRes, currentUserRes] = await Promise.all([
         api.get('/api/users/find-all'),
         api.get('/api/rooms/available'),
         api.get('/api/users/me')
       ]);
+
+      console.log('API responses:', {
+        users: usersRes.data,
+        rooms: roomsRes.data,
+        currentUser: currentUserRes.data
+      });
 
       const validUsers = usersRes.data.data
         .filter((user: any) => isValidObjectId(user._id))
@@ -127,55 +134,45 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
         isActive: currentUserRes.data.isActive,
       });
 
-      if (mode === 'edit' && booking) {
-        form.setFieldsValue({
-          title: booking.title,
-          description: booking.description,
-          room: booking.room._id,
-          participants: booking.participants?.filter((id: string) => isValidObjectId(id)) || [],
-          startDate: moment(booking.startTime),
-          endDate: moment(booking.endTime),
-          startTime: moment(booking.startTime),
-          endTime: moment(booking.endTime),
-          creator: booking.user?.name || currentUserRes.data.name || '',
-          status: booking.status || BookingStatus.PENDING,
-        });
-      } else {
-        form.resetFields();
-        form.setFieldsValue({
-          startDate: moment(),
-          endDate: moment(),
-          startTime: moment().add(1, 'hour').startOf('hour'),
-          endTime: moment().add(2, 'hour').startOf('hour'),
-          creator: currentUserRes.data.name || '',
-          status: BookingStatus.PENDING,
-        });
-      }
+      form.resetFields();
+      form.setFieldsValue({
+        startDate: moment(),
+        endDate: moment(),
+        startTime: moment().add(1, 'hour').startOf('hour'),
+        endTime: moment().add(2, 'hour').startOf('hour'),
+        creator: currentUserRes.data.name || '',
+        status: BookingStatus.PENDING,
+      });
     } catch (err: any) {
       console.error('Lỗi khi tải dữ liệu:', err);
       if (err.response?.status === 401) {
+        console.log('401 Unauthorized in fetchData, redirecting to login');
         message.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+        router.push('/login');
+        onCancel();
       } else {
         message.error('Không thể tải dữ liệu cần thiết. Vui lòng thử lại.');
+        onCancel();
       }
-      onCancel();
     } finally {
       setLoading(false);
     }
-  }, [token, mode, booking, form, onCancel]);
+  }, [token, form, onCancel, router]);
 
   useEffect(() => {
     if (open) {
       setApiErrors(null);
       setApiMessage(null);
-      setSuccessMessage(null); // Reset tất cả thông báo khi mở modal
+      setSuccessMessage(null);
       fetchData();
     }
   }, [open, fetchData]);
 
   const handleSubmit = async (values: any) => {
     if (!token || !currentUser?._id) {
+      console.log('No token or currentUser._id, redirecting to login');
       message.error('Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.');
+      router.push('/login');
       onCancel();
       return;
     }
@@ -206,27 +203,24 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
         title: values.title,
         description: values.description,
         room: values.room,
-        user: currentUser._id, // Sử dụng _id từ currentUser (từ /api/users/me)
+        user: currentUser._id,
         participants: values.participants || [],
         startTime,
         endTime,
         status: values.status || BookingStatus.PENDING,
       };
 
-      const url = mode === 'create' 
-        ? '/api/bookings/add-booking' 
-        : `/api/bookings/${booking._id}`;
-      
-      const method = mode === 'create' ? 'post' : 'put';
+      const url = '/api/bookings/add-booking';
+      console.log(`Submitting post request to ${url} with payload:`, payload);
 
-      const res = await api[method](url, payload);
+      const res = await api.post(url, payload);
 
       if (res.data.success) {
-        setSuccessMessage(mode === 'create' ? 'Tạo booking thành công!' : 'Cập nhật booking thành công!');
+        setSuccessMessage('Tạo booking thành công!');
         setTimeout(() => {
           onSuccess();
           onCancel();
-        }, 1500); // Đóng modal sau 1.5s để người dùng thấy thông báo thành công
+        }, 1500);
       } else {
         throw new Error(res.data.message || 'Có lỗi xảy ra khi lưu booking.');
       }
@@ -236,8 +230,9 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
       let errors: ApiResponse['errors'] = null;
 
       if (err.response?.status === 401) {
-        errorMsg = 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
-        message.error(errorMsg);
+        console.log('401 Unauthorized in handleSubmit, redirecting to login');
+        message.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+        router.push('/login');
         onCancel();
       } else if (err.response?.data) {
         const responseData: ApiResponse = err.response.data;
@@ -248,7 +243,6 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
         if (responseData.errors && responseData.errors.length > 0) {
           errors = responseData.errors;
           setApiErrors(errors);
-          // Gán lỗi vào các trường form
           const errorFields = errors.reduce((acc: any, err: any) => {
             if (err.field) {
               acc[err.field] = { errors: [new Error(err.message)] };
@@ -271,7 +265,7 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
 
   return (
     <Modal
-      title={mode === 'create' ? 'Đặt lịch mới' : 'Chỉnh sửa booking'}
+      title="Đặt lịch mới"
       open={open}
       onCancel={onCancel}
       footer={null}
@@ -444,7 +438,7 @@ const BookingFormModal: React.FC<BookingFormModalProps> = ({
             <Space>
               <Button onClick={onCancel}>Hủy</Button>
               <Button type="primary" htmlType="submit" loading={submitting}>
-                {mode === 'create' ? 'Đặt lịch' : 'Lưu thay đổi'}
+                Đặt lịch
               </Button>
             </Space>
           </Form.Item>
