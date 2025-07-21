@@ -33,6 +33,7 @@ export default function DebugPage() {
             <li>Đợi token hết hạn hoặc dùng DevTools để xóa token</li>
             <li>Test refresh token tự động hoặc thủ công</li>
             <li>Kiểm tra console để xem logs</li>
+            <li>test main</li>
           </ol>
         </div>
       </Content>
