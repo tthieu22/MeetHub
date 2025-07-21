@@ -1,13 +1,4 @@
-import {
-  IsArray,
-  IsDateString,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsMongoId,
-  IsEnum,
-  Validate,
-} from 'class-validator';
+import { IsArray, IsDateString, IsNotEmpty, IsOptional, IsString, IsMongoId, IsEnum, Validate } from 'class-validator';
 import { Type } from 'class-transformer';
 import { BookingStatus } from '../booking.schema';
 import { ValidatorConstraint, ValidatorConstraintInterface, ValidationArguments } from 'class-validator';
@@ -76,4 +67,8 @@ export class CreateBookingDto {
     message: `Trạng thái phải là một trong các giá trị: ${Object.values(BookingStatus).join(', ')}`,
   })
   status?: BookingStatus;
+
+  @IsOptional()
+  @IsString({ message: 'Trường `groupChatId` phải là một chuỗi' })
+  groupChatId?: string;
 }

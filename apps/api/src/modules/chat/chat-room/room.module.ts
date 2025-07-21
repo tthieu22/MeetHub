@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Conversation, ConversationSchema } from '@api/modules/chat/chat-room/schema/chat-room.schema';
 import { ConversationMember, ConversationMemberSchema } from '@api/modules/chat/chat-room/schema/conversation-member.schema';
@@ -8,6 +8,7 @@ import { User, UserSchema } from '@api/modules/users/schema/user.schema';
 import { RoomController } from '@api/modules/chat/chat-room/room.controller';
 import { RoomService } from '@api/modules/chat/chat-room/room.service';
 import { ReactionModule } from '@api/modules/chat/chat-reactions/reaction.module';
+import { GatewayModule } from '@api/gateway/gateway.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ReactionModule } from '@api/modules/chat/chat-reactions/reaction.module
       { name: User.name, schema: UserSchema },
     ]),
     ReactionModule,
+    forwardRef(() => GatewayModule),
   ],
   controllers: [RoomController],
   providers: [RoomService],
