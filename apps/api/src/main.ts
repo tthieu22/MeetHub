@@ -12,7 +12,7 @@ async function bootstrap() {
 
   // CORS configuration for development
   const corsOrigins = configService.get<string>('CORS_ORIGINS')?.split(',') || ['http://localhost:3000'];
-  const corsCredentials = configService.get<boolean>('CORS_CREDENTIALS') ?? true;
+  const corsCredentials = configService.get<string>('CORS_CREDENTIALS') !== 'false';
   const corsMethods = configService.get<string>('CORS_METHODS')?.split(',') || ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'];
   const corsAllowedHeaders = configService.get<string>('CORS_ALLOWED_HEADERS')?.split(',') || ['Content-Type', 'Authorization', 'X-Requested-With'];
 
