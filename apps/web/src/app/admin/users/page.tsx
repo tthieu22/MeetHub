@@ -3,7 +3,7 @@
 import CustomButton from "@web/components/CustomButton";
 import UserTableComponent from "@web/components/user/user.table";
 import { useRequireRole } from "@web/hooks/useRequireRole";
-import { Card, Divider, Space, Typography } from "antd"; 
+import { Card, Divider, Space, Typography } from "antd";
 import { useState } from "react";
 const { Title } = Typography;
 export default function UsersPage() {
