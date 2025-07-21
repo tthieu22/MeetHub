@@ -9,7 +9,7 @@ export enum BookingStatus {
   CONFIRMED = 'confirmed',
   CANCELLED = 'cancelled',
   COMPLETED = 'completed',
-  DELETED = 'deleted'
+  DELETED = 'deleted',
 }
 
 @Schema({ timestamps: true })
@@ -19,7 +19,7 @@ export class Booking extends Document {
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   user: User;
-  
+
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
   createdBy: mongoose.Types.ObjectId;
 
@@ -44,6 +44,9 @@ export class Booking extends Document {
 
   @Prop({ default: '' })
   description: string;
+
+  @Prop({ type: String, required: false })
+  groupChatId?: string;
 }
 
 export const BookingSchema = SchemaFactory.createForClass(Booking);

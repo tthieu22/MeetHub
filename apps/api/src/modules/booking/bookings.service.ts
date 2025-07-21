@@ -116,9 +116,9 @@ export class BookingsService implements IBookingService {
         });
       }
 
-      // Tạo booking
+      // Tạo booking, đã bao gồm groupChatId nếu có
       const createdBooking = new this.bookingModel({
-        ...createBookingDto,
+        ...createBookingDto, // groupChatId sẽ được lưu nếu truyền lên
         participants,
       });
       const savedBooking = await createdBooking.save();

@@ -1,17 +1,47 @@
 'use client';
 
-import React from 'react';
-import { Card, Typography, Tag, Spin } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Card, Typography, Spin, Tag, Modal, Button } from 'antd';
+import { api } from '@web/lib/api';
 import moment from 'moment';
+import { useUserStore } from '@web/store/user.store';
+import { useChatStore } from '@web/store/chat.store';
 
 const { Title, Text } = Typography;
 
 interface BookingDetailProps {
-  booking?: any;
-  loading?: boolean;
+  bookingId?: string;
 }
 
-const BookingDetail: React.FC<BookingDetailProps> = ({ booking, loading }) => {
+const BookingDetail: React.FC<BookingDetailProps> = ({ bookingId }) => {
+  const [booking, setBooking] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { token } = useUserStore();
+  const addPopup = useChatStore((state) => state.addPopup);
+
+  useEffect(() => {
+    const fetchBooking = async () => {
+      if (!bookingId || !token) return;
+      try {
+        setLoading(true);
+        const response = await api.get(`/bookings/${bookingId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setBooking(response.data);
+      } catch (err) {
+        setError('Failed to fetch booking details');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBooking();
+    const interval = setInterval(fetchBooking, 30000); // Poll every 30 seconds
+    return () => clearInterval(interval);
+  }, [bookingId, token]);
+
   if (loading) {
     return <Spin tip="Đang tải chi tiết..." />;
   }
@@ -50,6 +80,21 @@ const BookingDetail: React.FC<BookingDetailProps> = ({ booking, loading }) => {
       <br />
       <Text strong>Mô tả: </Text>
       <div style={{ whiteSpace: 'pre-wrap' }}>{booking.description || 'Không có mô tả'}</div>
+      {booking.groupChatId && (
+        <div style={{ marginTop: 16, textAlign: 'right' }}>
+          <Button
+            type="primary"
+            onClick={() => {
+              if (booking.groupChatId) {
+                addPopup(booking.groupChatId);
+                useChatStore.getState().setCurrentRoomId(booking.groupChatId);
+              }
+            }}
+          >
+            Tham gia chat
+          </Button>
+        </div>
+      )}
     </Card>
   );
 };

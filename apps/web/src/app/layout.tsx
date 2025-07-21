@@ -24,6 +24,7 @@ function RootLayout({
   return (
     <html lang="en" translate="no">
       <head>
+        <meta charSet="UTF-8" />
         <title>MeetHub - Chat & Meeting Platform</title>
         <meta
           name="description"

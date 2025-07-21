@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Modal, 
   Form, 
   Input, 
   DatePicker, 
@@ -15,14 +14,18 @@ import {
   Button,
   Spin,
   message,
-  Alert
+  Alert, 
 } from 'antd';
-import { api } from '@/lib/api';
+import { api } from '@web/lib/api';
+import { useUserStore } from '@web/store/user.store';
 import moment, { Moment } from 'moment';
-
+import CreateGroupChatModal from './CreateGroupChatModal';
+import dayjs, { Dayjs } from 'dayjs';
+import { roomChatApiService } from '@web/services/api/room.chat.api';
+import { useWebSocket } from '@web/hooks/useWebSocket';
 const { TextArea } = Input;
-const { Option } = Select;
 const { Text } = Typography;
+import ModalCustom from '../components/ModalCustom';
 
 interface Booking {
   _id: string;
@@ -35,8 +38,8 @@ interface Booking {
 interface BookingFormProps {
   visible: boolean;
   onCancel: () => void;
-  onSubmit: (formData: any) => Promise<void>;
-  initialValues: any;
+  onSubmit: (formData: Record<string, unknown>) => Promise<void>; // Kiểu dữ liệu rõ ràng
+  initialValues: Record<string, unknown>;
   bookings: Booking[];
 }
 
@@ -51,7 +54,7 @@ interface User {
 interface ApiResponse {
   success: boolean;
   message: string;
-  errors?: any[];
+  errors?: { field?: string; message: string }[];
 }
 
 interface Conflict {
@@ -73,41 +76,37 @@ const BookingForm: React.FC<BookingFormProps> = ({
 }) => {
   const [form] = Form.useForm();
   const [users, setUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // Lấy user hiện tại từ store (không gọi API nữa)
+  const currentUser = useUserStore((state) => state.currentUser);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [apiErrors, setApiErrors] = useState<any>(null);
+  const [apiErrors, setApiErrors] = useState<{ field?: string; message: string }[] | null>(null);
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
 
-  const fetchCurrentUser = useCallback(async () => {
-    try {
-      const response = await api.get('/api/users/me');
-      
-      if (response.data && response.data._id) {
-        setCurrentUser(response.data);
-        return response.data._id;
-      }
-      throw new Error('Invalid user data');
-    } catch (error) {
-      console.error('Error fetching current user:', error);
-      Modal.error({
-        title: 'Lỗi',
-        content: 'Không thể lấy thông tin người dùng hiện tại',
-        okText: 'Đã hiểu',
-      });
-      return null;
-    }
-  }, []);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<User[]>([]);
+  const [createdGroupId, setCreatedGroupId] = useState<string | null>(null); // vẫn giữ để nhận groupId khi tạo
+  const [groupChatId, setGroupChatId] = useState<string | null>(null); // biến mới lưu groupId
+  const [pendingGroup, setPendingGroup] = useState<{ name: string, members: string[] } | null>(null);
+  // Đã xoá groupModalApi, roomId, setRoomId vì không dùng
+
+  // Lấy socket và hàm getRooms từ hook
+  const { socket, isConnected } = useWebSocket();
 
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get('/api/users/find-all');
       
-      if (response.data?.success) {
-        const validUsers = response.data.data
-          .filter((user: any) => isValidObjectId(user._id))
-          .map((user: any) => ({
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        const usersArr = response.data.data;
+        if (!Array.isArray(usersArr)) {
+          setUsers([]);
+          return;
+        }
+        const validUsers = (usersArr as User[])
+          .filter((user) => isValidObjectId(user._id))
+          .map((user) => ({
             _id: user._id,
             name: user.name,
             email: user.email,
@@ -118,13 +117,10 @@ const BookingForm: React.FC<BookingFormProps> = ({
       } else {
         throw new Error(response.data?.message || 'Failed to fetch users');
       }
-    } catch (error: any) {
-      console.error('Error fetching users:', error);
-      Modal.error({
-        title: 'Lỗi',
-        content: error.message || 'Không thể tải danh sách người dùng',
-        okText: 'Đã hiểu',
-      });
+    } catch (error) {
+      const err = error as Error;
+      console.error('Error fetching users:', err);
+      message.error(err.message || 'Không thể tải danh sách người dùng');
     } finally {
       setLoading(false);
     }
@@ -133,23 +129,18 @@ const BookingForm: React.FC<BookingFormProps> = ({
   useEffect(() => {
     if (visible) {
       const initializeForm = async () => {
-        const userId = await fetchCurrentUser();
-        
-        if (!userId) {
-          onCancel();
-          return;
-        }
-
         await fetchUsers();
-        
+        // Xử lý participants: chỉ filter nếu là mảng
+        let filteredParticipants: string[] = [];
+        if (Array.isArray(initialValues.participants)) {
+          filteredParticipants = initialValues.participants.filter((id: string) => isValidObjectId(id));
+        }
         const startDate = initialValues.startTime 
           ? moment(initialValues.startTime) 
           : moment().add(1, 'day').startOf('day');
-          
         const endDate = initialValues.endTime 
           ? moment(initialValues.endTime) 
           : startDate.clone();
-
         form.setFieldsValue({
           title: initialValues.title || 'Cuộc họp nhóm dự án',
           description: initialValues.description || 'Thảo luận về kế hoạch phát triển sản phẩm mới',
@@ -157,18 +148,24 @@ const BookingForm: React.FC<BookingFormProps> = ({
           endDate,
           startTime: startDate.clone().set({ hour: 9, minute: 0 }),
           endTime: endDate.clone().set({ hour: 17, minute: 0 }),
-          participants: initialValues.participants?.filter((id: string) => isValidObjectId(id)) || [],
+          participants: filteredParticipants,
         });
       };
-
       initializeForm();
     }
-  }, [visible, form, initialValues, fetchCurrentUser, fetchUsers, onCancel]);
+  }, [visible, form, initialValues, fetchUsers, onCancel]);
+
+  useEffect(() => {
+    if (createdGroupId) {
+      setGroupChatId(createdGroupId); // chỉ lưu groupId vào biến riêng
+      setCreatedGroupId(null);
+    }
+  }, [createdGroupId]);
 
   const checkBookingConflict = (start: Moment, end: Moment): Conflict[] => {
     const conflicts: Conflict[] = [];
     bookings.forEach((booking) => {
-      if (booking.status === 'cancelled' || booking.status === 'deleted') return;
+      if (booking.status === 'cancelled') return;
       const existingStart = moment(booking.startTime);
       const existingEnd = moment(booking.endTime);
       if (start.isBefore(existingEnd) && end.isAfter(existingStart)) {
@@ -182,12 +179,49 @@ const BookingForm: React.FC<BookingFormProps> = ({
     return conflicts;
   };
 
+  const createGroupChat = async (groupName: string, memberIds: string[]): Promise<string | undefined> => {
+    try {
+      const payload = {
+        name: groupName.trim(),
+        type: 'group',
+        members: memberIds,
+      };
+      const res = await roomChatApiService.createRoom(payload);
+      const groupRes = res as { _id?: string; roomId?: string };
+      const groupId: string | undefined = groupRes._id || groupRes.roomId;
+      if (res && groupId) {
+        return groupId;
+      }
+      return undefined;
+    } catch {
+      message.error('Tạo nhóm chat thất bại. Vui lòng thử lại.');
+      return undefined;
+    }
+  };
+
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
       setApiErrors(null);
       setConflicts([]);
       const values = await form.validateFields();
+      console.log('Giá trị form:', values);
+      let groupId: string | undefined;
+      // Nếu có pendingGroup thì tạo nhóm trước
+      if (pendingGroup) {
+        groupId = await createGroupChat(pendingGroup.name, pendingGroup.members);
+        // Sau khi tạo group chat thành công, emit get_rooms để cập nhật danh sách
+        if (groupId && isConnected && socket) {
+          socket.emit('get_rooms');
+        }
+        if (groupId && typeof groupId === 'string') {
+          setGroupChatId(groupId); // lưu groupId vào biến riêng (cho lần sau nếu cần)
+        } else {
+          setSubmitting(false);
+          console.log('Tạo group chat thất bại hoặc bị huỷ');
+          return;
+        }
+      }
 
       const startDateTime = values.startDate.clone()
         .set({
@@ -195,7 +229,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
           minute: values.startTime.minute(),
           second: 0
         });
-
       const endDateTime = values.endDate.clone()
         .set({
           hour: values.endTime.hour(),
@@ -206,22 +239,26 @@ const BookingForm: React.FC<BookingFormProps> = ({
       // Validation checks
       if (startDateTime.isBefore(moment())) {
         message.error('Thời gian bắt đầu phải trong tương lai');
+        console.log('Thời gian bắt đầu không hợp lệ');
         return;
       }
 
       if (endDateTime.isBefore(startDateTime)) {
         message.error('Thời gian kết thúc phải sau thời gian bắt đầu');
+        console.log('Thời gian kết thúc không hợp lệ');
         return;
       }
 
       const conflictList = checkBookingConflict(startDateTime, endDateTime);
       if (conflictList.length > 0) {
         setConflicts(conflictList);
+        console.log('Bị trùng lịch:', conflictList);
         return;
       }
 
       if (!currentUser) {
         message.error('Không tìm thấy thông tin người đặt');
+        console.log('Thiếu currentUser');
         return;
       }
 
@@ -233,30 +270,32 @@ const BookingForm: React.FC<BookingFormProps> = ({
         title: values.title,
         description: values.description,
         participants: values.participants,
-        status: 'pending'
+        status: 'pending',
+        groupChatId: groupId || groupChatId || undefined // Ưu tiên groupId vừa tạo
       };
+      console.log('Dữ liệu gửi lên onSubmit:', submitData);
 
       try {
         await onSubmit(submitData);
         message.success('Đặt phòng thành công!');
         form.resetFields();
+        setPendingGroup(null); // Reset pendingGroup sau khi submit thành công
+        setGroupChatId(null); // Reset groupChatId
         onCancel();
-      } catch (error: any) {
-        if (error.response?.data) {
-          const responseData: ApiResponse = error.response.data;
-          
+      } catch (error) { 
+        console.error('Lỗi khi gọi onSubmit:', error);
+        const err = error as { response?: { data?: ApiResponse } };
+        if (err.response?.data) {
+          const responseData: ApiResponse = err.response.data;
           if (responseData.success === false) {
             message.error(responseData.message || 'Đặt phòng thất bại');
-            
             if (responseData.errors && responseData.errors.length > 0) {
-              const errorFields: any = {};
-              responseData.errors.forEach((err: any) => {
-                if (err.field) {
-                  errorFields[err.field] = {
-                    errors: [new Error(err.message)]
-                  };
-                }
-              });
+              const errorFields = responseData.errors
+                .filter((errItem) => !!errItem.field)
+                .map((errItem) => ({
+                  name: errItem.field!,
+                  errors: [errItem.message]
+                }));
               form.setFields(errorFields);
               setApiErrors(responseData.errors);
             }
@@ -267,37 +306,19 @@ const BookingForm: React.FC<BookingFormProps> = ({
           throw error;
         }
       }
-    } catch (error: any) {
-      console.error('Booking submission error:', error);
-      if (!error.response) {
-        message.error(error.message || 'Đặt phòng thất bại. Vui lòng thử lại.');
+    } catch (error) {
+      const err = error as Error;
+      console.error('Booking submission error:', err);
+      if (!(err as { response?: unknown }).response) {
+        message.error(err.message || 'Đặt phòng thất bại. Vui lòng thử lại.');
       }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const dateCellRender = (current: Moment, type: 'start' | 'end') => {
-    const isSelected = form.getFieldValue(`${type}Date`)?.isSame(current, 'day');
-    
-    return (
-      <div 
-        onClick={() => form.setFieldsValue({ [`${type}Date`]: current })}
-        style={{
-          backgroundColor: isSelected ? (type === 'start' ? '#1890ff' : '#52c41a') : 'transparent',
-          color: isSelected ? '#fff' : 'inherit',
-          cursor: 'pointer',
-          padding: '4px',
-          borderRadius: '2px'
-        }}
-      >
-        {current.date()}
-      </div>
-    );
-  };
-
   return (
-    <Modal
+    <ModalCustom
       title="Tạo Đặt Phòng"
       open={visible}
       onCancel={onCancel}
@@ -318,6 +339,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
       centered
       destroyOnClose
     >
+      {/* Đảm bảo truyền đúng prop form={form} */}
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
           <Spin />
@@ -351,7 +373,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
           {/* Display API errors if any */}
           {apiErrors && (
             <div style={{ marginBottom: 16 }}>
-              {apiErrors.map((err: any, index: number) => (
+              {apiErrors.map((err, index: number) => (
                 <Text key={index} type="danger" style={{ display: 'block' }}>
                   {err.message}
                 </Text>
@@ -392,8 +414,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
                   format="DD/MM/YYYY"
                   style={{ width: '100%' }}
                   placeholder="Chọn ngày bắt đầu"
-                  cellRender={(current) => dateCellRender(current, 'start')}
-                  disabledDate={(current) => current.isBefore(moment(), 'day')}
+                  disabledDate={(current: Dayjs | null) => current !== null && current.isBefore(dayjs(), 'day')}
                 />
               </Form.Item>
             </Col>
@@ -434,10 +455,9 @@ const BookingForm: React.FC<BookingFormProps> = ({
                   format="DD/MM/YYYY"
                   style={{ width: '100%' }}
                   placeholder="Chọn ngày kết thúc"
-                  cellRender={(current) => dateCellRender(current, 'end')}
-                  disabledDate={(current) => {
+                  disabledDate={(current: Dayjs | null) => {
                     const startDate = form.getFieldValue('startDate');
-                    return current.isBefore(startDate || moment(), 'day');
+                    return current !== null && current.isBefore(dayjs(startDate) || dayjs(), 'day');
                   }}
                 />
               </Form.Item>
@@ -485,18 +505,77 @@ const BookingForm: React.FC<BookingFormProps> = ({
               filterOption={(input, option) => 
                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
               }
+              onChange={val => {
+                form.setFieldsValue({ participants: val });
+                // Hiển thị nút tạo nhóm nếu chọn >=2
+                if (val.length >= 2) {
+                  setGroupMembers(users.filter(u => val.includes(u._id)));
+                  // Nếu pendingGroup đã có nhưng members khác thì huỷ
+                  if (pendingGroup && (
+                    pendingGroup.members.length !== val.length ||
+                    !pendingGroup.members.every(id => val.includes(id))
+                  )) {
+                    setPendingGroup(null);
+                  }
+                } else {
+                  setGroupMembers([]);
+                  if (pendingGroup) setPendingGroup(null);
+                }
+              }}
             />
           </Form.Item>
+          {pendingGroup && (
+            <div style={{ marginBottom: 16, padding: 12, border: '1px solid #e6f7ff', borderRadius: 6, background: '#f6ffed' }}>
+              <b>Thông tin đoạn chat sẽ tạo:</b>
+              <div>
+                <span><b>Tên đoạn chat:</b> {pendingGroup.name}</span>
+              </div>
+              <div>
+                <b>Thành viên:</b> {users.filter(u => pendingGroup.members.includes(u._id)).map(u => u.name).join(', ')}
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <Button danger size="small" onClick={() => { setPendingGroup(null); setGroupMembers([]); }}>
+                  Huỷ tạo nhóm
+                </Button>
+              </div>
+            </div>
+          )}
+          {groupMembers.length >= 2 && currentUser && !pendingGroup && (
+            <Button
+              style={{ marginBottom: 16 }}
+              onClick={() => setIsGroupModalOpen(true)}
+            >
+              Tạo nhóm chat cho những người tham gia này
+            </Button>
+          )}
+          <CreateGroupChatModal
+            visible={isGroupModalOpen}
+            onClose={() => setIsGroupModalOpen(false)}
+            members={groupMembers}
+            currentUser={{
+              ...(currentUser as User & { isActive?: boolean }),
+              isActive: (currentUser as User & { isActive?: boolean }).isActive ?? true
+            }}
+            onSuccess={(groupName, memberIds) => {
+              setPendingGroup({ name: groupName, members: memberIds });
+              setIsGroupModalOpen(false);
+            }}
+            setApiInstance={undefined}
+            bookingTitle={form.getFieldValue('title') || 'Cuộc họp nhóm dự án'}
+          />
 
           {currentUser && (
             <div style={{ marginBottom: 16 }}>
               <Text strong>Người đặt: </Text>
-              <Tag color="blue">{currentUser.name} ({currentUser.email})</Tag>
+              <Tag color="blue">
+                {currentUser.name || currentUser.username || currentUser.email}
+                {currentUser.email ? ` (${currentUser.email})` : ''}
+              </Tag>
             </div>
           )}
         </Form>
       )}
-    </Modal>
+    </ModalCustom>
   );
 };
 

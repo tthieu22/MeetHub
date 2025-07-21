@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Spin, Tag, Modal } from 'antd';
-import { api } from '@/lib/api';
+import { Card, Typography, Spin, Tag, Modal, Button } from 'antd';
+import { api } from '../lib/api';
 import moment from 'moment';
-import { useUserStore } from '@/store/user.store';
+import { useUserStore } from '../store/user.store';
+import { useChatStore } from '../store/chat.store';
 
 const { Title, Text } = Typography;
 
@@ -27,6 +28,7 @@ interface Booking {
   endTime: string;
   status: 'confirmed' | 'cancelled' | 'completed' | 'pending';
   participants: User[] | string[];
+  groupChatId?: string;
 }
 
 const isValidObjectId = (id: string): boolean => {
@@ -37,7 +39,8 @@ const BookingDetail: React.FC<BookingDetailProps> = ({ bookingId }) => {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { token } = useUserStore();
+  const { token, currentUser } = useUserStore();
+  const addPopup = useChatStore((state) => state.addPopup);
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -134,6 +137,16 @@ const BookingDetail: React.FC<BookingDetailProps> = ({ bookingId }) => {
       })
     : [];
 
+  const isParticipant =
+    booking &&
+    currentUser &&
+    ((typeof booking.user === 'string'
+      ? booking.user === currentUser._id
+      : booking.user._id === currentUser._id) ||
+      booking.participants.some((p: User | string) =>
+        typeof p === 'string' ? p === currentUser._id : p._id === currentUser._id
+      ));
+
   return (
     <Card variant="borderless">
       <Title level={4}>Thông tin đặt phòng</Title>
@@ -168,6 +181,22 @@ const BookingDetail: React.FC<BookingDetailProps> = ({ bookingId }) => {
         </div>
       ) : (
         <Text>Không có người tham gia.</Text>
+      )}
+      {/* Nút tham gia chat nếu có groupChatId và user là thành viên */}
+      {booking.groupChatId && isParticipant && (
+        <div style={{ marginTop: 16, textAlign: 'right' }}>
+          <Button
+            type="primary"
+            onClick={() => {
+              if (booking.groupChatId) {
+                addPopup(booking.groupChatId);
+                useChatStore.getState().setCurrentRoomId(booking.groupChatId);
+              }
+            }}
+          >
+            Tham gia chat
+          </Button>
+        </div>
       )}
     </Card>
   );
