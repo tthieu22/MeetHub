@@ -13,6 +13,7 @@ import { UserHandler } from './handlers/user.handler';
 import { SupportHandler } from './handlers/support.handler';
 import { validateClient } from './utils/error.util';
 import { WS_RESPONSE_EVENTS } from './websocket.events';
+import { ChatService } from './chat.service';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -29,6 +30,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly messageHandler: MessageHandler,
     private readonly userHandler: UserHandler,
     private readonly supportHandler: SupportHandler,
+    private readonly chatService: ChatService,
   ) {}
 
   // ====== KẾT NỐI / NGẮT KẾT NỐI ======
@@ -47,6 +49,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!userId) return;
     const response = await this.roomHandler.handleGetRooms(userId);
     client.emit('rooms', response);
+  }
+
+  async handleGetRoomsForUser(userId: string) {
+    const isOnline = await this.chatService.isUserOnline(userId);
+    if (isOnline) {
+      const response = await this.roomHandler.handleGetRooms(userId);
+      this.server.to(`user:${userId}`).emit('rooms', response);
+    }
   }
 
   @SubscribeMessage('join_room')

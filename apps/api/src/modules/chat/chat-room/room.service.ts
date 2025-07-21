@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, Inject, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject, BadRequestException, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, FilterQuery } from 'mongoose';
 import { Conversation, ConversationDocument } from '@api/modules/chat/chat-room/schema/chat-room.schema';
@@ -12,6 +12,7 @@ import { REDIS_CLIENT } from '@api/modules/redis';
 import { RoomInfo, RoomMemberInfo, LastMessageInfo, RoomSidebarInfo, PopulatedUser, RoomDetailInfo } from '@api/modules/chat/chat-room/interfaces/room-sidebar.interface';
 import { PaginationQueryDto } from '@api/modules/users/dto/pagination-query.dto';
 import { ReactionService } from '@api/modules/chat/chat-reactions/reaction.service';
+import { ChatGateway } from '@api/gateway/chat.gateway';
 
 @Injectable()
 export class RoomService {
@@ -28,6 +29,8 @@ export class RoomService {
     private userModel: Model<UserDocument>,
     @Inject(REDIS_CLIENT) private readonly redisClient: Redis,
     private readonly reactionService: ReactionService,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   private async isMemberOfConversation(userId: string, conversationId: string): Promise<boolean> {
@@ -106,6 +109,10 @@ export class RoomService {
       }).save(),
     );
     await Promise.all(memberPromises);
+
+    for (const memberId of allMembers) {
+      await this.chatGateway.handleGetRoomsForUser(memberId);
+    }
 
     return savedConversation;
   }

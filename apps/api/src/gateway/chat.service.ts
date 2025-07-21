@@ -165,6 +165,16 @@ export class ChatService {
     }
   }
 
+  /**
+   * Kiểm tra user có online không
+   * @param userId string
+   * @returns Promise<boolean>
+   */
+  async isUserOnline(userId: string): Promise<boolean> {
+    const result = await this.redisClient.get(`user:online:${userId}`);
+    return result === '1';
+  }
+
   // ================== User info methods ==================
   // Lấy thông tin user theo id
   async getUser(userId: string) {

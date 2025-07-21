@@ -16,7 +16,7 @@ import { UserChatModule } from '@api/modules/chat/chat-user/user-chat.module';
 import { ReactionModule } from '@api/modules/chat/chat-reactions/reaction.module';
 
 @Module({
-  imports: [WsAuthModule, UsersModule, ReactionModule, MessageModule, RoomModule, UserChatModule, forwardRef(() => UploadImageModule)],
+  imports: [WsAuthModule, UsersModule, ReactionModule, MessageModule, forwardRef(() => RoomModule), UserChatModule, forwardRef(() => UploadImageModule)],
   providers: [ChatGateway, ChatService, SupportAdminTimeoutService, ConnectionHandler, RoomHandler, MessageHandler, UserHandler, SupportHandler],
   exports: [ChatGateway, ChatService],
 })
